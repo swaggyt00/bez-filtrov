@@ -15,6 +15,7 @@ import type {
   GameSettings,
   HistoryEntry,
   PersistedGame,
+  PlayerGender,
   Relationship,
   SavedSession,
   SessionMemory,
@@ -57,6 +58,7 @@ function createEmptyMemory(): SessionMemory {
 
 const defaultSettings: GameSettings = {
   players: ['Игрок 1', 'Игрок 2'],
+  playerGenders: ['unspecified', 'unspecified'],
   relationship: 'longterm',
   intensity: 8,
   intensityStyle: 'ramp',
@@ -93,10 +95,44 @@ function randomFrom<T>(items: T[]): T | undefined {
   return items[Math.floor(Math.random() * items.length)]
 }
 
-function hydrateText(text: string, players: string[], currentPlayerIndex: number) {
-  const otherPlayers = players.filter((_, index) => index !== currentPlayerIndex)
-  const other = randomFrom(otherPlayers) ?? 'другой игрок'
-  return text.replaceAll('{{other}}', other)
+function genderWord(gender: PlayerGender, male: string, female: string, fallback = `${male}/${female}`) {
+  if (gender === 'male') return male
+  if (gender === 'female') return female
+  return fallback
+}
+
+function genderSymbol(gender: PlayerGender) {
+  return gender === 'male' ? '♂' : gender === 'female' ? '♀' : '•'
+}
+
+function applySelfGenderForms(text: string, gender: PlayerGender) {
+  const forms: Array<[string, string, string]> = [
+    ['сам(а)', 'сам', 'сама'],
+    ['готов(а)', 'готов', 'готова'],
+    ['хотел(а)', 'хотел', 'хотела'],
+    ['сказал(а)', 'сказал', 'сказала'],
+    ['делал(а)', 'делал', 'делала'],
+    ['думал(а)', 'думал', 'думала'],
+    ['чувствовал(а)', 'чувствовал', 'чувствовала'],
+    ['решил(а)', 'решил', 'решила'],
+    ['выбрал(а)', 'выбрал', 'выбрала'],
+    ['был(а)', 'был', 'была'],
+    ['уверен(а)', 'уверен', 'уверена'],
+  ]
+  return forms.reduce((result, [source, male, female]) => result.replaceAll(source, genderWord(gender, male, female, source)), text)
+}
+
+function hydrateText(text: string, players: string[], playerGenders: PlayerGender[], currentPlayerIndex: number) {
+  const otherIndexes = players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
+  const otherIndex = randomFrom(otherIndexes)
+  const other = otherIndex === undefined ? 'другой игрок' : players[otherIndex]
+  const selfGender = playerGenders[currentPlayerIndex] ?? 'unspecified'
+  const otherGender = otherIndex === undefined ? 'unspecified' : (playerGenders[otherIndex] ?? 'unspecified')
+
+  return applySelfGenderForms(text, selfGender)
+    .replaceAll('{{other}}', other)
+    .replace(/\{\{self:([^|{}]+)\|([^{}]+)\}\}/g, (_match, male: string, female: string) => genderWord(selfGender, male, female))
+    .replace(/\{\{other:([^|{}]+)\|([^{}]+)\}\}/g, (_match, male: string, female: string) => genderWord(otherGender, male, female))
 }
 
 function id(prefix: string) {
@@ -111,10 +147,14 @@ function specialRoundFor(turnsPlayed: number): SpecialRound {
 }
 
 function normalizeSettings(settings: Partial<GameSettings> | undefined): GameSettings {
+  const players = settings?.players?.length ? settings.players : defaultSettings.players
+  const savedGenders = settings?.playerGenders ?? []
+  const playerGenders = players.map((_, index) => savedGenders[index] ?? 'unspecified')
   return {
     ...defaultSettings,
     ...(settings ?? {}),
-    players: settings?.players?.length ? settings.players : defaultSettings.players,
+    players,
+    playerGenders,
     categories: settings?.categories?.length ? settings.categories : defaultSettings.categories,
     hardLimits: settings?.hardLimits ?? [],
     softLimits: settings?.softLimits ?? [],
@@ -160,6 +200,7 @@ function App() {
 
   const allCards = useMemo(() => [...builtInCards, ...customCards], [customCards])
   const currentPlayer = settings.players[currentPlayerIndex] ?? settings.players[0]
+  const currentPlayerGender = settings.playerGenders[currentPlayerIndex] ?? 'unspecified'
   const specialRound = specialRoundFor(turnsPlayed)
 
   const targetIntensity = useMemo(() => {
@@ -228,14 +269,28 @@ function App() {
     setSettings({ ...settings, players: next })
   }
 
+  function setPlayerGender(index: number, gender: PlayerGender) {
+    const next = [...settings.playerGenders]
+    next[index] = gender
+    setSettings({ ...settings, playerGenders: next })
+  }
+
   function addPlayer() {
     if (settings.players.length >= 6) return
-    setSettings({ ...settings, players: [...settings.players, `Игрок ${settings.players.length + 1}`] })
+    setSettings({
+      ...settings,
+      players: [...settings.players, `Игрок ${settings.players.length + 1}`],
+      playerGenders: [...settings.playerGenders, 'unspecified'],
+    })
   }
 
   function removePlayer(index: number) {
     if (settings.players.length <= 2) return
-    setSettings({ ...settings, players: settings.players.filter((_, i) => i !== index) })
+    setSettings({
+      ...settings,
+      players: settings.players.filter((_, i) => i !== index),
+      playerGenders: settings.playerGenders.filter((_, i) => i !== index),
+    })
   }
 
   function toggleCategory(category: Category) {
@@ -274,16 +329,21 @@ function App() {
 
   function startGame() {
     const players = cleanPlayers()
+    const playerGenders = players.map((_, index) => settings.playerGenders[index] ?? 'unspecified')
     if (new Set(players.map((name) => name.toLowerCase())).size !== players.length) {
       setNotice('Имена игроков должны отличаться.')
       return
     }
-    if (!availableCards(allCards, { ...settings, players }, undefined, settings.intensity).length) {
+    if (playerGenders.some((gender) => gender === 'unspecified')) {
+      setNotice('Укажи пол каждого игрока: М или Ж.')
+      return
+    }
+    if (!availableCards(allCards, { ...settings, players, playerGenders }, undefined, settings.intensity).length) {
       setNotice('После выбранных границ и категорий колода пустая. Ослабь ограничения или включи другие категории.')
       return
     }
     const now = Date.now()
-    setSettings({ ...settings, players })
+    setSettings({ ...settings, players, playerGenders })
     setCurrentPlayerIndex(0)
     setUsedCardIds([])
     setRounds(0)
