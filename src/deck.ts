@@ -148,8 +148,19 @@ export function pickCard(cards: GameCard[], settings: GameSettings, type: CardTy
   const bucket = availableCards(cards, settings, type)
   const used = new Set(usedCardIds)
   const fresh = bucket.filter((card) => !used.has(card.id))
-  const pool = fresh.length ? fresh : bucket
-  if (!pool.length) return { card: undefined, recycled: false }
+  const basePool = fresh.length ? fresh : bucket
+  if (!basePool.length) return { card: undefined, recycled: false }
+
+  const byId = new Map(cards.map((card) => [card.id, card]))
+  const recent = usedCardIds.slice(-10).map((id) => byId.get(id)).filter((card): card is GameCard => Boolean(card))
+  const recentThemes = new Set(recent.slice(-8).map((card) => card.theme))
+  const recentMechanics = new Set(recent.slice(-3).map((card) => card.mechanic))
+
+  const noThemeRepeat = basePool.filter((card) => !recentThemes.has(card.theme))
+  const themePool = noThemeRepeat.length >= 4 ? noThemeRepeat : basePool
+  const noMechanicRepeat = themePool.filter((card) => !recentMechanics.has(card.mechanic))
+  const pool = noMechanicRepeat.length >= 3 ? noMechanicRepeat : themePool
+
   const card = pool[Math.floor(Math.random() * pool.length)]
   return { card, recycled: !fresh.length }
 }
