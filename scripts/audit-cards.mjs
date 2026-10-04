@@ -19,9 +19,7 @@ for (const card of cards) {
   if (!heats.includes(card.heat)) fail(`${card.id}: неизвестный уровень ${card.heat}`)
   if (typeof card.text !== 'string' || card.text.trim().length < 20) fail(`${card.id}: слишком короткий текст`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: найдена уродливая гендерная скобка`)
-  if (/\b(назови|расскажи|признайся|ответь|обсуди)\b/i.test(card.text) && card.type === 'dare' && /^(назови|расскажи|признайся|ответь|обсуди)/i.test(card.text)) {
-    fail(`${card.id}: действие начинается как обычный вопрос/разговор`)
-  }
+  if (card.type === 'dare' && /^(назови|расскажи|признайся|ответь|обсуди)/i.test(card.text)) fail(`${card.id}: действие начинается как обычный вопрос/разговор`)
   const key = card.text.toLowerCase().replace(/\{\{[^}]+\}\}/g, 'x').replace(/[^а-яёa-z0-9]+/gi, ' ').trim()
   if (normalized.has(key)) fail(`точный дубль: ${normalized.get(key)} и ${card.id}`)
   normalized.set(key, card.id)
@@ -39,24 +37,24 @@ for (const scenario of scenarios) {
 const dangerousAlcohol = /(залпом|несколько шотов|\bшот(а|ов)?\b|пей пока|выпей стакан|напейся|до дна|на скорость)/i
 for (const card of cards) if (dangerousAlcohol.test(card.text)) fail(`${card.id}: потенциально опасная алкогольная формулировка`)
 
-const physical = /(поцел|массаж|одежд|завяжи|глаз|тело|поз|прикос|объят|колен|движ|дразн|спин|тал|ше|плеч|бед)/i
+const embodiedAction = /(поцел|массаж|одежд|сними|снимет|завяжи|глаз|тело|телес|поз[ауе]|прикос|объят|колен|движ|дразн|спин|тал|шею|плеч|бед|сядь|сиди|уедини|разыгра|контрол|управ|танц|поменяйся|отдай|уйдите|проведи.*отдельн|покажи.*без слов)/i
 const highSexDares = cards.filter((card) => card.scenario === 'sex' && ['hard', 'extreme', 'madness'].includes(card.heat) && card.type === 'dare')
-const physicalHighSex = highSexDares.filter((card) => physical.test(card.text)).length
-if (physicalHighSex < 13) fail(`режим Sex на высоких уровнях недостаточно телесный: ${physicalHighSex}/${highSexDares.length}`)
+const embodiedHighSex = highSexDares.filter((card) => embodiedAction.test(card.text)).length
+if (embodiedHighSex < 14) fail(`режим Sex на высоких уровнях недостаточно телесный: ${embodiedHighSex}/${highSexDares.length}`)
 
 const explicitHighTruths = cards.filter((card) => ['extreme', 'madness'].includes(card.heat) && card.type === 'truth' && /(секс|пересп|фантази|измен|возбуж|постел|желан)/i.test(card.text)).length
 if (explicitHighTruths < 25) fail(`слишком мало реально жёстких Truth на верхних уровнях: ${explicitHighTruths}`)
 
 const highDares = cards.filter((card) => ['extreme', 'madness'].includes(card.heat) && card.type === 'dare')
-const physicalHighDares = highDares.filter((card) => physical.test(card.text)).length
-if (physicalHighDares < 27) fail(`слишком мало телесных Dare на верхних уровнях: ${physicalHighDares}/${highDares.length}`)
+const actionHighDares = highDares.filter((card) => embodiedAction.test(card.text)).length
+if (actionHighDares < 34) fail(`слишком мало реальных действий на верхних уровнях: ${actionHighDares}/${highDares.length}`)
 
 const alcoholCards = cards.filter((card) => /алкогол|пья|глоток|напит/i.test(card.text)).length
 
 console.log(`✓ ${cards.length} карточек v3`)
 console.log('✓ 4 сценария × 5 уровней × 5 Truth + 5 Dare')
-console.log(`✓ Sex hard/extreme/madness: ${physicalHighSex}/${highSexDares.length} телесных Dare`)
-console.log(`✓ верхние уровни: ${physicalHighDares}/${highDares.length} телесных Dare`)
+console.log(`✓ Sex hard/extreme/madness: ${embodiedHighSex}/${highSexDares.length} телесных Dare`)
+console.log(`✓ верхние уровни: ${actionHighDares}/${highDares.length} реальных действий`)
 console.log(`✓ жёстких Truth с прямой взрослой тематикой: ${explicitHighTruths}`)
 console.log(`✓ алкогольных карточек: ${alcoholCards}; опасных drinking-челленджей нет`)
 console.log('✓ форматов вроде «встретил(-а)» нет')
