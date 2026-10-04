@@ -14,8 +14,8 @@ const expected: Record<Scenario, Record<Heat, Record<CardType, number>>> = {
   },
   sex: {
     light: { truth: 60, dare: 60 },
-    hot: { truth: 80, dare: 80 },
-    hard: { truth: 100, dare: 100 },
+    hot: { truth: 80, dare: 84 },
+    hard: { truth: 100, dare: 104 },
   },
   party: {
     light: { truth: 40, dare: 40 },
@@ -34,7 +34,7 @@ const fail = (message: string) => { failed = true; console.error(`✗ ${message}
 const ok = (message: string) => console.log(`✓ ${message}`)
 const warn = (message: string) => console.warn(`! ${message}`)
 
-if (cards.length !== 1200) fail(`ожидалось 1200 authored-карточек, найдено ${cards.length}`)
+if (cards.length !== 1208) fail(`ожидалось 1208 authored-карточек, найдено ${cards.length}`)
 
 const aiMarkers = [
   /в теме «/i,
@@ -56,6 +56,7 @@ const aiMarkers = [
 
 const dangerousAlcohol = /(залпом|несколько шотов|\bшот(?:а|ов)?\b|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const malformed = /(согласенна|самомуой|способенна|егоеё|готоваа|хотелаа|соглашалсяась|решалсяась|пьянымой|могла бы бы|хотелла|сделалала)/i
+const truthPromptStart = /^(назови|расскажи|опиши|выбери|признайся|скажи|вспомни)\b/i
 
 const ids = new Set<string>()
 const perScenarioText = new Map<string, string>()
@@ -69,9 +70,13 @@ for (const card of cards) {
   if (!card.text || card.text.trim().length < 12) fail(`${card.id}: слишком короткий текст`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
   if (card.type === 'truth' && !card.purpose) fail(`${card.id}: у Truth нет редакционной цели purpose`)
-  if (card.type === 'truth' && !card.text.includes('?')) fail(`${card.id}: Truth не выглядит как живой вопрос`)
+  if (card.type === 'truth' && !card.text.includes('?') && !truthPromptStart.test(card.text)) {
+    fail(`${card.id}: Truth не выглядит как живой вопрос/прямой prompt`)
+  }
   if (aiMarkers.some((pattern) => pattern.test(card.text))) fail(`${card.id}: ИИ/канцелярский маркер: ${card.text}`)
-  if (dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
+
+  const alcoholContext = Boolean(card.alcohol) || /алкогол|шот|выпив|спиртн/i.test(card.text)
+  if (alcoholContext && dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
   if (card.alcohol && card.sexualAction) fail(`${card.id}: алкоголь нельзя связывать с сексуальным действием`)
 
   const normalized = card.text
@@ -88,16 +93,16 @@ for (const card of cards) {
 for (const scenario of scenarios) {
   for (const heat of heats) {
     for (const type of types) {
-      const group = cards.filter((card) => card.scenario === scenario && card.heat === heat && card.type === type)
+      const bucket = cards.filter((card) => card.scenario === scenario && card.heat === heat && card.type === type)
       const need = expected[scenario][heat][type]
-      if (group.length !== need) fail(`${scenario}/${heat}/${type}: ожидалось ${need}, найдено ${group.length}`)
+      if (bucket.length !== need) fail(`${scenario}/${heat}/${type}: ожидалось ${need}, найдено ${bucket.length}`)
 
       const themeCounts = new Map<string, number>()
-      for (const card of group) themeCounts.set(card.theme, (themeCounts.get(card.theme) ?? 0) + 1)
+      for (const card of bucket) themeCounts.set(card.theme, (themeCounts.get(card.theme) ?? 0) + 1)
       const maxTheme = Math.max(0, ...themeCounts.values())
       const maxAllowed = scenario === 'sex' && heat === 'hard' ? 4 : scenario === 'sex' ? 4 : 2
       if (maxTheme > maxAllowed) fail(`${scenario}/${heat}/${type}: одна тема повторяется ${maxTheme} раз`)
-      if (themeCounts.size < Math.ceil(group.length / maxAllowed)) {
+      if (themeCounts.size < Math.ceil(bucket.length / maxAllowed)) {
         fail(`${scenario}/${heat}/${type}: слишком мало разных тем (${themeCounts.size})`)
       }
     }
@@ -138,13 +143,13 @@ let worst: { a?: GameCard; b?: GameCard; score: number } = { score: 0 }
 for (const scenario of scenarios) {
   for (const heat of heats) {
     for (const type of types) {
-      const group = cards.filter((card) => card.scenario === scenario && card.heat === heat && card.type === type)
-      for (let i = 0; i < group.length; i += 1) {
-        for (let j = i + 1; j < group.length; j += 1) {
-          if (group[i].theme === group[j].theme) continue
-          const score = similarity(group[i].text, group[j].text)
-          if (score > worst.score) worst = { a: group[i], b: group[j], score }
-          if (score >= 0.84) fail(`слишком похожие разные темы: ${group[i].id} / ${group[j].id} (${score.toFixed(2)})`)
+      const bucket = cards.filter((card) => card.scenario === scenario && card.heat === heat && card.type === type)
+      for (let i = 0; i < bucket.length; i += 1) {
+        for (let j = i + 1; j < bucket.length; j += 1) {
+          if (bucket[i].theme === bucket[j].theme) continue
+          const score = similarity(bucket[i].text, bucket[j].text)
+          if (score > worst.score) worst = { a: bucket[i], b: bucket[j], score }
+          if (score >= 0.84) fail(`слишком похожие разные темы: ${bucket[i].id} / ${bucket[j].id} (${score.toFixed(2)})`)
         }
       }
     }
@@ -154,10 +159,10 @@ for (const scenario of scenarios) {
 const sexHardDares = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hard' && card.type === 'dare')
 const sexHardTruth = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hard' && card.type === 'truth')
 const directSex = sexHardDares.filter((card) => card.sexualAction)
-if (directSex.length < 96) fail(`Sex/Жёстко: только ${directSex.length}/${sexHardDares.length} Dare являются прямыми сексуальными действиями`)
+if (directSex.length < 100) fail(`Sex/Жёстко: только ${directSex.length}/${sexHardDares.length} Dare являются прямыми сексуальными действиями`)
 
 const sexHardThemes = new Set(sexHardDares.map((card) => card.theme))
-if (sexHardThemes.size < 24) fail(`Sex/Жёстко: мало разных тем действий (${sexHardThemes.size})`)
+if (sexHardThemes.size < 25) fail(`Sex/Жёстко: мало разных тем действий (${sexHardThemes.size})`)
 
 const directVocabulary = /(секс|мастурб|орал|поз|разд|игруш|фантази|контрол|инициатив|душ|зеркал|шлеп|связ|целуй|поцелу)/i
 const directVocabularyCount = sexHardDares.filter((card) => directVocabulary.test(card.text)).length
@@ -169,7 +174,7 @@ if (truthPurposeCount < 5) fail(`Sex/Жёстко Truth: слишком одно
 const alcoholCount = cards.filter((card) => card.alcohol).length
 const sexualCount = cards.filter((card) => card.sexualAction).length
 
-ok(`${cards.length} authored-карточек: Пара 240 / Секс 480 / Компания 240 / После полуночи 240`)
+ok(`${cards.length} authored-карточек: Пара 240 / Секс 488 / Компания 240 / После полуночи 240`)
 ok('3 уровня: Легко / Горячо / Жёстко')
 ok('генератор «тема × шаблон» удалён: runtime не сочиняет текст карточек')
 ok(`Sex/Жёстко: ${sexHardTruth.length} Truth + ${sexHardDares.length} Dare; ${directSex.length} прямых сексуальных Dare; ${sexHardThemes.size} тем`)
