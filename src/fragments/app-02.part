@@ -31,7 +31,7 @@
     }
     const mechanic = getCardMechanic(displayCard)
     setCurrentCard(displayCard)
-    setRenderedText(hydrateText(displayCard.text, settings.players, currentPlayerIndex))
+    setRenderedText(hydrateText(displayCard.text, settings.players, settings.playerGenders, currentPlayerIndex))
     setFeedbackGivenFor(null)
     if (!selected.synthetic) setUsedCardIds((ids) => [...ids, selected.id])
     setRecentCardIds((ids) => [...ids, selected.id].slice(-12))
@@ -237,12 +237,18 @@
         )}
 
         <section className="glass-card section-card">
-          <div className="section-heading"><h2>Игроки</h2><span>{settings.players.length}/6</span></div>
+          <div className="section-heading"><h2>Игроки</h2><span>{settings.players.length}/6 · выбери пол каждого</span></div>
           <div className="player-list">
             {settings.players.map((player, index) => (
               <div className="player-row" key={index}>
                 <span className="player-number">{index + 1}</span>
-                <input value={player} maxLength={18} onChange={(event: ChangeEvent<HTMLInputElement>) => setPlayer(index, event.target.value)} aria-label={`Имя игрока ${index + 1}`} />
+                <div className="player-fields">
+                  <input value={player} maxLength={18} onChange={(event: ChangeEvent<HTMLInputElement>) => setPlayer(index, event.target.value)} aria-label={`Имя игрока ${index + 1}`} />
+                  <div className="gender-toggle" role="group" aria-label={`Пол игрока ${index + 1}`}>
+                    <button className={settings.playerGenders[index] === 'male' ? 'active' : ''} onClick={() => setPlayerGender(index, 'male')} aria-pressed={settings.playerGenders[index] === 'male'}>♂ Мужчина</button>
+                    <button className={settings.playerGenders[index] === 'female' ? 'active' : ''} onClick={() => setPlayerGender(index, 'female')} aria-pressed={settings.playerGenders[index] === 'female'}>♀ Женщина</button>
+                  </div>
+                </div>
                 {settings.players.length > 2 && <button className="icon-button" onClick={() => removePlayer(index)} aria-label="Удалить игрока">×</button>}
               </div>
             ))}
