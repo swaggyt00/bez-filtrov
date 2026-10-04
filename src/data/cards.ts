@@ -1,13 +1,25 @@
-import type { GameCard } from '../types'
-import { cardsPart1 } from './cards-part-01'
-import { cardsPart2 } from './cards-part-02'
-import { cardsPart3 } from './cards-part-03'
-import { cardsPart4 } from './cards-part-04'
-import { cardsPart5 } from './cards-part-05'
-import { cardsPart6 } from './cards-part-06'
-import { cardsPart7 } from './cards-part-07'
-import { cardsPart8 } from './cards-part-08'
-import { cardsPart9 } from './cards-part-09'
-import { cardsPart10 } from './cards-part-10'
+import type { CardType, GameCard, Heat, Scenario } from '../types'
+import couple from './cards-couple-v3.json'
+import sex from './cards-sex-v3.json'
+import party from './cards-party-v3.json'
+import afterdark from './cards-afterdark-v3.json'
 
-export const cards: GameCard[] = [...cardsPart1, ...cardsPart2, ...cardsPart3, ...cardsPart4, ...cardsPart5, ...cardsPart6, ...cardsPart7, ...cardsPart8, ...cardsPart9, ...cardsPart10]
+type RawCard = { type: CardType; heat: Heat; text: string }
+
+const sources: Record<Scenario, RawCard[]> = {
+  couple: couple as RawCard[],
+  sex: sex as RawCard[],
+  party: party as RawCard[],
+  afterdark: afterdark as RawCard[],
+}
+
+export const cards: GameCard[] = (Object.entries(sources) as Array<[Scenario, RawCard[]]>).flatMap(([scenario, entries]) =>
+  entries.map((entry, index) => ({
+    id: `${scenario}-${entry.heat}-${entry.type}-${String(index + 1).padStart(2, '0')}`,
+    scenario,
+    type: entry.type,
+    heat: entry.heat,
+    text: entry.text,
+    alcohol: /алкогол|пья|глоток|напит/i.test(entry.text),
+  })),
+)
