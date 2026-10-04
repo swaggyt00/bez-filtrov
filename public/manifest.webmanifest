@@ -1,0 +1,11 @@
+{
+  "name": "Без Фильтров — Правда или действие 18+",
+  "short_name": "Без Фильтров",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0710",
+  "theme_color": "#0b0710",
+  "lang": "ru",
+  "icons": []
+}
