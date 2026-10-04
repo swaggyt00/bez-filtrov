@@ -3,6 +3,7 @@ import type { CardMechanic, CardType, GameCard, Heat, Scenario } from '../types'
 export interface TruthTopic {
   id: string
   label: string
+  alcohol?: boolean
 }
 
 export interface TruthPattern {
@@ -54,6 +55,7 @@ export function buildTruthDeck(args: {
       text: pattern.render(topic),
       theme: topic.id,
       mechanic: pattern.mechanic,
+      alcohol: topic.alcohol,
       key: `${topic.id}:${pattern.id}`,
     })),
   )
@@ -72,6 +74,7 @@ export function buildTruthDeck(args: {
       text: item.text,
       theme: item.theme,
       mechanic: item.mechanic,
+      alcohol: item.alcohol,
     }))
 }
 
@@ -120,15 +123,15 @@ export const truthPatterns: TruthPattern[] = [
   { id: 'honest', mechanic: 'confession', render: (topic) => `Если говорить про «${topic.label}» без фильтров: какую правду ты обычно оставляешь при себе?` },
   { id: 'want', mechanic: 'direct', render: (topic) => `Что именно в теме «${topic.label}» тебе хочется сильнее всего прямо сейчас?` },
   { id: 'avoid', mechanic: 'confession', render: (topic) => `Какой вопрос про «${topic.label}» тебе было бы неприятнее всего услышать от {{other.gen}} — и каков честный ответ?` },
-  { id: 'change', mechanic: 'direct', render: (topic) => `Что ты хотел{{self.g:|а}} бы изменить в теме «${topic.label}», если бы никто тебя за это не осудил?` },
+  { id: 'change', mechanic: 'direct', render: (topic) => `Что ты {{self.g:хотел|хотела}} бы изменить в теме «${topic.label}», если бы никто тебя за это не осудил?` },
   { id: 'last', mechanic: 'direct', render: (topic) => `Когда «${topic.label}» в последний раз реально повлияла на твоё желание, настроение или выбор? Что произошло?` },
   { id: 'choice', mechanic: 'choice', render: (topic) => `Если выбирать только один вариант в теме «${topic.label}»: что ты оставишь, а от чего спокойно откажешься?` },
   { id: 'secret', mechanic: 'confession', render: (topic) => `Какой секрет или неловкая деталь у тебя связана с темой «${topic.label}»?` },
   { id: 'fantasy', mechanic: 'direct', render: (topic) => `Как выглядел бы твой идеальный сценарий на тему «${topic.label}», если убрать стеснение и бытовые ограничения?` },
-  { id: 'partner', mechanic: 'guess', render: (topic) => `Как ты думаешь, что {{other.nom}} ответил{{other.g:|а}} бы за тебя на вопрос про «${topic.label}» — и где {{other.g:он|она}} ошибётся?` },
+  { id: 'partner', mechanic: 'guess', render: (topic) => `Как ты думаешь, что {{other.nom}} {{other.g:ответил|ответила}} бы за тебя на вопрос про «${topic.label}» — и где {{other.g:он|она}} ошибётся?` },
   { id: 'compare', mechanic: 'rank', render: (topic) => `Насколько важна для тебя тема «${topic.label}» по сравнению с другими желаниями? Что стоит выше неё?` },
-  { id: 'never', mechanic: 'direct', render: (topic) => `Что в теме «${topic.label}» ты точно не хотел{{self.g:|а}} бы повторять — даже если когда-то соглашался{{self.g:|ась}}?` },
-  { id: 'today', mechanic: 'direct', render: (topic) => `Что из темы «${topic.label}» ты реально готов{{self.g:|а}} попробовать или обсудить сегодня, а не когда-нибудь потом?` },
+  { id: 'never', mechanic: 'direct', render: (topic) => `Что в теме «${topic.label}» ты точно не {{self.g:хотел|хотела}} бы повторять — даже если когда-то {{self.g:соглашался|соглашалась}}?` },
+  { id: 'today', mechanic: 'direct', render: (topic) => `Что из темы «${topic.label}» ты реально {{self.g:готов|готова}} попробовать или обсудить сегодня, а не когда-нибудь потом?` },
   { id: 'first', mechanic: 'direct', render: (topic) => `Какая первая мысль приходит тебе в голову, когда звучит «${topic.label}»? Не редактируй ответ.` },
   { id: 'more-less', mechanic: 'choice', render: (topic) => `В теме «${topic.label}» тебе сейчас хочется больше, меньше или совсем по-другому? Объясни без дипломатии.` },
 ]
