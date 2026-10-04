@@ -1,0 +1,309 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
+import { cards as builtInCards } from './data/cards'
+import { availableCards, buildFollowUpCard, getCardMechanic, pickCard, primaryCategory } from './deck'
+import { modePresets } from './presets'
+import { loadCustomCards, loadSessions, saveCustomCards, saveSessions } from './storage'
+import type {
+  BoundaryTopic,
+  CardMechanic,
+  CardOutcome,
+  CardType,
+  Category,
+  GameCard,
+  GameMode,
+  GameSettings,
+  HistoryEntry,
+  PersistedGame,
+  Relationship,
+  SavedSession,
+  SessionMemory,
+  SpecialRound,
+} from './types'
+
+const categoryLabels: Record<Category, string> = {
+  relations: 'Отношения', sex: 'Секс', fantasy: 'Фантазии', jealousy: 'Ревность',
+  past: 'Прошлое', alcohol: 'Алкоголь', chaos: 'Хаос',
+}
+
+const relationshipLabels: Record<Relationship, string> = {
+  new: 'Недавно знакомы', dating: 'Встречаемся', longterm: 'Давно вместе', mixed: 'Компания / смешанный формат',
+}
+
+const boundaryLabels: Record<BoundaryTopic, string> = {
+  exes: 'Бывшие', infidelity: 'Измены', thirdPerson: 'Третий человек', comparison: 'Сравнения',
+  toys: 'Игрушки', alcohol: 'Алкоголь', public: 'Публичность', jealousy: 'Ревность',
+  explicitSex: 'Откровенный секс', future: 'Будущее пары',
+}
+
+const mechanicLabels: Record<CardMechanic, string> = {
+  standard: 'Обычная', choice: 'Выбор', scale: 'Шкала', guess: 'Угадай',
+  simultaneous: 'Вместе', top3: 'Топ-3', joint: 'Совместно',
+}
+
+const allCategories = Object.keys(categoryLabels) as Category[]
+const allRelationships = Object.keys(relationshipLabels) as Relationship[]
+const allBoundaries = Object.keys(boundaryLabels) as BoundaryTopic[]
+
+function createEmptyMemory(): SessionMemory {
+  return {
+    categoryStats: Object.fromEntries(allCategories.map((category) => [category, { completed: 0, skipped: 0, rerolled: 0 }])) as SessionMemory['categoryStats'],
+    typePicks: { truth: 0, dare: 0 },
+    mechanicsRecent: [],
+    adaptiveOffset: 0,
+    feedback: { tooEasy: 0, okay: 0, tooHard: 0 },
+  }
+}
+
+const defaultSettings: GameSettings = {
+  players: ['Игрок 1', 'Игрок 2'],
+  relationship: 'longterm',
+  intensity: 8,
+  intensityStyle: 'ramp',
+  categories: modePresets.couple.categories,
+  mode: 'couple',
+  hardLimits: [],
+  softLimits: [],
+  sessionLength: 40,
+  alcoholRule: false,
+  soundEnabled: true,
+  hapticsEnabled: true,
+}
+
+type Screen = 'age' | 'setup' | 'game'
+type Stage = 'choice' | 'card' | 'end'
+
+interface CustomDraft {
+  text: string
+  type: CardType
+  intensity: number
+  categories: Category[]
+  relationships: Relationship[]
+}
+
+const defaultDraft: CustomDraft = {
+  text: '', type: 'truth', intensity: 7, categories: ['relations'], relationships: ['dating', 'longterm'],
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function randomFrom<T>(items: T[]): T | undefined {
+  return items[Math.floor(Math.random() * items.length)]
+}
+
+function hydrateText(text: string, players: string[], currentPlayerIndex: number) {
+  const otherPlayers = players.filter((_, index) => index !== currentPlayerIndex)
+  const other = randomFrom(otherPlayers) ?? 'другой игрок'
+  return text.replaceAll('{{other}}', other)
+}
+
+function id(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function specialRoundFor(turnsPlayed: number): SpecialRound {
+  const upcoming = turnsPlayed + 1
+  if (upcoming > 1 && upcoming % 10 === 0) return 'boss'
+  if (upcoming > 1 && upcoming % 6 === 0) return 'duo'
+  return null
+}
+
+function normalizeSettings(settings: Partial<GameSettings> | undefined): GameSettings {
+  return {
+    ...defaultSettings,
+    ...(settings ?? {}),
+    players: settings?.players?.length ? settings.players : defaultSettings.players,
+    categories: settings?.categories?.length ? settings.categories : defaultSettings.categories,
+    hardLimits: settings?.hardLimits ?? [],
+    softLimits: settings?.softLimits ?? [],
+  }
+}
+
+function mergeMemory(memory: SessionMemory | undefined): SessionMemory {
+  const empty = createEmptyMemory()
+  if (!memory) return empty
+  return {
+    ...empty,
+    ...memory,
+    categoryStats: { ...empty.categoryStats, ...memory.categoryStats },
+    typePicks: { ...empty.typePicks, ...memory.typePicks },
+    feedback: { ...empty.feedback, ...memory.feedback },
+  }
+}
+
+function App() {
+  const [screen, setScreen] = useState<Screen>('age')
+  const [settings, setSettings] = useState<GameSettings>(defaultSettings)
+  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
+  const [usedCardIds, setUsedCardIds] = useState<string[]>([])
+  const [rounds, setRounds] = useState(0)
+  const [turnsPlayed, setTurnsPlayed] = useState(0)
+  const [recentCardIds, setRecentCardIds] = useState<string[]>([])
+  const [recentCategories, setRecentCategories] = useState<Category[]>([])
+  const [memory, setMemory] = useState<SessionMemory>(createEmptyMemory)
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [followUps, setFollowUps] = useState<PersistedGame['followUps']>([])
+  const [stage, setStage] = useState<Stage>('choice')
+  const [currentCard, setCurrentCard] = useState<GameCard | null>(null)
+  const [renderedText, setRenderedText] = useState('')
+  const [notice, setNotice] = useState('')
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [createdAt, setCreatedAt] = useState(Date.now())
+  const [savedSessions, setSavedSessions] = useState<SavedSession[]>(() => loadSessions())
+  const [customCards, setCustomCards] = useState<GameCard[]>(() => loadCustomCards())
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customDraft, setCustomDraft] = useState<CustomDraft>(defaultDraft)
+  const [feedbackGivenFor, setFeedbackGivenFor] = useState<string | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+
+  const allCards = useMemo(() => [...builtInCards, ...customCards], [customCards])
+  const currentPlayer = settings.players[currentPlayerIndex] ?? settings.players[0]
+  const specialRound = specialRoundFor(turnsPlayed)
+
+  const targetIntensity = useMemo(() => {
+    const base = settings.intensityStyle === 'direct'
+      ? settings.intensity
+      : Math.min(settings.intensity, 3 + Math.floor(turnsPlayed / 4))
+    return clamp(base + memory.adaptiveOffset, 1, 10)
+  }, [settings.intensityStyle, settings.intensity, turnsPlayed, memory.adaptiveOffset])
+
+  const availableCount = useMemo(
+    () => availableCards(allCards, settings, undefined, targetIntensity).length,
+    [allCards, settings, targetIntensity],
+  )
+
+  useEffect(() => {
+    if (!activeSessionId || screen !== 'game') return
+    const state: PersistedGame = {
+      settings, currentPlayerIndex, usedCardIds, rounds, turnsPlayed, recentCardIds, recentCategories,
+      memory, history, followUps, createdAt,
+    }
+    const title = settings.players.slice(0, 3).join(' · ')
+    const next: SavedSession = { id: activeSessionId, title, createdAt, updatedAt: Date.now(), state }
+    setSavedSessions((existing) => {
+      const updated = [next, ...existing.filter((item) => item.id !== activeSessionId)].slice(0, 12)
+      saveSessions(updated)
+      return updated
+    })
+  }, [activeSessionId, screen, settings, currentPlayerIndex, usedCardIds, rounds, turnsPlayed, recentCardIds, recentCategories, memory, history, followUps, createdAt])
+
+  function sensory(kind: 'tap' | 'reveal' | 'boss') {
+    if (settings.hapticsEnabled && navigator.vibrate) navigator.vibrate(kind === 'boss' ? [25, 35, 25] : kind === 'reveal' ? 18 : 8)
+    if (!settings.soundEnabled) return
+    try {
+      const AudioCtx = window.AudioContext
+      const ctx = audioContextRef.current ?? new AudioCtx()
+      audioContextRef.current = ctx
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.frequency.value = kind === 'boss' ? 180 : kind === 'reveal' ? 420 : 300
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.045, ctx.currentTime + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.13)
+    } catch {
+      // Audio is purely optional; unsupported browsers stay silent.
+    }
+  }
+
+  function applyMode(mode: GameMode) {
+    const preset = modePresets[mode]
+    setSettings((current) => ({
+      ...current,
+      mode,
+      categories: [...preset.categories],
+      intensity: preset.defaultIntensity,
+      alcoholRule: preset.alcoholRule ?? current.alcoholRule,
+    }))
+    sensory('tap')
+  }
+
+  function setPlayer(index: number, value: string) {
+    const next = [...settings.players]
+    next[index] = value
+    setSettings({ ...settings, players: next })
+  }
+
+  function addPlayer() {
+    if (settings.players.length >= 6) return
+    setSettings({ ...settings, players: [...settings.players, `Игрок ${settings.players.length + 1}`] })
+  }
+
+  function removePlayer(index: number) {
+    if (settings.players.length <= 2) return
+    setSettings({ ...settings, players: settings.players.filter((_, i) => i !== index) })
+  }
+
+  function toggleCategory(category: Category) {
+    const categories = settings.categories.includes(category)
+      ? settings.categories.filter((item) => item !== category)
+      : [...settings.categories, category]
+    if (!categories.length) return
+    setSettings({ ...settings, categories })
+  }
+
+  function cycleBoundary(topic: BoundaryTopic) {
+    if (settings.hardLimits.includes(topic)) {
+      setSettings({ ...settings, hardLimits: settings.hardLimits.filter((item) => item !== topic) })
+      return
+    }
+    if (settings.softLimits.includes(topic)) {
+      setSettings({
+        ...settings,
+        softLimits: settings.softLimits.filter((item) => item !== topic),
+        hardLimits: [...settings.hardLimits, topic],
+      })
+      return
+    }
+    setSettings({ ...settings, softLimits: [...settings.softLimits, topic] })
+  }
+
+  function boundaryState(topic: BoundaryTopic) {
+    if (settings.hardLimits.includes(topic)) return 'hard'
+    if (settings.softLimits.includes(topic)) return 'soft'
+    return 'off'
+  }
+
+  function cleanPlayers() {
+    return settings.players.map((name, index) => name.trim() || `Игрок ${index + 1}`).filter(Boolean)
+  }
+
+  function startGame() {
+    const players = cleanPlayers()
+    if (new Set(players.map((name) => name.toLowerCase())).size !== players.length) {
+      setNotice('Имена игроков должны отличаться.')
+      return
+    }
+    if (!availableCards(allCards, { ...settings, players }, undefined, settings.intensity).length) {
+      setNotice('После выбранных границ и категорий колода пустая. Ослабь ограничения или включи другие категории.')
+      return
+    }
+    const now = Date.now()
+    setSettings({ ...settings, players })
+    setCurrentPlayerIndex(0)
+    setUsedCardIds([])
+    setRounds(0)
+    setTurnsPlayed(0)
+    setRecentCardIds([])
+    setRecentCategories([])
+    setMemory(createEmptyMemory())
+    setHistory([])
+    setFollowUps([])
+    setStage('choice')
+    setCurrentCard(null)
+    setRenderedText('')
+    setNotice('')
+    setCreatedAt(now)
+    setActiveSessionId(id('session'))
+    setScreen('game')
+    sensory('reveal')
+  }
+
+  function resumeSession(session: SavedSession) {
+    const state = session.state
+    setSettings(normalizeSettings(state.settings))
+    setCurrentPlayerIndex(state.currentPlayerIndex ?? 0)
