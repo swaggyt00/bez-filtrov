@@ -1,0 +1,139 @@
+            {allRelationships.map((relationship) => (
+              <button key={relationship} className={`pill-button ${settings.relationship === relationship ? 'active' : ''}`} onClick={() => setSettings({ ...settings, relationship })}>
+                {relationshipLabels[relationship]}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Интенсивность</h2><strong>{settings.intensity}/10</strong></div>
+          <input className="range" type="range" min="1" max="10" value={settings.intensity} onChange={(event: ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, intensity: Number(event.target.value) })} />
+          <div className="segmented">
+            <button className={settings.intensityStyle === 'ramp' ? 'active' : ''} onClick={() => setSettings({ ...settings, intensityStyle: 'ramp' })}>Разогрев</button>
+            <button className={settings.intensityStyle === 'direct' ? 'active' : ''} onClick={() => setSettings({ ...settings, intensityStyle: 'direct' })}>Сразу {settings.intensity}/10</button>
+          </div>
+          <p className="deck-count">В режиме разогрева игра постепенно доходит до выбранного потолка и адаптируется по твоей оценке карточек.</p>
+        </section>
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Категории</h2><span>{settings.categories.length} выбрано</span></div>
+          <div className="category-grid">
+            {allCategories.map((category) => (
+              <button key={category} className={`category-button ${settings.categories.includes(category) ? 'active' : ''}`} onClick={() => toggleCategory(category)}>
+                {categoryLabels[category]}
+              </button>
+            ))}
+          </div>
+          <p className="deck-count">Сейчас доступно: {availableCount} карточек с учётом границ и текущего старта сложности.</p>
+        </section>
+
+        <details className="glass-card details-card">
+          <summary>Границы и стоп-темы <span>{settings.hardLimits.length} стоп · {settings.softLimits.length} редко</span></summary>
+          <p className="details-copy">Нажатие меняет состояние: обычно → редко → никогда → обычно.</p>
+          <div className="boundary-grid">
+            {allBoundaries.map((topic) => {
+              const state = boundaryState(topic)
+              return <button key={topic} className={`boundary-button ${state}`} onClick={() => cycleBoundary(topic)}>
+                <strong>{boundaryLabels[topic]}</strong><span>{state === 'hard' ? 'никогда' : state === 'soft' ? 'редко' : 'обычно'}</span>
+              </button>
+            })}
+          </div>
+        </details>
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Длина игры</h2></div>
+          <div className="segmented four">
+            {[20, 40, 60].map((length) => <button key={length} className={settings.sessionLength === length ? 'active' : ''} onClick={() => setSettings({ ...settings, sessionLength: length })}>{length} ходов</button>)}
+            <button className={settings.sessionLength === null ? 'active' : ''} onClick={() => setSettings({ ...settings, sessionLength: null })}>∞</button>
+          </div>
+        </section>
+
+        <section className="glass-card section-card compact-settings">
+          <label className="switch-row"><span><strong>«Ответь / выполни или глоток»</strong><small>Только один небольшой глоток любого напитка, включая воду.</small></span><input type="checkbox" checked={settings.alcoholRule} onChange={(event: ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, alcoholRule: event.target.checked })} /></label>
+          <label className="switch-row"><span><strong>Звуки</strong><small>Короткие сигналы интерфейса.</small></span><input type="checkbox" checked={settings.soundEnabled} onChange={(event: ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, soundEnabled: event.target.checked })} /></label>
+          <label className="switch-row"><span><strong>Вибрация</strong><small>Если поддерживается устройством.</small></span><input type="checkbox" checked={settings.hapticsEnabled} onChange={(event: ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, hapticsEnabled: event.target.checked })} /></label>
+        </section>
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Свои карточки</h2><span>{customCards.length}</span></div>
+          <button className="secondary-button no-margin" onClick={() => setCustomOpen((value) => !value)}>{customOpen ? 'Скрыть редактор' : '+ Добавить свою карточку'}</button>
+          {customOpen && (
+            <div className="custom-editor">
+              <textarea placeholder="Текст вопроса или действия…" value={customDraft.text} onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setCustomDraft({ ...customDraft, text: event.target.value })} />
+              <div className="segmented"><button className={customDraft.type === 'truth' ? 'active' : ''} onClick={() => setCustomDraft({ ...customDraft, type: 'truth' })}>Правда</button><button className={customDraft.type === 'dare' ? 'active' : ''} onClick={() => setCustomDraft({ ...customDraft, type: 'dare' })}>Действие</button></div>
+              <label className="mini-label">Уровень: <strong>{customDraft.intensity}/10</strong><input className="range" type="range" min="1" max="10" value={customDraft.intensity} onChange={(event: ChangeEvent<HTMLInputElement>) => setCustomDraft({ ...customDraft, intensity: Number(event.target.value) })} /></label>
+              <div className="chip-wrap">{allCategories.map((category) => <button key={category} className={`tiny-chip ${customDraft.categories.includes(category) ? 'active' : ''}`} onClick={() => setCustomDraft((draft) => ({ ...draft, categories: draft.categories.includes(category) ? draft.categories.filter((item) => item !== category) : [...draft.categories, category] }))}>{categoryLabels[category]}</button>)}</div>
+              <div className="chip-wrap">{allRelationships.map((relationship) => <button key={relationship} className={`tiny-chip ${customDraft.relationships.includes(relationship) ? 'active' : ''}`} onClick={() => setCustomDraft((draft) => ({ ...draft, relationships: draft.relationships.includes(relationship) ? draft.relationships.filter((item) => item !== relationship) : [...draft.relationships, relationship] }))}>{relationshipLabels[relationship]}</button>)}</div>
+              <button className="primary-button" onClick={addCustomCard}>Добавить в колоду</button>
+              {customCards.slice(0, 5).map((card) => <div className="custom-row" key={card.id}><span>{card.type === 'truth' ? 'П' : 'Д'} · {card.intensity}/10 · {card.text}</span><button className="icon-button" onClick={() => deleteCustomCard(card.id)}>×</button></div>)}
+            </div>
+          )}
+        </section>
+
+        {notice && <div className="notice">{notice}</div>}
+        <button className="primary-button sticky-cta" onClick={startGame}>Начать новую игру</button>
+      </main>
+    )
+  }
+
+  if (stage === 'end') {
+    return (
+      <main className="app-shell center-screen">
+        <section className="summary-card glass-card">
+          <div className="eyebrow">СЕССИЯ ЗАВЕРШЕНА</div>
+          <h1>{turnsPlayed} ходов</h1>
+          <div className="summary-grid"><div><strong>{completedCount}</strong><span>выполнено</span></div><div><strong>{skippedCount}</strong><span>пропущено</span></div><div><strong>{rerolledCount}</strong><span>заменено</span></div></div>
+          <p className="hero-copy">Сессия сохранена автоматически — её можно продолжить позже с тем же прогрессом и памятью игры.</p>
+          <button className="primary-button" onClick={continueUnlimited}>Продолжить без лимита</button>
+          <button className="secondary-button" onClick={resetToSetup}>К настройкам</button>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <main className={`app-shell game-shell ${specialRound ? `special-${specialRound}` : ''}`}>
+      <header className="game-header">
+        <button className="ghost-button" onClick={() => setScreen('setup')}>Настройки</button>
+        <span>{settings.sessionLength ? `${turnsPlayed}/${settings.sessionLength}` : `Ход ${turnsPlayed + 1}`} · цель {targetIntensity}/10</span>
+        <button className="ghost-button" onClick={resetToSetup}>Сохранить</button>
+      </header>
+
+      <section className="turn-wrap">
+        {specialRound && <div className={`special-banner ${specialRound}`}>{specialRound === 'boss' ? '⚡ BOSS ROUND · сложнее обычного' : '✦ DUO ROUND · больше совместных механик'}</div>}
+        <div className="turn-kicker">Сейчас ходит</div>
+        <h1 className="player-title">{currentPlayer}</h1>
+
+        {stage === 'choice' ? (
+          <>
+            <p className="choice-question">Правда или действие?</p>
+            <div className="big-choice-grid">
+              <button className="truth-button" onClick={() => choose('truth')}><span className="choice-letter">П</span><span>Правда</span></button>
+              <button className="dare-button" onClick={() => choose('dare')}><span className="choice-letter">Д</span><span>Действие</span></button>
+            </div>
+            {followUps.some((item) => item.dueTurn <= turnsPlayed + 1) && <div className="followup-hint">↩ На этом ходу готово продолжение одной из прошлых тем</div>}
+          </>
+        ) : (
+          <section className="challenge-card glass-card">
+            <div className="card-meta"><span>{currentCard?.type === 'truth' ? 'ПРАВДА' : 'ДЕЙСТВИЕ'}</span><span>{currentCard ? `${mechanicLabels[getCardMechanic(currentCard)]} · ${currentCard.intensity}/10` : ''}</span></div>
+            <p className="challenge-text">{renderedText}</p>
+            <div className="tag-row">{currentCard?.categories.map((category) => <span key={category}>{categoryLabels[category]}</span>)}</div>
+            {settings.alcoholRule && <div className="alcohol-note">Опционально: вместо ответа/задания — один небольшой глоток любого напитка, в том числе воды или безалкогольного. Пропуск всегда доступен.</div>}
+            <div className="difficulty-feedback"><span>Как по уровню?</span><button className={feedbackGivenFor === currentCard?.id ? 'disabled' : ''} onClick={() => applyDifficultyFeedback('easy')}>Слабо</button><button className={feedbackGivenFor === currentCard?.id ? 'disabled' : ''} onClick={() => applyDifficultyFeedback('okay')}>Норм</button><button className={feedbackGivenFor === currentCard?.id ? 'disabled' : ''} onClick={() => applyDifficultyFeedback('hard')}>Жёстко</button></div>
+            <button className="primary-button" onClick={() => finishTurn('completed')}>Готово → следующий</button>
+            <div className="card-actions"><button className="secondary-button" onClick={reroll}>Другая карточка</button><button className="secondary-button" onClick={() => finishTurn('skipped')}>Пропустить ход</button></div>
+          </section>
+        )}
+
+        {notice && <div className="notice compact">{notice}</div>}
+      </section>
+
+      <footer className="player-strip">
+        {settings.players.map((player, index) => <span key={`${player}-${index}`} className={index === currentPlayerIndex ? 'active' : ''}>{player}</span>)}
+      </footer>
+    </main>
+  )
+}
+
+export default App
