@@ -119,6 +119,14 @@ export function chooseTargetIndex(players: Player[], currentPlayerIndex: number)
   return candidates[Math.floor(Math.random() * candidates.length)] ?? currentPlayerIndex
 }
 
+function normalizeRenderedRussian(value: string) {
+  return value
+    .replaceAll('самомуой', 'самой')
+    .replaceAll('согласенна', 'согласна')
+    .replaceAll('способенна', 'способна')
+    .replaceAll('егоеё', 'её')
+}
+
 export function hydrateCardText(text: string, players: Player[], currentPlayerIndex: number, targetIndex: number) {
   const self = players[currentPlayerIndex]
   const other = players[targetIndex] ?? players.find((_, index) => index !== currentPlayerIndex) ?? self
@@ -131,7 +139,7 @@ export function hydrateCardText(text: string, players: Player[], currentPlayerIn
 
   result = result.replace(/\{\{self\.g:([^|}]*)\|([^}]*)\}\}/g, (_, male, female) => genderVariant(self, male, female))
   result = result.replace(/\{\{other\.g:([^|}]*)\|([^}]*)\}\}/g, (_, male, female) => genderVariant(other, male, female))
-  return result
+  return normalizeRenderedRussian(result)
 }
 
 export function availableCards(cards: GameCard[], settings: GameSettings, type?: CardType) {
