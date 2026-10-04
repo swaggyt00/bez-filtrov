@@ -13,13 +13,27 @@ const cards = scenarios.flatMap((scenario) => {
 
 if (cards.length !== 200) fail(`ожидалось 200 карточек v3, найдено ${cards.length}`)
 
+const validToken = /^\{\{(?:self|other)\.(?:(?:nom|gen|dat|acc|ins|prep)|g:[^|}]*\|[^}]*)\}\}$/
+const dangerousGenderSuffix = /\{\{(?:self|other)\.g:\|(ась|ой|на)\}\}/i
 const normalized = new Map()
+
 for (const card of cards) {
   if (!types.includes(card.type)) fail(`${card.id}: неизвестный тип ${card.type}`)
   if (!heats.includes(card.heat)) fail(`${card.id}: неизвестный уровень ${card.heat}`)
   if (typeof card.text !== 'string' || card.text.trim().length < 20) fail(`${card.id}: слишком короткий текст`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: найдена уродливая гендерная скобка`)
-  if (card.type === 'dare' && /^(назови|расскажи|признайся|ответь|обсуди)/i.test(card.text)) fail(`${card.id}: действие начинается как обычный вопрос/разговор`)
+  if (dangerousGenderSuffix.test(card.text)) fail(`${card.id}: подозрительная склейка женского окончания`)
+
+  const tokens = card.text.match(/\{\{[^}]+\}\}/g) ?? []
+  for (const token of tokens) {
+    if (!validToken.test(token)) fail(`${card.id}: неизвестный шаблон ${token}`)
+  }
+  if (card.text.includes('{{') && !tokens.length) fail(`${card.id}: сломанный шаблон`)
+
+  if (card.type === 'dare' && /^(назови|расскажи|признайся|ответь|обсуди)/i.test(card.text)) {
+    fail(`${card.id}: действие начинается как обычный вопрос/разговор`)
+  }
+
   const key = card.text.toLowerCase().replace(/\{\{[^}]+\}\}/g, 'x').replace(/[^а-яёa-z0-9]+/gi, ' ').trim()
   if (normalized.has(key)) fail(`точный дубль: ${normalized.get(key)} и ${card.id}`)
   normalized.set(key, card.id)
@@ -57,5 +71,6 @@ console.log(`✓ Sex hard/extreme/madness: ${embodiedHighSex}/${highSexDares.len
 console.log(`✓ верхние уровни: ${actionHighDares}/${highDares.length} реальных действий`)
 console.log(`✓ жёстких Truth с прямой взрослой тематикой: ${explicitHighTruths}`)
 console.log(`✓ алкогольных карточек: ${alcoholCards}; опасных drinking-челленджей нет`)
+console.log('✓ гендерные шаблоны и морфологические маркеры валидны')
 console.log('✓ форматов вроде «встретил(-а)» нет')
 if (!process.exitCode) console.log('✓ аудит v3 пройден')
