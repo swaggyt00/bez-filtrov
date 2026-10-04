@@ -3,24 +3,22 @@ import type { ChangeEvent } from 'react'
 import { cards } from './data/cards'
 import { availableCards, chooseTargetIndex, hydrateCardText, pickCard } from './deck'
 import { clearGame, loadGame, loadSettings, saveGame, saveSettings } from './storage'
-import type { CardType, GameCard, GameSettings, GameStage, Heat, Player, PlayerGender, Scenario } from './types'
+import type { CardType, GameCard, GameSettings, GameStage, Heat, PlayerGender, Scenario } from './types'
 
 const scenarioMeta: Record<Scenario, { title: string; icon: string; description: string; minPlayers: number }> = {
-  couple: { title: 'Пара', icon: '♥', description: 'Отношения, ревность, желания и близость.', minPlayers: 2 },
-  sex: { title: 'Секс', icon: '✦', description: 'Не разговорник. Карты двигают вечер к физической близости.', minPlayers: 2 },
-  party: { title: 'Компания', icon: '◉', description: 'Выбор людей, флирт, неловкость и провокации.', minPlayers: 3 },
-  afterdark: { title: 'После полуночи', icon: '☾', description: 'Грязнее, хаотичнее и без попытки быть приличными.', minPlayers: 2 },
+  couple: { title: 'Пара', icon: '♥', description: 'Для двоих: отношения, ревность, бывшие, секс и неудобная правда.', minPlayers: 2 },
+  sex: { title: 'Секс', icon: '✦', description: 'Реальный секс: позы, мастурбация, инициатива, фантазии и действия.', minPlayers: 2 },
+  party: { title: 'Компания', icon: '◉', description: '3–6 игроков: выбор людей, флирт, поцелуи и провокации.', minPlayers: 3 },
+  afterdark: { title: 'После полуночи', icon: '☾', description: 'Ночной хаос: приватные челленджи, риск и опциональный алкоголь.', minPlayers: 2 },
 }
 
 const heatMeta: Record<Heat, { title: string; short: string; description: string }> = {
-  light: { title: 'Легко', short: '01', description: 'Флирт и лёгкая неловкость.' },
-  hot: { title: 'Горячо', short: '02', description: 'Уже телесно. Уже понятно, к чему идёт вечер.' },
-  hard: { title: 'Жёстко', short: '03', description: 'Неудобные признания и реальные действия.' },
-  extreme: { title: 'Экстрим', short: '04', description: 'Никаких разогревов. Сразу тяжёлые карты.' },
-  madness: { title: 'Безумие', short: '05', description: 'Карты, которые могут стать событием вечера.' },
+  light: { title: 'Легко', short: '01', description: 'Флирт, неловкость и первые действия.' },
+  hot: { title: 'Горячо', short: '02', description: 'Больше тела, меньше намёков.' },
+  hard: { title: 'Жёстко', short: '03', description: 'Самые прямые вопросы и действия этого сценария.' },
 }
 
-const heatOrder: Heat[] = ['light', 'hot', 'hard', 'extreme', 'madness']
+const heatOrder: Heat[] = ['light', 'hot', 'hard']
 const scenarioOrder: Scenario[] = ['couple', 'sex', 'party', 'afterdark']
 
 type Screen = 'age' | 'setup' | 'game'
@@ -56,6 +54,12 @@ function App() {
   const savedGame = useMemo(() => loadGame(), [screen])
 
   const currentPlayer = settings?.players[currentPlayerIndex]
+  const visibleCards = useMemo(
+    () => cards.filter((card) => card.scenario === scenario && card.heat === heat && (alcoholCards || !card.alcohol)),
+    [scenario, heat, alcoholCards],
+  )
+  const truthCount = visibleCards.filter((card) => card.type === 'truth').length
+  const dareCount = visibleCards.filter((card) => card.type === 'dare').length
 
   useEffect(() => {
     if (screen !== 'game' || !settings) return
@@ -189,7 +193,7 @@ function App() {
       const bucketIds = new Set(availableCards(cards, settings, type).map((card) => card.id))
       nextUsed = nextUsed.filter((id) => !bucketIds.has(id))
       result = pickCard(cards, settings, type, nextUsed)
-      setNotice(`${type === 'truth' ? 'Правды' : 'Действия'} этого уровня закончились — перемешал только эту колоду.`)
+      setNotice(`${type === 'truth' ? 'Правды' : 'Действия'} этой колоды закончились — перемешал только её.`)
     } else {
       setNotice('')
     }
@@ -304,7 +308,7 @@ function App() {
         </section>
 
         <section className="setup-block">
-          <div className="block-title"><h2>Насколько далеко?</h2><span>без шкалы 1–10</span></div>
+          <div className="block-title"><h2>Накал</h2><span>три понятных режима</span></div>
           <div className="heat-list">
             {heatOrder.map((item) => (
               <button key={item} className={`heat-row heat-${item} ${heat === item ? 'active' : ''}`} onClick={() => { setHeat(item); setNotice(''); sound('tap') }}>
@@ -314,11 +318,12 @@ function App() {
               </button>
             ))}
           </div>
+          <div className="deck-size">В этой колоде: <strong>{truthCount} правд</strong> · <strong>{dareCount} действий</strong></div>
         </section>
 
         <details className="extras">
           <summary>Дополнительно</summary>
-          <label><span><strong>Алко-карты</strong><small>Небольшие глотки и темы про алкоголь. Никогда не заменяют согласие.</small></span><input type="checkbox" checked={alcoholCards} onChange={(event) => setAlcoholCards(event.target.checked)} /></label>
+          <label><span><strong>Алко-карты</strong><small>Только небольшие глотки и отдельные темы про алкоголь. Секс и алкоголь не связаны между собой.</small></span><input type="checkbox" checked={alcoholCards} onChange={(event) => setAlcoholCards(event.target.checked)} /></label>
           <label><span><strong>Звук</strong><small>Короткие сигналы интерфейса.</small></span><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /></label>
         </details>
 
