@@ -125,6 +125,10 @@ function normalizeRenderedRussian(value: string) {
     .replaceAll('согласенна', 'согласна')
     .replaceAll('способенна', 'способна')
     .replaceAll('егоеё', 'её')
+    .replaceAll('решалсяась', 'решалась')
+    .replaceAll('соглашалсяась', 'соглашалась')
+    .replaceAll('хотелла', 'хотела')
+    .replaceAll('сделалала', 'сделала')
 }
 
 export function hydrateCardText(text: string, players: Player[], currentPlayerIndex: number, targetIndex: number) {
