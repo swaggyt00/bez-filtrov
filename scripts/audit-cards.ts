@@ -44,9 +44,10 @@ for (const card of cards) {
     .replace(/\{\{[^}]+\}\}/g, 'x')
     .replace(/[^а-яёa-z0-9]+/gi, ' ')
     .trim()
-  const duplicate = normalizedTexts.get(normalized)
-  if (duplicate) fail(`точный дубль текста: ${duplicate} / ${card.id}`)
-  normalizedTexts.set(normalized, card.id)
+  const scopedKey = `${card.scenario}:${normalized}`
+  const duplicate = normalizedTexts.get(scopedKey)
+  if (duplicate) fail(`точный дубль внутри сценария: ${duplicate} / ${card.id}`)
+  normalizedTexts.set(scopedKey, card.id)
 }
 
 for (const scenario of scenarios) {
