@@ -1,0 +1,268 @@
+    setUsedCardIds(state.usedCardIds ?? [])
+    setRounds(state.rounds ?? 0)
+    setTurnsPlayed(state.turnsPlayed ?? 0)
+    setRecentCardIds(state.recentCardIds ?? [])
+    setRecentCategories(state.recentCategories ?? [])
+    setMemory(mergeMemory(state.memory))
+    setHistory(state.history ?? [])
+    setFollowUps(state.followUps ?? [])
+    setCreatedAt(state.createdAt ?? session.createdAt)
+    setActiveSessionId(session.id)
+    setCurrentCard(null)
+    setRenderedText('')
+    setStage(state.settings?.sessionLength && (state.turnsPlayed ?? 0) >= state.settings.sessionLength ? 'end' : 'choice')
+    setNotice('Сессия восстановлена.')
+    setScreen('game')
+  }
+
+  function deleteSession(sessionId: string) {
+    const next = savedSessions.filter((item) => item.id !== sessionId)
+    setSavedSessions(next)
+    saveSessions(next)
+    if (activeSessionId === sessionId) setActiveSessionId(null)
+  }
+
+  function showCard(selected: GameCard, isReroll: boolean) {
+    let displayCard = selected
+    if (specialRound === 'duo' && getCardMechanic(selected) === 'standard') {
+      displayCard = selected.type === 'truth'
+        ? { ...selected, mechanic: 'guess', text: `Сначала {{other}} угадывает, что ты ответишь. Потом отвечай сам(а): ${selected.text}` }
+        : { ...selected, mechanic: 'joint', text: `Выполните это по очереди оба: ${selected.text}` }
+    }
+    const mechanic = getCardMechanic(displayCard)
+    setCurrentCard(displayCard)
+    setRenderedText(hydrateText(displayCard.text, settings.players, currentPlayerIndex))
+    setFeedbackGivenFor(null)
+    if (!selected.synthetic) setUsedCardIds((ids) => [...ids, selected.id])
+    setRecentCardIds((ids) => [...ids, selected.id].slice(-12))
+    setRecentCategories((items) => [...items, primaryCategory(selected, settings.categories)].slice(-8))
+    setMemory((current) => ({
+      ...current,
+      typePicks: isReroll ? current.typePicks : { ...current.typePicks, [selected.type]: current.typePicks[selected.type] + 1 },
+      mechanicsRecent: [...current.mechanicsRecent, mechanic].slice(-8),
+    }))
+    setStage('card')
+    sensory(specialRound === 'boss' ? 'boss' : 'reveal')
+  }
+
+  function choose(type: CardType, isReroll = false) {
+    const dueIndex = followUps.findIndex((followUp) => followUp.dueTurn <= turnsPlayed + 1)
+    if (dueIndex >= 0 && !isReroll) {
+      const seed = followUps[dueIndex]
+      const synthetic = buildFollowUpCard(seed, type)
+      setFollowUps((items) => items.filter((_, index) => index !== dueIndex))
+      setNotice('Карточка-продолжение вернулась к теме из прошлых раундов.')
+      showCard(synthetic, false)
+      return
+    }
+
+    let selected = pickCard({
+      cards: allCards, settings, type, targetIntensity, usedCardIds, recentCardIds, recentCategories, memory, specialRound,
+    })
+
+    if (!selected) {
+      const fallback = availableCards(allCards, settings, type, targetIntensity)
+      if (!fallback.length) {
+        setNotice('Для этой комбинации настроек карточек не найдено. Измени границы, категории или уровень.')
+        return
+      }
+      const typeIds = new Set(allCards.filter((card) => card.type === type).map((card) => card.id))
+      const keptUsedIds = usedCardIds.filter((cardId) => !typeIds.has(cardId))
+      selected = pickCard({
+        cards: allCards, settings, type, targetIntensity, usedCardIds: keptUsedIds, recentCardIds, recentCategories, memory, specialRound,
+      })
+      setUsedCardIds(keptUsedIds)
+      setNotice('Эта половина колоды закончилась — перемешал только её, не сбрасывая второй тип.')
+    } else {
+      setNotice('')
+    }
+
+    if (selected) showCard(selected, isReroll)
+  }
+
+  function recordOutcome(outcome: CardOutcome) {
+    if (!currentCard) return
+    const mechanic = getCardMechanic(currentCard)
+    const entry: HistoryEntry = {
+      id: id('history'), cardId: currentCard.id, cardText: currentCard.text, type: currentCard.type,
+      categories: currentCard.categories, intensity: currentCard.intensity, mechanic, outcome,
+      playerIndex: currentPlayerIndex, turnNumber: turnsPlayed + 1, specialRound, timestamp: Date.now(),
+    }
+    setHistory((items) => [...items, entry])
+    setMemory((current) => {
+      const nextStats = { ...current.categoryStats }
+      for (const category of currentCard.categories) {
+        nextStats[category] = { ...nextStats[category], [outcome]: nextStats[category][outcome] + 1 }
+      }
+      return { ...current, categoryStats: nextStats }
+    })
+
+    if (
+      outcome === 'completed' && !currentCard.synthetic && currentCard.intensity >= 7 &&
+      (turnsPlayed + 1) % 3 === 0 && !followUps.some((item) => item.sourceCardId === currentCard.id)
+    ) {
+      setFollowUps((items) => [...items, {
+        sourceCardId: currentCard.id,
+        sourceText: currentCard.text,
+        sourceCategories: currentCard.categories,
+        sourceIntensity: currentCard.intensity,
+        dueTurn: turnsPlayed + 4,
+      }].slice(-4))
+    }
+  }
+
+  function finishTurn(outcome: 'completed' | 'skipped') {
+    recordOutcome(outcome)
+    const nextTurns = turnsPlayed + 1
+    setTurnsPlayed(nextTurns)
+    if (settings.sessionLength !== null && nextTurns >= settings.sessionLength) {
+      setStage('end')
+      setCurrentCard(null)
+      setRenderedText('')
+      sensory('boss')
+      return
+    }
+    const nextIndex = (currentPlayerIndex + 1) % settings.players.length
+    if (nextIndex === 0) setRounds((value) => value + 1)
+    setCurrentPlayerIndex(nextIndex)
+    setCurrentCard(null)
+    setRenderedText('')
+    setStage('choice')
+    setNotice('')
+    sensory('tap')
+  }
+
+  function reroll() {
+    if (!currentCard) return
+    const type = currentCard.type
+    recordOutcome('rerolled')
+    choose(type, true)
+  }
+
+  function applyDifficultyFeedback(kind: 'easy' | 'okay' | 'hard') {
+    if (!currentCard || feedbackGivenFor === currentCard.id) return
+    setFeedbackGivenFor(currentCard.id)
+    setMemory((current) => {
+      const delta = kind === 'easy' ? 1 : kind === 'hard' ? -1 : 0
+      const key = kind === 'easy' ? 'tooEasy' : kind === 'hard' ? 'tooHard' : 'okay'
+      return {
+        ...current,
+        adaptiveOffset: clamp(current.adaptiveOffset + delta, -2, 2),
+        feedback: { ...current.feedback, [key]: current.feedback[key] + 1 },
+      }
+    })
+    sensory('tap')
+  }
+
+  function addCustomCard() {
+    const text = customDraft.text.trim()
+    if (text.length < 10 || !customDraft.categories.length || !customDraft.relationships.length) {
+      setNotice('Для своей карточки нужен текст, хотя бы одна категория и формат отношений.')
+      return
+    }
+    const card: GameCard = {
+      id: id('custom'), text, type: customDraft.type, intensity: customDraft.intensity,
+      categories: customDraft.categories, relationships: customDraft.relationships, custom: true,
+    }
+    const next = [card, ...customCards]
+    setCustomCards(next)
+    saveCustomCards(next)
+    setCustomDraft(defaultDraft)
+    setNotice('Своя карточка добавлена в колоду.')
+  }
+
+  function deleteCustomCard(cardId: string) {
+    const next = customCards.filter((card) => card.id !== cardId)
+    setCustomCards(next)
+    saveCustomCards(next)
+  }
+
+  function continueUnlimited() {
+    setSettings((current) => ({ ...current, sessionLength: null }))
+    setStage('choice')
+    setNotice('Лимит снят — игра продолжается без ограничения по ходам.')
+  }
+
+  function resetToSetup() {
+    setCurrentCard(null)
+    setRenderedText('')
+    setStage('choice')
+    setNotice('')
+    setActiveSessionId(null)
+    setScreen('setup')
+  }
+
+  const completedCount = history.filter((item) => item.outcome === 'completed').length
+  const skippedCount = history.filter((item) => item.outcome === 'skipped').length
+  const rerolledCount = history.filter((item) => item.outcome === 'rerolled').length
+
+  if (screen === 'age') {
+    return (
+      <main className="app-shell center-screen">
+        <section className="age-card glass-card">
+          <div className="eyebrow">БЕЗ ФИЛЬТРОВ</div>
+          <h1>Правда или действие</h1>
+          <p className="hero-copy">Взрослая party-game для совершеннолетних игроков: умная колода, границы и адаптивная сложность.</p>
+          <div className="age-badge">18+</div>
+          <p className="fine-print">Все участники должны быть совершеннолетними. Любую карточку можно заменить или пропустить без объяснений.</p>
+          <button className="primary-button" onClick={() => setScreen('setup')}>Мне есть 18</button>
+        </section>
+      </main>
+    )
+  }
+
+  if (screen === 'setup') {
+    return (
+      <main className="app-shell setup-shell">
+        <header className="topbar">
+          <div><div className="eyebrow">БЕЗ ФИЛЬТРОВ</div><h1>Настрой игру</h1></div>
+          <div className="mini-badge">18+</div>
+        </header>
+
+        {savedSessions.length > 0 && (
+          <section className="glass-card section-card">
+            <div className="section-heading"><h2>Сохранённые игры</h2><span>{savedSessions.length}</span></div>
+            <div className="saved-list">
+              {savedSessions.slice(0, 4).map((session) => (
+                <div className="saved-row" key={session.id}>
+                  <button className="saved-main" onClick={() => resumeSession(session)}>
+                    <strong>{session.title}</strong>
+                    <span>{session.state.turnsPlayed} ходов · {new Date(session.updatedAt).toLocaleDateString('ru-RU')}</span>
+                  </button>
+                  <button className="icon-button" onClick={() => deleteSession(session.id)} aria-label="Удалить сохранение">×</button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Игроки</h2><span>{settings.players.length}/6</span></div>
+          <div className="player-list">
+            {settings.players.map((player, index) => (
+              <div className="player-row" key={index}>
+                <span className="player-number">{index + 1}</span>
+                <input value={player} maxLength={18} onChange={(event: ChangeEvent<HTMLInputElement>) => setPlayer(index, event.target.value)} aria-label={`Имя игрока ${index + 1}`} />
+                {settings.players.length > 2 && <button className="icon-button" onClick={() => removePlayer(index)} aria-label="Удалить игрока">×</button>}
+              </div>
+            ))}
+          </div>
+          {settings.players.length < 6 && <button className="secondary-button" onClick={addPlayer}>+ Добавить игрока</button>}
+        </section>
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Режим</h2><span>пресет можно донастроить</span></div>
+          <div className="mode-grid">
+            {(Object.keys(modePresets) as GameMode[]).map((mode) => (
+              <button key={mode} className={`mode-card ${settings.mode === mode ? 'active' : ''}`} onClick={() => applyMode(mode)}>
+                <span className="mode-short">{modePresets[mode].short}</span>
+                <strong>{modePresets[mode].label}</strong>
+                <small>{modePresets[mode].description}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="glass-card section-card">
+          <div className="section-heading"><h2>Формат отношений</h2></div>
+          <div className="choice-grid">
