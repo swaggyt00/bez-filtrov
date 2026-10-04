@@ -1,8 +1,24 @@
 export type CardType = 'truth' | 'dare'
 export type Scenario = 'couple' | 'sex' | 'party' | 'afterdark'
-export type Heat = 'light' | 'hot' | 'hard' | 'extreme' | 'madness'
+export type Heat = 'light' | 'hot' | 'hard'
 export type PlayerGender = 'male' | 'female'
 export type GameStage = 'choice' | 'card'
+
+export type CardMechanic =
+  | 'direct'
+  | 'choice'
+  | 'rank'
+  | 'confession'
+  | 'guess'
+  | 'timed'
+  | 'partner-choice'
+  | 'roleplay'
+  | 'control'
+  | 'private'
+  | 'group'
+  | 'position'
+  | 'masturbation'
+  | 'sex'
 
 export interface Player {
   name: string
@@ -15,6 +31,9 @@ export interface GameCard {
   scenario: Scenario
   heat: Heat
   text: string
+  theme: string
+  mechanic: CardMechanic
+  sexualAction?: boolean
   alcohol?: boolean
 }
 
