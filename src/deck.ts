@@ -1,6 +1,13 @@
 import type { CardType, GameCard, GameSettings, Player, PlayerGender } from './types'
 
 type NameCase = 'nom' | 'gen' | 'dat' | 'acc' | 'ins' | 'prep'
+type ObliqueCase = Exclude<NameCase, 'nom'>
+
+const irregularMaleNames: Record<string, Record<ObliqueCase, string>> = {
+  павел: { gen: 'павла', dat: 'павлу', acc: 'павла', ins: 'павлом', prep: 'павле' },
+  лев: { gen: 'льва', dat: 'льву', acc: 'льва', ins: 'львом', prep: 'льве' },
+  петр: { gen: 'петра', dat: 'петру', acc: 'петра', ins: 'петром', prep: 'петре' },
+}
 
 function preserveCase(original: string, value: string) {
   if (!original) return value
@@ -14,7 +21,7 @@ function femaleName(name: string, grammaticalCase: NameCase) {
   if (grammaticalCase === 'nom') return name
   if (lower.endsWith('ия')) {
     const stem = name.slice(0, -2)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'ии', dat: 'ии', acc: 'ию', ins: 'ией', prep: 'ии',
     }
     return stem + endings[grammaticalCase]
@@ -22,21 +29,21 @@ function femaleName(name: string, grammaticalCase: NameCase) {
   if (lower.endsWith('а')) {
     const stem = name.slice(0, -1)
     const softGen = /[гкхжчшщц]$/i.test(stem)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: softGen ? 'и' : 'ы', dat: 'е', acc: 'у', ins: 'ой', prep: 'е',
     }
     return stem + endings[grammaticalCase]
   }
   if (lower.endsWith('я')) {
     const stem = name.slice(0, -1)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'и', dat: 'е', acc: 'ю', ins: 'ей', prep: 'е',
     }
     return stem + endings[grammaticalCase]
   }
   if (lower.endsWith('ь')) {
     const stem = name.slice(0, -1)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'и', dat: 'и', acc: 'ь', ins: 'ью', prep: 'и',
     }
     return stem + endings[grammaticalCase]
@@ -47,37 +54,48 @@ function femaleName(name: string, grammaticalCase: NameCase) {
 function maleName(name: string, grammaticalCase: NameCase) {
   const lower = name.toLowerCase()
   if (grammaticalCase === 'nom') return name
+
+  const irregular = irregularMaleNames[lower.replaceAll('ё', 'е')]
+  if (irregular) return irregular[grammaticalCase]
+
   if (lower.endsWith('ий')) {
     const stem = name.slice(0, -2)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'ия', dat: 'ию', acc: 'ия', ins: 'ием', prep: 'ии',
+    }
+    return stem + endings[grammaticalCase]
+  }
+  if (lower.endsWith('ей')) {
+    const stem = name.slice(0, -2)
+    const endings: Record<ObliqueCase, string> = {
+      gen: 'ея', dat: 'ею', acc: 'ея', ins: 'еем', prep: 'ее',
     }
     return stem + endings[grammaticalCase]
   }
   if (lower.endsWith('а')) return femaleName(name, grammaticalCase)
   if (lower.endsWith('я')) {
     const stem = name.slice(0, -1)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'и', dat: 'е', acc: 'ю', ins: 'ёй', prep: 'е',
     }
     return stem + endings[grammaticalCase]
   }
   if (lower.endsWith('й')) {
     const stem = name.slice(0, -1)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'я', dat: 'ю', acc: 'я', ins: 'ем', prep: 'е',
     }
     return stem + endings[grammaticalCase]
   }
   if (lower.endsWith('ь')) {
     const stem = name.slice(0, -1)
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'я', dat: 'ю', acc: 'я', ins: 'ем', prep: 'е',
     }
     return stem + endings[grammaticalCase]
   }
   if (/[бвгджзклмнпрстфхцчшщ]$/i.test(lower)) {
-    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+    const endings: Record<ObliqueCase, string> = {
       gen: 'а', dat: 'у', acc: 'а', ins: 'ом', prep: 'е',
     }
     return name + endings[grammaticalCase]
