@@ -1,34 +1,36 @@
-import type { GameCard, SavedSession } from './types'
+import type { GameSettings, PersistedGame } from './types'
 
-const SESSIONS_KEY = 'truth-or-dare-18:sessions:v2'
-const CUSTOM_CARDS_KEY = 'truth-or-dare-18:custom-cards:v2'
+const GAME_KEY = 'bez-filtrov:game:v3'
+const SETTINGS_KEY = 'bez-filtrov:settings:v3'
 
-export function loadSessions(): SavedSession[] {
+export function loadGame(): PersistedGame | null {
   try {
-    const raw = localStorage.getItem(SESSIONS_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as SavedSession[]
-    return Array.isArray(parsed) ? parsed : []
+    const raw = localStorage.getItem(GAME_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PersistedGame
+    return parsed?.settings?.players?.length >= 2 ? parsed : null
   } catch {
-    return []
+    return null
   }
 }
 
-export function saveSessions(sessions: SavedSession[]) {
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.slice(0, 12)))
+export function saveGame(game: PersistedGame) {
+  localStorage.setItem(GAME_KEY, JSON.stringify(game))
 }
 
-export function loadCustomCards(): GameCard[] {
+export function clearGame() {
+  localStorage.removeItem(GAME_KEY)
+}
+
+export function loadSettings(): GameSettings | null {
   try {
-    const raw = localStorage.getItem(CUSTOM_CARDS_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as GameCard[]
-    return Array.isArray(parsed) ? parsed.filter((card) => card.custom) : []
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    return raw ? JSON.parse(raw) as GameSettings : null
   } catch {
-    return []
+    return null
   }
 }
 
-export function saveCustomCards(cards: GameCard[]) {
-  localStorage.setItem(CUSTOM_CARDS_KEY, JSON.stringify(cards.filter((card) => card.custom)))
+export function saveSettings(settings: GameSettings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
 }
