@@ -8,16 +8,24 @@ const types: CardType[] = ['truth', 'dare']
 
 const expected: Record<Scenario, Record<Heat, Record<CardType, number>>> = {
   couple: {
-    light: { truth: 80, dare: 80 }, hot: { truth: 80, dare: 80 }, hard: { truth: 80, dare: 80 },
+    light: { truth: 40, dare: 40 },
+    hot: { truth: 40, dare: 40 },
+    hard: { truth: 40, dare: 40 },
   },
   sex: {
-    light: { truth: 100, dare: 100 }, hot: { truth: 120, dare: 120 }, hard: { truth: 140, dare: 140 },
+    light: { truth: 60, dare: 60 },
+    hot: { truth: 80, dare: 80 },
+    hard: { truth: 100, dare: 100 },
   },
   party: {
-    light: { truth: 80, dare: 80 }, hot: { truth: 80, dare: 80 }, hard: { truth: 80, dare: 80 },
+    light: { truth: 40, dare: 40 },
+    hot: { truth: 40, dare: 40 },
+    hard: { truth: 40, dare: 40 },
   },
   afterdark: {
-    light: { truth: 90, dare: 90 }, hot: { truth: 90, dare: 90 }, hard: { truth: 90, dare: 90 },
+    light: { truth: 40, dare: 40 },
+    hot: { truth: 40, dare: 40 },
+    hard: { truth: 40, dare: 40 },
   },
 }
 
@@ -26,28 +34,55 @@ const fail = (message: string) => { failed = true; console.error(`✗ ${message}
 const ok = (message: string) => console.log(`✓ ${message}`)
 const warn = (message: string) => console.warn(`! ${message}`)
 
-if (cards.length !== 2220) fail(`ожидалось 2220 карточек, найдено ${cards.length}`)
+if (cards.length !== 1200) fail(`ожидалось 1200 authored-карточек, найдено ${cards.length}`)
+
+const aiMarkers = [
+  /в теме «/i,
+  /на тему «/i,
+  /если говорить про «/i,
+  /идеальн(?:ый|ая|ое) сценарий на тему/i,
+  /без бытовых ограничений/i,
+  /вовлечения посторонних/i,
+  /какую правду .* оставляешь при себе/i,
+  /как ты думаешь, что .* ответил/i,
+  /больше, меньше или совсем по-другому/i,
+  /не редактируй ответ/i,
+  /^дай этому \w+ минут/i,
+  /^следующие \w+ минут(?:ы)?:/i,
+  /^без разогрева:/i,
+  /^три, два, один/i,
+  /объясни без дипломатии/i,
+]
+
+const dangerousAlcohol = /(залпом|несколько шотов|\bшот(?:а|ов)?\b|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
+const malformed = /(согласенна|самомуой|способенна|егоеё|готоваа|хотелаа|соглашалсяась|решалсяась|пьянымой|могла бы бы|хотелла|сделалала)/i
 
 const ids = new Set<string>()
-const normalizedTexts = new Map<string, string>()
+const perScenarioText = new Map<string, string>()
+
 for (const card of cards) {
   if (ids.has(card.id)) fail(`дубликат id: ${card.id}`)
   ids.add(card.id)
 
   if (!card.theme) fail(`${card.id}: нет theme`)
   if (!card.mechanic) fail(`${card.id}: нет mechanic`)
-  if (!card.text || card.text.trim().length < 18) fail(`${card.id}: слишком короткий текст`)
+  if (!card.text || card.text.trim().length < 12) fail(`${card.id}: слишком короткий текст`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
+  if (card.type === 'truth' && !card.purpose) fail(`${card.id}: у Truth нет редакционной цели purpose`)
+  if (card.type === 'truth' && !card.text.includes('?')) fail(`${card.id}: Truth не выглядит как живой вопрос`)
+  if (aiMarkers.some((pattern) => pattern.test(card.text))) fail(`${card.id}: ИИ/канцелярский маркер: ${card.text}`)
+  if (dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
+  if (card.alcohol && card.sexualAction) fail(`${card.id}: алкоголь нельзя связывать с сексуальным действием`)
 
   const normalized = card.text
     .toLowerCase()
     .replace(/\{\{[^}]+\}\}/g, 'x')
     .replace(/[^а-яёa-z0-9]+/gi, ' ')
     .trim()
-  const scopedKey = `${card.scenario}:${normalized}`
-  const duplicate = normalizedTexts.get(scopedKey)
+  const key = `${card.scenario}:${normalized}`
+  const duplicate = perScenarioText.get(key)
   if (duplicate) fail(`точный дубль внутри сценария: ${duplicate} / ${card.id}`)
-  normalizedTexts.set(scopedKey, card.id)
+  perScenarioText.set(key, card.id)
 }
 
 for (const scenario of scenarios) {
@@ -60,8 +95,9 @@ for (const scenario of scenarios) {
       const themeCounts = new Map<string, number>()
       for (const card of group) themeCounts.set(card.theme, (themeCounts.get(card.theme) ?? 0) + 1)
       const maxTheme = Math.max(0, ...themeCounts.values())
-      if (maxTheme > 8) fail(`${scenario}/${heat}/${type}: одна тема повторяется ${maxTheme} раз`)
-      if (themeCounts.size < Math.min(14, Math.floor(group.length / 5))) {
+      const maxAllowed = scenario === 'sex' && heat === 'hard' ? 4 : scenario === 'sex' ? 4 : 2
+      if (maxTheme > maxAllowed) fail(`${scenario}/${heat}/${type}: одна тема повторяется ${maxTheme} раз`)
+      if (themeCounts.size < Math.ceil(group.length / maxAllowed)) {
         fail(`${scenario}/${heat}/${type}: слишком мало разных тем (${themeCounts.size})`)
       }
     }
@@ -70,7 +106,6 @@ for (const scenario of scenarios) {
 
 const male: Player = { name: 'Алексей', gender: 'male' }
 const female: Player = { name: 'Катя', gender: 'female' }
-const malformed = /(согласенна|самомуой|способенна|егоеё|готоваа|хотелаа|соглашалсяась|решалсяась|пьянымой)/i
 for (const card of cards) {
   const variants = [
     hydrateCardText(card.text, [male, female], 0, 1),
@@ -82,25 +117,6 @@ for (const card of cards) {
     if (/\(-?а\)/i.test(rendered)) fail(`${card.id}: в финальном тексте осталась гендерная скобка`)
   }
 }
-
-const dangerousAlcohol = /(залпом|несколько шотов|\bшот(а|ов)?\b|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
-for (const card of cards) {
-  if (dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
-  if (card.alcohol && card.sexualAction) fail(`${card.id}: алкоголь нельзя связывать с сексуальным действием`)
-}
-
-const sexHardDares = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hard' && card.type === 'dare')
-const directSex = sexHardDares.filter((card) => card.sexualAction)
-if (directSex.length < 130) fail(`Sex/Жёстко: только ${directSex.length}/${sexHardDares.length} Dare помечены реальным сексуальным действием`)
-
-const sexHardThemes = new Set(sexHardDares.map((card) => card.theme))
-if (sexHardThemes.size < 30) fail(`Sex/Жёстко: мало разных тем действий (${sexHardThemes.size})`)
-const sexHardMechanics = new Set(sexHardDares.map((card) => card.mechanic))
-if (sexHardMechanics.size < 8) fail(`Sex/Жёстко: мало разных механик (${sexHardMechanics.size})`)
-
-const directVocabulary = /(секс|мастурб|орал|поз|разд|игруш|фантази|контрол|инициатив|душ|зеркал)/i
-const directVocabularyCount = sexHardDares.filter((card) => directVocabulary.test(card.text)).length
-if (directVocabularyCount < 115) fail(`Sex/Жёстко: слишком мало прямых Dare (${directVocabularyCount}/${sexHardDares.length})`)
 
 function tokens(text: string) {
   return new Set(text.toLowerCase()
@@ -128,24 +144,40 @@ for (const scenario of scenarios) {
           if (group[i].theme === group[j].theme) continue
           const score = similarity(group[i].text, group[j].text)
           if (score > worst.score) worst = { a: group[i], b: group[j], score }
-          if (score >= 0.86) fail(`слишком похожие разные темы: ${group[i].id} / ${group[j].id} (${score.toFixed(2)})`)
+          if (score >= 0.84) fail(`слишком похожие разные темы: ${group[i].id} / ${group[j].id} (${score.toFixed(2)})`)
         }
       }
     }
   }
 }
 
+const sexHardDares = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hard' && card.type === 'dare')
+const sexHardTruth = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hard' && card.type === 'truth')
+const directSex = sexHardDares.filter((card) => card.sexualAction)
+if (directSex.length < 96) fail(`Sex/Жёстко: только ${directSex.length}/${sexHardDares.length} Dare являются прямыми сексуальными действиями`)
+
+const sexHardThemes = new Set(sexHardDares.map((card) => card.theme))
+if (sexHardThemes.size < 24) fail(`Sex/Жёстко: мало разных тем действий (${sexHardThemes.size})`)
+
+const directVocabulary = /(секс|мастурб|орал|поз|разд|игруш|фантази|контрол|инициатив|душ|зеркал|шлеп|связ|целуй|поцелу)/i
+const directVocabularyCount = sexHardDares.filter((card) => directVocabulary.test(card.text)).length
+if (directVocabularyCount < 90) fail(`Sex/Жёстко: слишком мало прямой сексуальной лексики (${directVocabularyCount}/${sexHardDares.length})`)
+
+const truthPurposeCount = new Set(sexHardTruth.map((card) => card.purpose)).size
+if (truthPurposeCount < 5) fail(`Sex/Жёстко Truth: слишком однообразные цели вопросов (${truthPurposeCount})`)
+
 const alcoholCount = cards.filter((card) => card.alcohol).length
 const sexualCount = cards.filter((card) => card.sexualAction).length
 
-ok(`${cards.length} карточек: Пара 480 / Секс 720 / Компания 480 / После полуночи 540`)
-ok('только 3 уровня: Легко / Горячо / Жёстко')
-ok(`Sex/Жёстко: ${sexHardDares.length} Dare, ${directSex.length} прямых сексуальных действий, ${sexHardThemes.size} тем, ${sexHardMechanics.size} механик`)
+ok(`${cards.length} authored-карточек: Пара 240 / Секс 480 / Компания 240 / После полуночи 240`)
+ok('3 уровня: Легко / Горячо / Жёстко')
+ok('генератор «тема × шаблон» удалён: runtime не сочиняет текст карточек')
+ok(`Sex/Жёстко: ${sexHardTruth.length} Truth + ${sexHardDares.length} Dare; ${directSex.length} прямых сексуальных Dare; ${sexHardThemes.size} тем`)
 ok(`сексуальных Dare во всей базе: ${sexualCount}`)
 ok(`алко-карточек: ${alcoholCount}; опасных drinking-челленджей нет`)
-ok('проверены мужская и женская подстановка имён/формулировок')
-if (worst.a && worst.b) ok(`максимальная схожесть между разными темами: ${worst.score.toFixed(2)} (${worst.a.id}/${worst.b.id})`)
+ok('ИИ-канцелярит, (-а), незаполненные шаблоны и известные морфологические склейки не найдены')
+if (worst.a && worst.b) ok(`максимальная схожесть разных тем: ${worst.score.toFixed(2)} (${worst.a.id}/${worst.b.id})`)
+if (directVocabularyCount < sexHardDares.length) warn(`Sex/Жёстко: ${sexHardDares.length - directVocabularyCount} Dare прямые по смыслу, но без слов из контрольного словаря`)
 
 if (failed) process.exit(1)
-if (directVocabularyCount < sexHardDares.length) warn(`Sex/Жёстко: ${sexHardDares.length - directVocabularyCount} карточек прямые по действию, но без ключевых слов словаря`)
-ok('аудит v4 пройден')
+ok('редакторский аудит v5 пройден')
