@@ -50,32 +50,39 @@ export function buildTruthDeck(args: {
   topics: TruthTopic[]
   patterns: TruthPattern[]
 }) {
-  const candidates = args.topics.flatMap((topic) =>
-    args.patterns.map((pattern) => ({
-      text: pattern.render(topic),
-      theme: topic.id,
-      mechanic: pattern.mechanic,
-      alcohol: topic.alcohol,
-      key: `${topic.id}:${pattern.id}`,
-    })),
-  )
-
-  if (candidates.length < args.count) {
-    throw new Error(`${args.scenario}/${args.heat}/truth: need ${args.count}, have ${candidates.length}`)
+  if (args.topics.length * args.patterns.length < args.count) {
+    throw new Error(`${args.scenario}/${args.heat}/truth: need ${args.count}, have only ${args.topics.length * args.patterns.length} combinations`)
   }
 
-  return deterministicOrder(candidates, (item) => item.key, `${args.scenario}:${args.heat}:truth`)
-    .slice(0, args.count)
-    .map<GameCard>((item, index) => ({
-      id: buildId(args.scenario, args.heat, 'truth', index),
-      scenario: args.scenario,
-      heat: args.heat,
-      type: 'truth',
-      text: item.text,
-      theme: item.theme,
-      mechanic: item.mechanic,
-      alcohol: item.alcohol,
-    }))
+  const topics = deterministicOrder(args.topics, (topic) => topic.id, `${args.scenario}:${args.heat}:topics`)
+  const patterns = deterministicOrder(args.patterns, (pattern) => pattern.id, `${args.scenario}:${args.heat}:patterns`)
+  const selected: Array<{ text: string; theme: string; mechanic: CardMechanic; alcohol?: boolean }> = []
+
+  let round = 0
+  while (selected.length < args.count) {
+    for (let topicIndex = 0; topicIndex < topics.length && selected.length < args.count; topicIndex += 1) {
+      const topic = topics[topicIndex]
+      const pattern = patterns[(round + topicIndex) % patterns.length]
+      selected.push({
+        text: pattern.render(topic),
+        theme: topic.id,
+        mechanic: pattern.mechanic,
+        alcohol: topic.alcohol,
+      })
+    }
+    round += 1
+  }
+
+  return selected.map<GameCard>((item, index) => ({
+    id: buildId(args.scenario, args.heat, 'truth', index),
+    scenario: args.scenario,
+    heat: args.heat,
+    type: 'truth',
+    text: item.text,
+    theme: item.theme,
+    mechanic: item.mechanic,
+    alcohol: item.alcohol,
+  }))
 }
 
 export function buildDareDeck(args: {
