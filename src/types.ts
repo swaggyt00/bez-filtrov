@@ -9,7 +9,7 @@ export type CardMechanic =
   | 'choice'
   | 'rank'
   | 'confession'
-  | 'guess'
+  | 'story'
   | 'timed'
   | 'partner-choice'
   | 'roleplay'
@@ -19,6 +19,15 @@ export type CardMechanic =
   | 'position'
   | 'masturbation'
   | 'sex'
+
+export type TruthPurpose =
+  | 'desire'
+  | 'confession'
+  | 'experience'
+  | 'choice'
+  | 'conflict'
+  | 'compatibility'
+  | 'story'
 
 export interface Player {
   name: string
@@ -33,6 +42,7 @@ export interface GameCard {
   text: string
   theme: string
   mechanic: CardMechanic
+  purpose?: TruthPurpose
   sexualAction?: boolean
   alcohol?: boolean
 }
