@@ -12,6 +12,13 @@ function preserveCase(original: string, value: string) {
 function femaleName(name: string, grammaticalCase: NameCase) {
   const lower = name.toLowerCase()
   if (grammaticalCase === 'nom') return name
+  if (lower.endsWith('ия')) {
+    const stem = name.slice(0, -2)
+    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+      gen: 'ии', dat: 'ии', acc: 'ию', ins: 'ией', prep: 'ии',
+    }
+    return stem + endings[grammaticalCase]
+  }
   if (lower.endsWith('а')) {
     const stem = name.slice(0, -1)
     const softGen = /[гкхжчшщц]$/i.test(stem)
@@ -40,6 +47,13 @@ function femaleName(name: string, grammaticalCase: NameCase) {
 function maleName(name: string, grammaticalCase: NameCase) {
   const lower = name.toLowerCase()
   if (grammaticalCase === 'nom') return name
+  if (lower.endsWith('ий')) {
+    const stem = name.slice(0, -2)
+    const endings: Record<Exclude<NameCase, 'nom'>, string> = {
+      gen: 'ия', dat: 'ию', acc: 'ия', ins: 'ием', prep: 'ии',
+    }
+    return stem + endings[grammaticalCase]
+  }
   if (lower.endsWith('а')) return femaleName(name, grammaticalCase)
   if (lower.endsWith('я')) {
     const stem = name.slice(0, -1)
