@@ -1,17 +1,13 @@
 {
-  "name": "truth-or-dare-18",
+  "name": "bez-filtrov",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "prepare:source": "node scripts/prepare-source.mjs",
-    "predev": "npm run prepare:source",
     "dev": "vite",
-    "prebuild": "npm run prepare:source",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "audit:cards": "node scripts/audit-cards.mjs",
-    "precheck": "npm run prepare:source",
     "check": "npm run audit:cards && tsc -b"
   },
   "dependencies": {
