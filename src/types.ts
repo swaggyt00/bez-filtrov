@@ -7,6 +7,7 @@ export type CardMechanic = 'standard' | 'choice' | 'scale' | 'guess' | 'simultan
 export type BoundaryTopic = 'exes' | 'infidelity' | 'thirdPerson' | 'comparison' | 'toys' | 'alcohol' | 'public' | 'jealousy' | 'explicitSex' | 'future'
 export type CardOutcome = 'completed' | 'skipped' | 'rerolled'
 export type SpecialRound = 'boss' | 'duo' | null
+export type PlayerGender = 'male' | 'female' | 'unspecified'
 
 export interface GameCard {
   id: string
@@ -23,6 +24,7 @@ export interface GameCard {
 
 export interface GameSettings {
   players: string[]
+  playerGenders: PlayerGender[]
   relationship: Relationship
   intensity: number
   intensityStyle: IntensityStyle
