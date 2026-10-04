@@ -1,8 +1,8 @@
 import type { GameSettings, Heat, PersistedGame } from './types'
 
-const GAME_KEY = 'bez-filtrov:game:v4'
-const SETTINGS_KEY = 'bez-filtrov:settings:v4'
-const OLD_SETTINGS_KEY = 'bez-filtrov:settings:v3'
+const GAME_KEY = 'bez-filtrov:game:v5'
+const SETTINGS_KEY = 'bez-filtrov:settings:v5'
+const OLD_SETTINGS_KEYS = ['bez-filtrov:settings:v4', 'bez-filtrov:settings:v3']
 
 function normalizeHeat(value: unknown): Heat {
   if (value === 'light' || value === 'hot' || value === 'hard') return value
@@ -49,11 +49,16 @@ export function loadSettings(): GameSettings | null {
     const current = localStorage.getItem(SETTINGS_KEY)
     if (current) return normalizeSettings(JSON.parse(current))
 
-    const old = localStorage.getItem(OLD_SETTINGS_KEY)
-    if (!old) return null
-    const migrated = normalizeSettings(JSON.parse(old))
-    if (migrated) localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated))
-    return migrated
+    for (const key of OLD_SETTINGS_KEYS) {
+      const old = localStorage.getItem(key)
+      if (!old) continue
+      const migrated = normalizeSettings(JSON.parse(old))
+      if (migrated) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated))
+        return migrated
+      }
+    }
+    return null
   } catch {
     return null
   }
