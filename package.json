@@ -1,13 +1,13 @@
 {
   "name": "bez-filtrov",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "audit:cards": "node scripts/audit-cards.mjs",
+    "audit:cards": "tsx scripts/audit-cards.ts",
     "check": "npm run audit:cards && tsc -b"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "tsx": "latest"
   }
 }
