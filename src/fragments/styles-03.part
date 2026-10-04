@@ -1,0 +1,19 @@
+
+.player-fields { display: grid; gap: 7px; min-width: 0; }
+.gender-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.gender-toggle button {
+  min-height: 34px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 11px;
+  background: rgba(255,255,255,.045);
+  color: rgba(255,255,255,.48);
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.gender-toggle button.active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(255,54,127,.18), rgba(155,82,255,.16));
+  border-color: rgba(255,101,160,.58);
+}
+.gender-toggle button:focus-visible { outline: 2px solid #ff75ac; outline-offset: 2px; }
