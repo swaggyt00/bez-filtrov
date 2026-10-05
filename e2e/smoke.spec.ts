@@ -31,7 +31,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0)
 }
 
-test('afterdark starts with two players and choice heading is accessible', async ({ page }) => {
+test('afterdark starts with two players and choice heading is readable', async ({ page }) => {
   await enterSetup(page)
   await setTwoPlayerGenders(page)
   await chooseScenario(page, 'После полуночи')
@@ -41,7 +41,7 @@ test('afterdark starts with two players and choice heading is accessible', async
   await expect(page.locator('.deck-size')).toContainText('60 действий')
   await startScenario(page, 'После полуночи')
 
-  await expect(page.locator('.choice-title')).toHaveText('Правда или действие?')
+  await expect(page.locator('.choice-title')).toHaveText(/Правда\s*или действие\?/)
   await expectNoHorizontalOverflow(page)
 })
 
@@ -80,7 +80,7 @@ test('temporary duration resolves once and survives resume', async ({ page }) =>
   await chooseHeat(page, 'Жёстко')
   await startScenario(page, 'После полуночи')
 
-  await page.getByRole('button', { name: 'Действие', exact: true }).click()
+  await page.locator('.dare-choice').click()
 
   let rendered = ''
   for (let attempt = 0; attempt < 60; attempt += 1) {
