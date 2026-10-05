@@ -1,9 +1,9 @@
-import { sexLightCards } from './authored-sex-light'
-import { sexHotCards } from './authored-sex-hot'
-import { sexHardCards } from './authored-sex-hard'
+import { sexLightV08Cards } from './v08/sex-light'
+import { sexHotV08Cards } from './v08/sex-hot'
+import { sexHardV08Cards } from './v08/sex-hard'
 
 export const sexCards = [
-  ...sexLightCards,
-  ...sexHotCards,
-  ...sexHardCards,
+  ...sexLightV08Cards,
+  ...sexHotV08Cards,
+  ...sexHardV08Cards,
 ]
