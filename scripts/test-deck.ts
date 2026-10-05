@@ -146,6 +146,15 @@ assert.ok(!rendered.includes('{{'))
 assert.ok(rendered.includes('Катя'))
 assert.ok(rendered.includes('2 круга') || rendered.includes('3 круга') || rendered.includes('1 круг'))
 
+const genderVariantCard = {
+  ...duoOk,
+  text: '{{other.nom}} {{other.g:согласен|согласна}}, а {{self.nom}} {{self.g:готов|готова}}.',
+} as GameCard
+const maleToFemale = deck.renderCardText(genderVariantCard, [male, female], 0, 1)
+const femaleToMale = deck.renderCardText(genderVariantCard, [male, female], 1, 0)
+assert.equal(maleToFemale, 'Катя согласна, а Алексей готов.')
+assert.equal(femaleToMale, 'Алексей согласен, а Катя готова.')
+
 const renderedForPersistence = deck.renderCardText(hardDuration, [male, female], 0, 1, () => 0.999999)
 const persistedSnapshot = JSON.parse(JSON.stringify({ renderedText: renderedForPersistence })) as { renderedText: string }
 assert.ok(!persistedSnapshot.renderedText.includes('{{duration}}'), 'persisted text must contain a resolved duration')
