@@ -218,8 +218,21 @@ function semanticKey(card: GameCard) {
   return card.coreIdea || card.theme
 }
 
-function interactionKey(card: GameCard): CardInteraction | string {
+export function gameplayInteractionKey(card: GameCard): CardInteraction | string {
+  if (card.type !== 'dare') return card.interaction || card.mechanic
+
+  const text = card.text.toLowerCase()
+  if (/(телефон|заметк|экран|галере|соцсет|эмодзи|календар|карт[аеуы]|сообщени)/i.test(text)) return 'device'
+  if (/(поцел|массаж|прикос|обним|ласк|колен|ладон|запяст|касани|целуй)/i.test(text)) return 'physical'
+  if (/(стоп[- ]?(?:жест|сигнал|слово)|контрол|команд|ведущ|ведом|дистанц|границ|шкал[аеуы]|темп|давлени)/i.test(text)) return 'control'
+  if (/(танц|поз[аеуы]|изобраз|сыграй|сыграйте|разыграй|сцен[аеуы]|рол[ьи]|парод|реклам|напой|подиум|стоп-кадр)/i.test(text)) return 'performance'
+  if (/(группа|остальные|все одновременно|по кругу|игрок справа|игрок слева)/i.test(text)) return 'group-reaction'
+  if (/(выбери игрока|согласн(?:ого|ый) игрок|\{\{other\.)/i.test(text)) return 'partner-choice'
   return card.interaction || card.mechanic
+}
+
+function interactionKey(card: GameCard): CardInteraction | string {
+  return gameplayInteractionKey(card)
 }
 
 export function pickCardForTurn(
