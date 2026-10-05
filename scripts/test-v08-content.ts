@@ -59,4 +59,14 @@ for (const heat of ['light', 'hot', 'hard'] as const) {
   for (const card of [...truths, ...dares]) assertGroundedCard(card)
 }
 
+for (const heat of ['light', 'hot', 'hard'] as const) {
+  const truths = bucket('afterdark', heat, 'truth')
+  const dares = bucket('afterdark', heat, 'dare')
+  assert.equal(truths.length, 60, `afterdark/${heat}/truth count`)
+  assert.equal(dares.length, 60, `afterdark/${heat}/dare count`)
+  for (const card of [...truths, ...dares]) assertGroundedCard(card)
+  assert.ok(truths.filter((card) => !card.minPlayers || card.minPlayers <= 2).length >= 42, `afterdark/${heat}/truth two-player coverage`)
+  assert.ok(dares.filter((card) => !card.minPlayers || card.minPlayers <= 2).length >= 42, `afterdark/${heat}/dare two-player coverage`)
+}
+
 console.log('✓ v0.8 content corpus checks passed')
