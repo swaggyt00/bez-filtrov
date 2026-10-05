@@ -158,4 +158,4 @@ React · TypeScript · Vite · GitHub Actions · GitHub Pages · Web Audio API
 
 ## Статус
 
-**v0.6 — role-aware content overhaul / work in progress.**
+**v0.6 — role-aware content overhaul / browser QA in progress.**
