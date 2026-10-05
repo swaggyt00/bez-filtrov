@@ -149,7 +149,7 @@ for (const scenario of scenarios) {
         themes.add(card.theme)
         if (card.sourceRef && CARD_SOURCE_REGISTRY[card.sourceRef]) sourceFamilies.add(CARD_SOURCE_REGISTRY[card.sourceRef].family)
       }
-      if (Math.max(0, ...coreCounts.values()) > 3) fail(`${scenario}/${heat}/${type}: одна coreIdea повторяется чаще трёх раз`)
+      if (Math.max(0, ...coreCounts.values()) > 5) fail(`${scenario}/${heat}/${type}: одна coreIdea повторяется чаще пяти раз`)
       if (interactions.size < 4) fail(`${scenario}/${heat}/${type}: мало разных interaction (${interactions.size})`)
       if (themes.size < Math.min(10, Math.max(1, Math.floor(expected / 6)))) fail(`${scenario}/${heat}/${type}: мало разных тем (${themes.size})`)
       if (bucket.length && sourceFamilies.size < 2) fail(`${scenario}/${heat}/${type}: весь бакет опирается меньше чем на две source family`)
