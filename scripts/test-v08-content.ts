@@ -37,4 +37,18 @@ for (const heat of ['light', 'hot', 'hard'] as const) {
   for (const card of [...truths, ...dares]) assertGroundedCard(card)
 }
 
+const sexExpected: Record<Heat, number> = { light: 60, hot: 70, hard: 80 }
+for (const heat of ['light', 'hot', 'hard'] as const) {
+  const truths = bucket('sex', heat, 'truth')
+  const dares = bucket('sex', heat, 'dare')
+  assert.equal(truths.length, sexExpected[heat], `sex/${heat}/truth count`)
+  assert.equal(dares.length, sexExpected[heat], `sex/${heat}/dare count`)
+  for (const card of [...truths, ...dares]) assertGroundedCard(card)
+  if (heat === 'hard') {
+    for (const card of dares.filter((item) => item.sexualAction)) {
+      assert.ok(Boolean(card.scene?.endCondition), `${card.id}: bounded sexualAction requires scene.endCondition`)
+    }
+  }
+}
+
 console.log('✓ v0.8 content corpus checks passed')
