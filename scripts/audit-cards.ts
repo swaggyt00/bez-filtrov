@@ -54,7 +54,7 @@ const dangerousAlcohol = /(залпом|несколько шотов|пей п�
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
 const speechOnlyDare = [
   /^(?:расскажи|опиши|назови|объясни|сформулируй|ответь|вспомни|перечисли|оцени|признайся|поделись|перескажи)(?=\s|[.,;:!?—-]|$)/i,
-  /^выбери[^.!?]{0,120}(?:назови|объясни|оцени)(?=\s|[.,;:!?—-]|$)/i,
+  /^выбери[^.!?]{0,160}(?:назови|объясни|оцени|расскажи)(?=\s|[.,;:!?—-]|$)/i,
   /(?:^|\s)мини-дебат/i,
   /(?:^|\s)защити позицию(?=\s|[.,;:!?—-]|$)/i,
   /(?:^|\s)назови три аргумента(?=\s|[.,;:!?—-]|$)/i,
@@ -95,6 +95,8 @@ const dareSpeechSelfChecks = [
   { text: 'Расскажи историю за двадцать секунд.', bad: true },
   { text: 'Назови три причины.', bad: true },
   { text: 'Выбери игрока и объясни свой выбор.', bad: true },
+  { text: 'Выбери {{other.acc}} и назови одну деталь одежды.', bad: true },
+  { text: 'Выбери жест и ответь тем же жестом прямо сейчас.', bad: false },
   { text: 'Выбери игрока и удерживай взгляд пятнадцать секунд.', bad: false },
   { text: 'Станцуй двадцать секунд.', bad: false },
 ]
@@ -171,7 +173,7 @@ for (const card of cards) {
   if (/сними (?:свой )?(?:лифчик|бюстгальтер)/i.test(card.text) && !card.actorGenders?.includes('female')) {
     fail(`${card.id}: собственный лифчик требует female actor metadata`)
   }
-  if (card.type === 'dare' && speechOnlyDare.some((pattern) => pattern.test(card.text))) {
+  if (card.type === 'dare' && speechOnlyDare.some((pattern) => pattern.test(card.text.replace(/\{\{[^}]+\}\}/g, 'PLAYER')))) {
     fail(`${card.id}: Dare сводится к разговору вместо игрового действия: ${card.text}`)
   }
   if (card.type === 'truth' && !card.text.trim().endsWith('?')) fail(`${card.id}: Truth должен быть явным вопросом: ${card.text}`)
