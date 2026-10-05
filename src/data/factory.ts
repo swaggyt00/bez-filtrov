@@ -1,10 +1,30 @@
-import type { CardMechanic, CardType, GameCard, Heat, Scenario, TruthPurpose } from '../types'
+import type {
+  CardInteraction,
+  CardMechanic,
+  CardScene,
+  CardType,
+  GameCard,
+  Heat,
+  PairingRule,
+  PlayerGender,
+  Scenario,
+  TruthPurpose,
+} from '../types'
 
-export interface AuthoredGroup {
+export interface AuthoredCardSeed {
+  text: string
   theme: string
+  coreIdea: string
   mechanic: CardMechanic
-  texts: string[]
+  interaction: CardInteraction
   purpose?: TruthPurpose
+  actorGenders?: PlayerGender[]
+  targetGenders?: PlayerGender[]
+  actorRole?: string
+  targetRole?: string
+  pairing?: PairingRule
+  requiresTarget?: boolean
+  scene?: CardScene
   sexualAction?: boolean
   alcohol?: boolean
 }
@@ -13,42 +33,35 @@ function buildId(scenario: Scenario, heat: Heat, type: CardType, index: number) 
   return `${scenario}-${heat}-${type}-${String(index + 1).padStart(3, '0')}`
 }
 
-export function group(
+export function authored(
+  text: string,
   theme: string,
+  coreIdea: string,
   mechanic: CardMechanic,
-  texts: string[],
-  options: Pick<AuthoredGroup, 'purpose' | 'sexualAction' | 'alcohol'> = {},
-): AuthoredGroup {
-  return { theme, mechanic, texts, ...options }
+  interaction: CardInteraction,
+  options: Omit<AuthoredCardSeed, 'text' | 'theme' | 'coreIdea' | 'mechanic' | 'interaction'> = {},
+): AuthoredCardSeed {
+  return {
+    text: text.trim(),
+    theme,
+    coreIdea,
+    mechanic,
+    interaction,
+    ...options,
+  }
 }
 
 export function authoredDeck(args: {
   scenario: Scenario
   heat: Heat
   type: CardType
-  groups: AuthoredGroup[]
+  cards: AuthoredCardSeed[]
 }) {
-  const entries = args.groups.flatMap((item) =>
-    item.texts.map((text) => ({
-      text: text.trim(),
-      theme: item.theme,
-      mechanic: item.mechanic,
-      purpose: item.purpose,
-      sexualAction: item.sexualAction,
-      alcohol: item.alcohol,
-    })),
-  )
-
-  return entries.map<GameCard>((item, index) => ({
+  return args.cards.map<GameCard>((item, index) => ({
     id: buildId(args.scenario, args.heat, args.type, index),
     scenario: args.scenario,
     heat: args.heat,
     type: args.type,
-    text: item.text,
-    theme: item.theme,
-    mechanic: item.mechanic,
-    purpose: item.purpose,
-    sexualAction: item.sexualAction,
-    alcohol: item.alcohol,
+    ...item,
   }))
 }

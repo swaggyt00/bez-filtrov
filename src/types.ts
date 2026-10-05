@@ -3,6 +3,8 @@ export type Scenario = 'couple' | 'sex' | 'party' | 'afterdark'
 export type Heat = 'light' | 'hot' | 'hard'
 export type PlayerGender = 'male' | 'female'
 export type GameStage = 'choice' | 'card'
+export type PairingPreference = 'male' | 'female' | 'any' | 'none'
+export type PairingRule = 'none' | 'any' | 'mutual-close'
 
 export type CardMechanic =
   | 'direct'
@@ -23,6 +25,28 @@ export type CardMechanic =
   | 'position'
   | 'masturbation'
   | 'sex'
+  | 'physical'
+  | 'embarrassment'
+  | 'social'
+  | 'clothing'
+  | 'alcohol'
+
+export type CardInteraction =
+  | 'conversation'
+  | 'confession'
+  | 'humor'
+  | 'flirt'
+  | 'physical'
+  | 'intimate-choice'
+  | 'tension'
+  | 'social-choice'
+  | 'group-reaction'
+  | 'embarrassment'
+  | 'clothing'
+  | 'alcohol'
+  | 'roleplay'
+  | 'control'
+  | 'sexual-scene'
 
 export type TruthPurpose =
   | 'desire'
@@ -32,10 +56,21 @@ export type TruthPurpose =
   | 'conflict'
   | 'compatibility'
   | 'story'
+  | 'curiosity'
+  | 'values'
 
 export interface Player {
   name: string
   gender: PlayerGender
+  pairingPreference?: PairingPreference
+}
+
+export interface CardScene {
+  kind?: string
+  hook?: string
+  objective?: string
+  endCondition: string
+  props?: string[]
 }
 
 export interface GameCard {
@@ -47,6 +82,15 @@ export interface GameCard {
   theme: string
   mechanic: CardMechanic
   purpose?: TruthPurpose
+  coreIdea?: string
+  interaction?: CardInteraction
+  actorGenders?: PlayerGender[]
+  targetGenders?: PlayerGender[]
+  actorRole?: string
+  targetRole?: string
+  pairing?: PairingRule
+  requiresTarget?: boolean
+  scene?: CardScene
   sexualAction?: boolean
   alcohol?: boolean
 }
@@ -55,8 +99,8 @@ export interface GameSettings {
   players: Player[]
   scenario: Scenario
   heat: Heat
-  alcoholCards: boolean
-  soundEnabled: boolean
+  alcoholCards?: boolean
+  soundEnabled?: boolean
 }
 
 export interface PersistedGame {
