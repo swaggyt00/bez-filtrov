@@ -69,4 +69,8 @@ for (const heat of ['light', 'hot', 'hard'] as const) {
   assert.ok(dares.filter((card) => !card.minPlayers || card.minPlayers <= 2).length >= 42, `afterdark/${heat}/dare two-player coverage`)
 }
 
+const firstImpression = cards.filter((card) => card.scenario === 'couple' && card.heat === 'light' && card.theme === 'first-impression')
+assert.ok(firstImpression.length >= 6, 'first-impression family should include both Truth and Dare variants')
+assert.equal(new Set(firstImpression.map((card) => card.coreIdea)).size, 1, 'cards from one semantic family must share coreIdea so runtime anti-repeat can suppress near-repeats')
+
 console.log('✓ v0.8 content corpus checks passed')
