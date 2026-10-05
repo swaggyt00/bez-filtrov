@@ -1,7 +1,7 @@
 {
   "name": "bez-filtrov",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test:deck": "tsx scripts/test-deck.ts && tsx scripts/test-v08-content.ts",
     "audit:cards": "tsx scripts/audit-cards.ts",
+    "test:e2e": "npm run build && playwright test",
     "test": "npm run test:deck && npm run audit:cards",
     "check": "npm test && tsc -b"
   },
@@ -20,6 +21,7 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "tsx": "latest"
