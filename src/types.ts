@@ -6,6 +6,14 @@ export type GameStage = 'choice' | 'card'
 export type PairingPreference = 'male' | 'female' | 'any' | 'none'
 export type PairingRule = 'none' | 'any' | 'mutual-close'
 export type DurationValue = '1 круг' | '2 круга' | '3 круга' | 'до конца игры'
+export type CardSourceRef =
+  | 'foreplay-guide'
+  | 'foreplay-free-game'
+  | 'smush-couples-bank'
+  | 'wargamer-spicy-bank'
+  | 'xdares-dirty-bank'
+  | 'xdares-adult-bank'
+  | 'spiced-couple-bank'
 
 export type CardMechanic =
   | 'direct'
@@ -96,6 +104,7 @@ export interface GameCard {
   alcohol?: boolean
   minPlayers?: number
   duration?: 'temporary'
+  sourceRef?: CardSourceRef
 }
 
 export interface GameSettings {

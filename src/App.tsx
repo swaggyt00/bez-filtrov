@@ -452,7 +452,7 @@ function App() {
         {stage === 'choice' ? (
           <div className="choice-panel">
             <p className="choice-kicker">твой выбор</p>
-            <h2 className="choice-title">Правда<br />или действие?</h2>
+            <h2 className="choice-title">Правда<br />{' '}или действие?</h2>
             <div className="choice-buttons">
               <button type="button" className="truth-choice" onClick={() => choose('truth')}><span>П</span><strong>Правда</strong><small>отвечай прямо</small></button>
               <button type="button" className="dare-choice" onClick={() => choose('dare')}><span>Д</span><strong>Действие</strong><small>сделай сейчас</small></button>
