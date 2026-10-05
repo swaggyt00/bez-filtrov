@@ -31,7 +31,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0)
 }
 
-test('afterdark starts with two players and choice heading is readable', async ({ page }) => {
+test('afterdark starts with two players and choice heading has a natural accessible name', async ({ page }) => {
   await enterSetup(page)
   await setTwoPlayerGenders(page)
   await chooseScenario(page, 'После полуночи')
@@ -41,7 +41,7 @@ test('afterdark starts with two players and choice heading is readable', async (
   await expect(page.locator('.deck-size')).toContainText('60 действий')
   await startScenario(page, 'После полуночи')
 
-  await expect(page.locator('.choice-title')).toHaveText(/Правда\s*или действие\?/)
+  await expect(page.locator('.choice-title')).toHaveAccessibleName('Правда или действие?')
   await expectNoHorizontalOverflow(page)
 })
 
