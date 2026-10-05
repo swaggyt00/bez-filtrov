@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:deck": "tsx scripts/test-deck.ts",
+    "test:deck": "tsx scripts/test-deck.ts && tsx scripts/test-v08-content.ts",
     "audit:cards": "tsx scripts/audit-cards.ts",
     "test": "npm run test:deck && npm run audit:cards",
     "check": "npm test && tsc -b"
