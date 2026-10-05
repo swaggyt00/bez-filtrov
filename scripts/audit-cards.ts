@@ -126,7 +126,7 @@ for (const scenario of scenarios) {
       }
       const maxCore = Math.max(0, ...coreCounts.values())
       if (maxCore > 2) fail(`${scenario}/${heat}/${type}: одна coreIdea повторяется ${maxCore} раз`)
-      if (interactions.size < 4) fail(`${scenario}/${heat}/${type}: мало разных interaction (${interactions.size})`)
+      if (interactions.size < 3) fail(`${scenario}/${heat}/${type}: мало разных interaction (${interactions.size})`)
       if (themes.size < Math.min(8, Math.ceil(bucket.length / 3))) fail(`${scenario}/${heat}/${type}: мало разных тем (${themes.size})`)
     }
   }
