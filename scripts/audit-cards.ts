@@ -53,6 +53,8 @@ const vagueReferents = [
 const dangerousAlcohol = /(залпом|несколько шотов|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
 const firstPersonOpponentVoice = /(?<![а-яё])(?:я|меня|мне|мной|мною|мой|моя|моё|мое|мои|моего|моей|моему|моим|моими|моих)(?![а-яё])/i
+const masculineCurrentPlayerVoice = /(?<![а-яё])ты(?=[^.!?]{0,80}(?:совершал|отправил|искал|сходил|попробовал|выбрал|описал|понял|узнал|предлагал|стал|поставил|доверил|пропустил|предпочёл|начинал|заказал|заменил|ответил|чувствовал|хотел|стеснялся|заметил|пробовал|считал|согласился|жалел|понимал|решился|встретил|нажал|мог|готов|должен|сам|первым|уверен|прав|свободен|согласен)(?![а-яё]))[^.!?]*/i
+const masculineTargetAgreement = /\{\{other\.nom\}\}(?=[^.!?]{0,22}(?:узнал|выглядел|спрашивал|показался|замечал|согласен|должен|сам|первым|привлекательным|притягательным|сексуальным|готов|мог)(?![а-яё]))[^.!?]*/i
 
 function normalize(text: string) {
   return text.toLowerCase().replace(/\{\{[^}]+\}\}/g, 'x').replace(/[^а-яёa-z0-9]+/gi, ' ').trim()
@@ -69,6 +71,18 @@ function hasPerspectiveLeak(text: string) {
   return firstPersonOpponentVoice.test(stripQuotedSpeech(text))
 }
 
+function stripGenderVariants(text: string) {
+  return text.replace(/\{\{(?:self|other)\.g:[^|}]*\|[^}]*\}\}/g, '')
+}
+
+function hasCurrentPlayerGenderLeak(text: string) {
+  return masculineCurrentPlayerVoice.test(stripGenderVariants(text))
+}
+
+function hasTargetGenderLeak(text: string) {
+  return masculineTargetAgreement.test(stripGenderVariants(text))
+}
+
 const perspectiveSelfChecks = [
   { text: 'Что я делаю, что для тебя выглядит как флирт?', bad: true },
   { text: 'Что тебе приятнее во время поцелуя: когда я смотрю на тебя или закрываю глаза?', bad: true },
@@ -80,6 +94,21 @@ const perspectiveSelfChecks = [
 for (const fixture of perspectiveSelfChecks) {
   if (hasPerspectiveLeak(fixture.text) !== fixture.bad) {
     fail(`self-check perspective mismatch: ${fixture.text}`)
+  }
+}
+
+const genderSelfChecks = [
+  { text: 'Какой фильм ты выбрал бы для свидания?', currentBad: true, targetBad: false },
+  { text: 'Какой фильм хотелось бы выбрать для свидания?', currentBad: false, targetBad: false },
+  { text: '{{other.nom}} согласен на короткий поцелуй.', currentBad: false, targetBad: true },
+  { text: '{{other.nom}} {{other.g:согласен|согласна}} на короткий поцелуй.', currentBad: false, targetBad: false },
+]
+for (const fixture of genderSelfChecks) {
+  if (hasCurrentPlayerGenderLeak(fixture.text) !== fixture.currentBad) {
+    fail(`self-check current-player gender mismatch: ${fixture.text}`)
+  }
+  if (hasTargetGenderLeak(fixture.text) !== fixture.targetBad) {
+    fail(`self-check target gender mismatch: ${fixture.text}`)
   }
 }
 
@@ -98,6 +127,8 @@ for (const card of cards) {
   if (card.type === 'truth' && !card.purpose) fail(`${card.id}: Truth без purpose`)
   if (!card.sourceRef || !(card.sourceRef in CARD_SOURCE_REGISTRY)) fail(`${card.id}: отсутствует или неизвестен sourceRef`)
   if (hasPerspectiveLeak(card.text)) fail(`${card.id}: сломана перспектива игрока (opponent-voice first person): ${card.text}`)
+  if (hasCurrentPlayerGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для текущего игрока: ${card.text}`)
+  if (hasTargetGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для динамического target: ${card.text}`)
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
