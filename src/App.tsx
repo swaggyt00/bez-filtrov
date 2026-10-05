@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { cards } from './data/cards'
-import { availableCards, hydrateCardText, pickCardForTurn, validateScenarioPlayers } from './deck'
+import { availableCards, pickCardForTurn, renderCardText, validateScenarioPlayers } from './deck'
 import { clearGame, loadGame, loadSettings, saveGame, saveSettings } from './storage'
 import type {
   CardType,
@@ -26,29 +26,29 @@ const scenarioMeta: Record<Scenario, ScenarioMeta> = {
   couple: {
     title: 'Пара',
     icon: '♥',
-    description: 'Узнать друг друга лучше: смешное, личное, поцелуи и неудобная правда.',
+    description: 'Для двоих: смешное, личное, поцелуи и неудобная правда.',
     minPlayers: 2,
     maxPlayers: 2,
   },
   sex: {
     title: 'Секс',
     icon: '✦',
-    description: 'Для двоих: от лёгкого напряжения до откровенных управляемых сценариев.',
+    description: 'Для двоих: от напряжения и флирта до прямых коротких сцен.',
     minPlayers: 2,
     maxPlayers: 2,
   },
   party: {
     title: 'Компания',
-    icon: '◉',
-    description: '3–6 игроков: выборы, флирт, подколы, алкоголь и реакции всей компании.',
+    icon: '●',
+    description: '3–6 игроков: подколы, флирт, выборы, алкоголь и реакции компании.',
     minPlayers: 3,
     maxPlayers: 6,
   },
   afterdark: {
     title: 'После полуночи',
     icon: '☾',
-    description: '3–6 игроков: алкоголь, ночной трэш, стыд, одежда и странные задания.',
-    minPlayers: 3,
+    description: '2–6 игроков: алкоголь, одежда, неловкость и ночной трэш.',
+    minPlayers: 2,
     maxPlayers: 6,
   },
 }
@@ -61,30 +61,29 @@ const heatMeta: Record<Heat, { title: string; short: string }> = {
 
 const heatDescriptions: Record<Scenario, Record<Heat, string>> = {
   couple: {
-    light: 'Смешное, привычки, приятные мелочи и лёгкая близость.',
-    hot: 'Личнее: ревность, бывшие, границы, поцелуи и неловкие признания.',
-    hard: 'Неприятная правда, уязвимость и очень прямые вопросы без разврата.',
+    light: 'Привычки, воспоминания, юмор и тёплые мелочи.',
+    hot: 'Ревность, границы, трения, флирт и более личные признания.',
+    hard: 'Уязвимость, обиды, ответственность и прямые разговоры.',
   },
   sex: {
-    light: 'Взгляд, массаж, шея, ухо и контакт, от которого становится теплее.',
-    hot: 'Больше тела и напряжения. Почти переход за черту — но игра держит паузу.',
-    hard: 'Прямой разврат, роли и короткие сексуальные сцены, после которых игра продолжается.',
+    light: 'Взгляд, поцелуи, прикосновения и ожидание.',
+    hot: 'Больше тела, инициативы и прямых желаний.',
+    hard: 'Откровенные желания и короткие сексуальные сцены с чётким финалом.',
   },
   party: {
-    light: 'Юмор, выбор людей, подколы и лёгкие алкогольные задания.',
-    hot: 'Больше флирта, неловких парных заданий, признаний и провокаций.',
-    hard: 'Максимально смелая компания: личное, телесное и очень неудобные выборы.',
+    light: 'Юмор, выбор людей и простые групповые задания.',
+    hot: 'Флирт, неловкость, подколы и смелее парные задания.',
+    hard: 'Самые неудобные выборы и социальные провокации.',
   },
   afterdark: {
-    light: 'Алкоголь уже в игре: лёгкий трэш, абсурд и первые неловкие задания.',
-    hot: 'Одежда, стыд, странные приказы и более смелые ночные челленджи.',
-    hard: 'Бельё, раздевание и максимальный тусовочный трэш — без превращения в Секс.',
+    light: 'Ночной абсурд, музыка, алкоголь и первые странные правила.',
+    hot: 'Флирт, одежда, временные запреты и больше неловкости.',
+    hard: 'Раздевание, обмен одеждой и максимум тусовочного трэша.',
   },
 }
 
 const heatOrder: Heat[] = ['light', 'hot', 'hard']
 const scenarioOrder: Scenario[] = ['couple', 'sex', 'party', 'afterdark']
-
 const pairingLabels: Record<PairingPreference, string> = {
   any: 'со всеми',
   male: 'с мужчинами',
@@ -133,6 +132,7 @@ function App() {
   const savedGame = useMemo(() => loadGame(), [screen])
 
   const currentPlayer = settings?.players[currentPlayerIndex]
+  const currentTarget = settings && currentTargetIndex !== null ? settings.players[currentTargetIndex] : null
   const groupScenario = scenario === 'party' || scenario === 'afterdark'
   const visibleCards = useMemo(
     () => cards.filter((card) => card.scenario === scenario && card.heat === heat),
@@ -161,17 +161,17 @@ function App() {
     try {
       const ctx = audioRef.current ?? new window.AudioContext()
       audioRef.current = ctx
-      const osc = ctx.createOscillator()
+      const oscillator = ctx.createOscillator()
       const gain = ctx.createGain()
-      osc.frequency.value = kind === 'reveal' ? 390 : 260
+      oscillator.frequency.value = kind === 'reveal' ? 360 : 240
       gain.gain.setValueAtTime(0.0001, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.035, ctx.currentTime + 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + 0.11)
+      gain.gain.exponentialRampToValueAtTime(0.028, ctx.currentTime + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09)
+      oscillator.connect(gain).connect(ctx.destination)
+      oscillator.start()
+      oscillator.stop(ctx.currentTime + 0.1)
     } catch {
-      // Sound is decorative and never blocks the game.
+      // Decorative audio must never block the game.
     }
   }
 
@@ -222,7 +222,6 @@ function App() {
       setNotice(validation.message)
       return null
     }
-
     return { players, scenario, heat }
   }
 
@@ -230,7 +229,7 @@ function App() {
     const nextSettings = buildSettings()
     if (!nextSettings) return
     if (!availableCards(cards, nextSettings).length) {
-      setNotice('В этой комбинации нет карточек. Это баг колоды, а не твоя проблема.')
+      setNotice('В этой комбинации нет карточек. Это баг колоды.')
       return
     }
     clearGame()
@@ -276,7 +275,7 @@ function App() {
     let nextUsed = usedCardIds
     let result = pickCardForTurn(cards, settings, type, nextUsed, currentPlayerIndex)
     if (!result.card) {
-      setNotice('Для этого игрока сейчас не нашлось подходящей карты. Попробуй другой тип или проверь настройки игроков.')
+      setNotice('Для этого игрока сейчас не нашлось подходящей карты. Попробуй другой тип или проверь настройки.')
       return
     }
 
@@ -284,15 +283,16 @@ function App() {
       const bucketIds = new Set(availableCards(cards, settings, type).map((card) => card.id))
       nextUsed = nextUsed.filter((id) => !bucketIds.has(id))
       result = pickCardForTurn(cards, settings, type, nextUsed, currentPlayerIndex)
-      setNotice(`${type === 'truth' ? 'Правды' : 'Действия'} этой колоды закончились — перемешал только её.`)
+      setNotice(`${type === 'truth' ? 'Правды' : 'Действия'} закончились — перемешал эту часть колоды.`)
     } else {
       setNotice('')
     }
 
     if (!result.card) return
+    const finalText = renderCardText(result.card, settings.players, currentPlayerIndex, result.targetIndex)
     setCurrentCard(result.card)
     setCurrentTargetIndex(result.targetIndex)
-    setRenderedText(hydrateCardText(result.card.text, settings.players, currentPlayerIndex, result.targetIndex))
+    setRenderedText(finalText)
     setUsedCardIds([...nextUsed, result.card.id])
     setStage('card')
     sound('reveal')
@@ -311,8 +311,7 @@ function App() {
   }
 
   function reroll() {
-    if (!currentCard) return
-    choose(currentCard.type)
+    if (currentCard) choose(currentCard.type)
   }
 
   function backToSetup() {
@@ -332,6 +331,7 @@ function App() {
     clearGame()
     setSettings(null)
     setCurrentCard(null)
+    setCurrentTargetIndex(null)
     setRenderedText('')
     setNotice('')
     setStage('choice')
@@ -344,9 +344,9 @@ function App() {
         <section className="age-screen">
           <div className="brand-mark">БЕЗ ФИЛЬТРОВ</div>
           <h1>Правда.<br />Или действие.</h1>
-          <p className="lead">18+. Для взрослых людей, которые сами выбрали зайти дальше обычных вопросов.</p>
+          <p className="lead">18+. Игра для взрослых, которые сами решают, насколько далеко заходить.</p>
           <div className="age-orb">18+</div>
-          <p className="safety-note">Любую карту можно заменить или пропустить. Никаких объяснений не требуется.</p>
+          <p className="safety-note">Любую карту можно заменить или пропустить. Объяснять ничего не нужно.</p>
           <button className="primary-button" onClick={() => setScreen('setup')}>Мне есть 18</button>
         </section>
       </main>
@@ -357,13 +357,16 @@ function App() {
     return (
       <main className="app-shell setup-shell">
         <header className="setup-header">
-          <div><div className="brand-mark">БЕЗ ФИЛЬТРОВ</div><h1>Кто играет?</h1></div>
+          <div>
+            <div className="brand-mark">БЕЗ ФИЛЬТРОВ</div>
+            <h1>Настрой игру</h1>
+          </div>
           <span className="mini-18">18+</span>
         </header>
 
         {savedGame && (
           <button className="resume-card" onClick={resumeGame}>
-            <span>Продолжить игру</span>
+            <span>Продолжить</span>
             <strong>{scenarioMeta[savedGame.settings.scenario].title} · {heatMeta[savedGame.settings.heat].title}</strong>
             <small>{savedGame.settings.players.map((player) => player.name).join(' · ')} · ход {savedGame.turnsPlayed + 1}</small>
           </button>
@@ -375,40 +378,34 @@ function App() {
             {draftPlayers.map((player, index) => (
               <div className="player-entry" key={index}>
                 <div className="player-row">
-                  <span className="player-index">{index + 1}</span>
+                  <span className="player-index">{String(index + 1).padStart(2, '0')}</span>
                   <input value={player.name} maxLength={18} onChange={(event: ChangeEvent<HTMLInputElement>) => updatePlayerName(index, event.target.value)} aria-label={`Имя игрока ${index + 1}`} />
                   <div className="gender-toggle" aria-label={`Пол игрока ${index + 1}`}>
-                    <button className={player.gender === 'male' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'male')}>М</button>
-                    <button className={player.gender === 'female' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'female')}>Ж</button>
+                    <button type="button" className={player.gender === 'male' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'male')}>М</button>
+                    <button type="button" className={player.gender === 'female' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'female')}>Ж</button>
                   </div>
-                  {draftPlayers.length > 2 && <button className="remove-button" onClick={() => removePlayer(index)} aria-label="Удалить игрока">×</button>}
+                  {draftPlayers.length > 2 && <button type="button" className="remove-button" onClick={() => removePlayer(index)} aria-label="Удалить игрока">×</button>}
                 </div>
                 {groupScenario && (
                   <label className="pairing-preference">
-                    <span>Интимные задания</span>
-                    <select
-                      value={player.pairingPreference}
-                      onChange={(event: ChangeEvent<HTMLSelectElement>) => updatePlayerPreference(index, event.target.value as PairingPreference)}
-                      aria-label={`Интимные задания игрока ${index + 1}`}
-                    >
-                      {(Object.keys(pairingLabels) as PairingPreference[]).map((value) => (
-                        <option key={value} value={value}>{pairingLabels[value]}</option>
-                      ))}
+                    <span>Близкие задания</span>
+                    <select value={player.pairingPreference} onChange={(event: ChangeEvent<HTMLSelectElement>) => updatePlayerPreference(index, event.target.value as PairingPreference)}>
+                      {(Object.keys(pairingLabels) as PairingPreference[]).map((value) => <option key={value} value={value}>{pairingLabels[value]}</option>)}
                     </select>
                   </label>
                 )}
               </div>
             ))}
           </div>
-          {groupScenario && draftPlayers.length < 6 && <button className="text-button" onClick={addPlayer}>+ добавить игрока</button>}
-          {groupScenario && <p className="setup-hint">Эта настройка влияет только на близкие парные задания. Обычные вопросы и приколы остаются для всей компании.</p>}
+          {groupScenario && draftPlayers.length < 6 && <button type="button" className="text-button" onClick={addPlayer}>+ добавить игрока</button>}
+          {groupScenario && <p className="setup-hint">Настройка влияет только на близкие парные задания. Обычные вопросы и приколы остаются для всех.</p>}
         </section>
 
         <section className="setup-block">
           <div className="block-title"><h2>Сценарий</h2></div>
           <div className="scenario-grid">
             {scenarioOrder.map((item) => (
-              <button key={item} className={`scenario-card ${scenario === item ? 'active' : ''}`} onClick={() => { setScenario(item); setNotice(''); sound('tap') }}>
+              <button type="button" key={item} className={`scenario-card ${scenario === item ? 'active' : ''}`} onClick={() => { setScenario(item); setNotice(''); sound('tap') }}>
                 <span className="scenario-icon">{scenarioMeta[item].icon}</span>
                 <strong>{scenarioMeta[item].title}</strong>
                 <small>{scenarioMeta[item].description}</small>
@@ -418,21 +415,21 @@ function App() {
         </section>
 
         <section className="setup-block">
-          <div className="block-title"><h2>Накал</h2><span>три реально разных уровня</span></div>
+          <div className="block-title"><h2>Накал</h2><span>выбери потолок</span></div>
           <div className="heat-list">
             {heatOrder.map((item) => (
-              <button key={item} className={`heat-row heat-${item} ${heat === item ? 'active' : ''}`} onClick={() => { setHeat(item); setNotice(''); sound('tap') }}>
+              <button type="button" key={item} className={`heat-row heat-${item} ${heat === item ? 'active' : ''}`} onClick={() => { setHeat(item); setNotice(''); sound('tap') }}>
                 <span className="heat-number">{heatMeta[item].short}</span>
                 <span className="heat-copy"><strong>{heatMeta[item].title}</strong><small>{heatDescriptions[scenario][item]}</small></span>
                 <span className="heat-dot" />
               </button>
             ))}
           </div>
-          <div className="deck-size">В этой колоде: <strong>{truthCount} правд</strong> · <strong>{dareCount} действий</strong></div>
+          <div className="deck-size"><strong>{truthCount} правд</strong><span>·</span><strong>{dareCount} действий</strong></div>
         </section>
 
         {notice && <div className="notice">{notice}</div>}
-        <button className="primary-button start-button" onClick={startGame}>Начать · {scenarioMeta[scenario].title} · {heatMeta[heat].title}</button>
+        <button className="primary-button start-button" onClick={startGame}>Начать · {scenarioMeta[scenario].title}</button>
       </main>
     )
   }
@@ -442,36 +439,39 @@ function App() {
   return (
     <main className={`app-shell game-shell game-${settings.heat}`}>
       <header className="game-header">
-        <button className="ghost-button" onClick={backToSetup}>← настройки</button>
+        <button type="button" className="ghost-button" onClick={backToSetup}>← настройки</button>
         <span>{scenarioMeta[settings.scenario].title} · {heatMeta[settings.heat].title}</span>
-        <button className="ghost-button" onClick={newGameFromScratch}>сброс</button>
+        <button type="button" className="ghost-button" onClick={newGameFromScratch}>сброс</button>
       </header>
 
       <section className="turn-area">
-        <div className="turn-label">Ходит</div>
+        <div className="turn-label">ХОД {String(turnsPlayed + 1).padStart(2, '0')}</div>
         <h1 className="current-player">{currentPlayer.name}</h1>
-        <div className="gender-caption">{currentPlayer.gender === 'male' ? 'Мужчина' : 'Женщина'} · ход {turnsPlayed + 1}</div>
+        <div className="gender-caption">{currentPlayer.gender === 'male' ? 'Мужчина' : 'Женщина'}</div>
 
         {stage === 'choice' ? (
-          <>
-            <p className="choice-title">Правда или действие?</p>
+          <div className="choice-panel">
+            <p className="choice-kicker">твой выбор</p>
+            <h2 className="choice-title">Правда<br />или действие?</h2>
             <div className="choice-buttons">
-              <button className="truth-choice" onClick={() => choose('truth')}><span>П</span><strong>Правда</strong></button>
-              <button className="dare-choice" onClick={() => choose('dare')}><span>Д</span><strong>Действие</strong></button>
+              <button type="button" className="truth-choice" onClick={() => choose('truth')}><span>П</span><strong>Правда</strong><small>отвечай прямо</small></button>
+              <button type="button" className="dare-choice" onClick={() => choose('dare')}><span>Д</span><strong>Действие</strong><small>сделай сейчас</small></button>
             </div>
-          </>
+          </div>
         ) : (
           <section className={`game-card ${currentCard?.type === 'dare' ? 'dare-card' : 'truth-card'}`}>
+            <div className="card-glow" />
             <div className="card-topline">
               <span>{currentCard?.type === 'truth' ? 'ПРАВДА' : 'ДЕЙСТВИЕ'}</span>
               <span>{heatMeta[settings.heat].title.toUpperCase()}</span>
             </div>
+            {currentTarget && <div className="target-chip">для пары с {currentTarget.name}</div>}
             <p className="card-text">{renderedText}</p>
             <p className="pass-copy">Не хочешь — меняй или пропускай. Без оправданий.</p>
-            <button className="primary-button" onClick={nextTurn}>Готово → следующий</button>
+            <button type="button" className="primary-button card-next" onClick={nextTurn}>Готово <span>→</span></button>
             <div className="secondary-actions">
-              <button onClick={reroll}>Другая карта</button>
-              <button onClick={nextTurn}>Пропустить</button>
+              <button type="button" onClick={reroll}>Другая карта</button>
+              <button type="button" onClick={nextTurn}>Пропустить</button>
             </div>
           </section>
         )}
@@ -479,7 +479,7 @@ function App() {
         {notice && <div className="notice compact">{notice}</div>}
       </section>
 
-      <footer className="players-strip">
+      <footer className="players-strip" aria-label="Игроки">
         {settings.players.map((player, index) => (
           <span key={`${player.name}-${index}`} className={index === currentPlayerIndex ? 'active' : ''}>{player.name}</span>
         ))}
