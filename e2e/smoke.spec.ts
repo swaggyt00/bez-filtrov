@@ -42,6 +42,7 @@ test('afterdark starts with two players and choice heading has a natural accessi
   await startScenario(page, 'После полуночи')
 
   await expect(page.locator('.choice-title')).toHaveAccessibleName('Правда или действие?')
+  await expect(page.locator('.choice-title')).toHaveText('Правда или действие?')
   await expectNoHorizontalOverflow(page)
 })
 
