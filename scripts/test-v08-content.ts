@@ -51,4 +51,12 @@ for (const heat of ['light', 'hot', 'hard'] as const) {
   }
 }
 
+for (const heat of ['light', 'hot', 'hard'] as const) {
+  const truths = bucket('party', heat, 'truth')
+  const dares = bucket('party', heat, 'dare')
+  assert.equal(truths.length, 50, `party/${heat}/truth count`)
+  assert.equal(dares.length, 50, `party/${heat}/dare count`)
+  for (const card of [...truths, ...dares]) assertGroundedCard(card)
+}
+
 console.log('✓ v0.8 content corpus checks passed')
