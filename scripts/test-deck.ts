@@ -16,7 +16,22 @@ const assert = {
 }
 
 import * as deck from '../src/deck'
+import { CARD_SOURCE_REGISTRY, getCardSource } from '../src/data/source-registry'
 import type { GameCard, GameSettings, Player } from '../src/types'
+
+const sourceIds = Object.keys(CARD_SOURCE_REGISTRY) as (keyof typeof CARD_SOURCE_REGISTRY)[]
+assert.ok(sourceIds.length >= 5, 'source registry must include several independent public source families')
+assert.equal(new Set(sourceIds).size, sourceIds.length, 'source registry ids must be unique')
+for (const sourceId of sourceIds) {
+  const source = CARD_SOURCE_REGISTRY[sourceId]
+  assert.equal(source.id, sourceId, `${sourceId}: registry id must match its key`)
+  assert.ok(source.url.startsWith('https://'), `${sourceId}: source URL must be public HTTPS`)
+  assert.ok(Boolean(source.family.trim()), `${sourceId}: source family is required`)
+  assert.ok(Boolean(source.title.trim()), `${sourceId}: source title is required`)
+  assert.ok(Boolean(source.patternNote.trim()), `${sourceId}: source pattern note is required`)
+  assert.equal(getCardSource(sourceId), source, `${sourceId}: registry lookup must resolve the same entry`)
+}
+assert.equal(getCardSource('foreplay-guide').family, 'The Foreplay Game')
 
 const male: Player = { name: 'Алексей', gender: 'male', pairingPreference: 'female' }
 const female: Player = { name: 'Катя', gender: 'female', pairingPreference: 'male' }
@@ -136,4 +151,4 @@ const persistedSnapshot = JSON.parse(JSON.stringify({ renderedText: renderedForP
 assert.ok(!persistedSnapshot.renderedText.includes('{{duration}}'), 'persisted text must contain a resolved duration')
 assert.equal(persistedSnapshot.renderedText, renderedForPersistence, 'resume must reuse the already rendered text without rerolling')
 
-console.log('✓ v0.7 deck tests passed')
+console.log('✓ v0.8 provenance + deck tests passed')
