@@ -1,6 +1,6 @@
 import { cards } from '../src/data/cards'
 import { CARD_SOURCE_REGISTRY } from '../src/data/source-registry'
-import { renderCardText } from '../src/deck'
+import { gameplayInteractionKey, renderCardText } from '../src/deck'
 import type { CardType, Heat, Player, Scenario } from '../src/types'
 
 declare const process: { exit(code?: number): never }
@@ -199,7 +199,7 @@ for (const scenario of scenarios) {
       const sourceFamilies = new Set<string>()
       for (const card of bucket) {
         coreCounts.set(card.coreIdea ?? card.theme, (coreCounts.get(card.coreIdea ?? card.theme) ?? 0) + 1)
-        interactions.add(card.interaction ?? card.mechanic)
+        interactions.add(gameplayInteractionKey(card))
         themes.add(card.theme)
         if (card.sourceRef && CARD_SOURCE_REGISTRY[card.sourceRef]) sourceFamilies.add(CARD_SOURCE_REGISTRY[card.sourceRef].family)
       }
