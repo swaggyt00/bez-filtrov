@@ -17,19 +17,20 @@ function normalizePreference(value: unknown): PairingPreference {
 
 function normalizePlayers(value: unknown): Player[] | null {
   if (!Array.isArray(value) || value.length < 2) return null
-  const players = value
+  const players: Array<Player | null> = value
     .filter((player) => player && typeof player === 'object')
     .map((player) => {
       const raw = player as Partial<Player>
       if (raw.gender !== 'male' && raw.gender !== 'female') return null
-      return {
+      const normalized: Player = {
         name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Игрок',
         gender: raw.gender,
         pairingPreference: normalizePreference(raw.pairingPreference),
-      } satisfies Player
+      }
+      return normalized
     })
-    .filter((player): player is Player => Boolean(player))
-  return players.length >= 2 ? players : null
+  const validPlayers = players.filter((player): player is Player => player !== null)
+  return validPlayers.length >= 2 ? validPlayers : null
 }
 
 function normalizeSettings(value: unknown): GameSettings | null {
