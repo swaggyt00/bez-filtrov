@@ -26,7 +26,7 @@ export const CARD_SOURCE_REGISTRY: Record<CardSourceRef, CardSourceEntry> = {
   'smush-couples-bank': {
     id: 'smush-couples-bank',
     family: 'Smush',
-    title: '200 Truth or Dare Questions for Couples',
+    title: '130 Truth or Dare Questions for Couples',
     url: 'https://www.smushapp.com/resources/truth-or-dare-questions',
     patternNote: 'Mild/medium/wild couple prompts with short spoken copy, eye contact, kissing, massage, clothing and timed actions.',
   },
