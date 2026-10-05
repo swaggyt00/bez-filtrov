@@ -27,6 +27,8 @@ export interface AuthoredCardSeed {
   scene?: CardScene
   sexualAction?: boolean
   alcohol?: boolean
+  minPlayers?: number
+  duration?: 'temporary'
 }
 
 function buildId(scenario: Scenario, heat: Heat, type: CardType, index: number) {
@@ -41,14 +43,7 @@ export function authored(
   interaction: CardInteraction,
   options: Omit<AuthoredCardSeed, 'text' | 'theme' | 'coreIdea' | 'mechanic' | 'interaction'> = {},
 ): AuthoredCardSeed {
-  return {
-    text: text.trim(),
-    theme,
-    coreIdea,
-    mechanic,
-    interaction,
-    ...options,
-  }
+  return { text: text.trim(), theme, coreIdea, mechanic, interaction, ...options }
 }
 
 export function authoredDeck(args: {

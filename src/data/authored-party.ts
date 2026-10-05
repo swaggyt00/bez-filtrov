@@ -1,145 +1,177 @@
 import { authored, authoredDeck } from './factory'
+import type { CardInteraction, CardMechanic, Heat, TruthPurpose } from '../types'
 
-const lightTruth = authoredDeck({
-  scenario: 'party', heat: 'light', type: 'truth', cards: [
-    authored('Кого из этой компании ты бы первым позвал в спонтанную поездку без плана?', 'group-choice', 'pick-roadtrip-person', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь производит самое неправильное первое впечатление о себе?', 'first-impressions', 'most-misleading-first-impression', 'choice', 'group-reaction', { purpose: 'curiosity', requiresTarget: false, pairing: 'none' }),
-    authored('Какой самый нелепый повод заставлял тебя отменять планы?', 'stories', 'silliest-cancel-reason', 'story', 'humor', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кому из присутствующих ты бы доверил придумать тебе образ на вечеринку?', 'trust', 'choose-stylist-person', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какая твоя привычка чаще всего раздражает друзей?', 'habits', 'friend-annoying-habit', 'confession', 'humor', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь, по твоему мнению, лучше всех умеет выкручиваться из неловких ситуаций?', 'group-choice', 'best-at-escaping-awkwardness', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой поступок в школе или универе до сих пор смешно вспоминать?', 'past', 'school-fail-story', 'story', 'humor', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кому из этой компании ты бы дал ключи от своей квартиры на неделю?', 'trust', 'who-gets-house-keys', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какая песня мгновенно превращает тебя в человека, которому стыдно, но всё равно нравится?', 'music', 'guilty-pleasure-song', 'confession', 'humor', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь, скорее всего, сорвётся и улетит в другую страну почти без подготовки?', 'group-choice', 'most-likely-to-move-abroad', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой комплимент от незнакомца ты помнишь до сих пор?', 'compliments', 'stranger-compliment-memory', 'story', 'conversation', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Какой самый странный талант у тебя есть?', 'talents', 'weird-talent', 'confession', 'humor', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Кому из присутствующих ты бы доверил выбрать тебе свидание вслепую?', 'trust', 'blind-date-matchmaker', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой мем или шутка может рассмешить тебя даже в плохой день?', 'humor', 'always-funny-joke', 'story', 'humor', { purpose: 'curiosity', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь выглядит самым спокойным, но, по твоему ощущению, способен устроить больше всех хаоса?', 'group-choice', 'quiet-chaos-person', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Когда ты в последний раз соврал друзьям, чтобы просто остаться дома?', 'confession', 'lied-to-stay-home', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Какой бесполезной покупкой ты всё равно очень доволен?', 'money', 'favorite-useless-purchase', 'story', 'conversation', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кого из этой компании ты бы взял напарником в квест-комнату?', 'group-choice', 'escape-room-partner', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-  ],
-})
+const truthThemes = ['friends', 'humor', 'dating', 'habits', 'trust', 'awkward', 'choices', 'stories', 'flirt', 'party']
+const truthMechanics: CardMechanic[] = ['choice', 'story', 'confession', 'social']
+const truthInteractions: CardInteraction[] = ['social-choice', 'humor', 'conversation', 'confession', 'flirt']
+const purposes: TruthPurpose[] = ['choice', 'story', 'confession', 'curiosity', 'experience']
+const dareThemes = ['imitation', 'group', 'flirt', 'acting', 'music', 'social', 'challenge', 'pair', 'humor', 'party']
+const dareMechanics: CardMechanic[] = ['direct', 'group', 'timed', 'partner-choice', 'social']
+const dareInteractions: CardInteraction[] = ['humor', 'group-reaction', 'flirt', 'social-choice', 'physical']
 
-const lightDare = authoredDeck({
-  scenario: 'party', heat: 'light', type: 'dare', cards: [
-    authored('Изобрази любого игрока так, чтобы остальные угадали его за тридцать секунд.', 'imitation', 'imitate-player-guess', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Скажи {{other.dat}} комплимент, который точно не подойдёт никому другому в комнате.', 'compliments', 'unique-player-compliment', 'direct', 'conversation', { pairing: 'any' }),
-    authored('Пусть группа выберет тебе песню. Танцуй под неё один припев, даже если выбор ужасный.', 'dance', 'group-picks-dance-song', 'group', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Расскажи две правдивые истории и одну выдуманную. Группа должна найти ложь.', 'stories', 'two-truths-one-lie', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Поменяйся местами с человеком, которого знаешь хуже всех, и задай ему один нормальный вопрос.', 'mixing', 'sit-by-least-known', 'direct', 'conversation', { requiresTarget: false, pairing: 'none' }),
-    authored('Выбери любого игрока и придумай ему максимально пафосный титул на этот вечер.', 'titles', 'give-ridiculous-title', 'direct', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Сделай один небольшой глоток и расскажи самый смешной случай, который произошёл с тобой на вечеринке.', 'alcohol', 'sip-plus-party-story', 'story', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Пусть каждый покажет на человека, который чаще всех опаздывает. Если большинство показывает на тебя — признай поражение.', 'group-vote', 'who-is-late-vote', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Скажи обычную фразу голосом ведущего очень дорогой церемонии награждения.', 'performance', 'award-host-voice', 'direct', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Пусть {{other.nom}} выберет тебе новое имя до следующего круга.', 'nicknames', 'temporary-renaming', 'partner-choice', 'humor', { pairing: 'any' }),
-    authored('Сделай с {{other.ins}} максимально серьёзное совместное фото с самым нелепым предметом рядом.', 'photo', 'serious-photo-with-object', 'direct', 'humor', { pairing: 'any' }),
-    authored('Назови три слова, которыми группа должна описать тебя. Потом сравни с тем, что реально скажут люди.', 'self-image', 'three-words-vs-group', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Выбери игрока и повтори его фирменную позу или жест максимально точно.', 'imitation', 'copy-signature-gesture', 'direct', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Дай группе тридцать секунд придумать тебе безобидное задание. Выполни лучший вариант.', 'group-task', 'group-invents-light-task', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Подними бокал или стакан и произнеси короткий тост за самого неожиданного человека в комнате.', 'alcohol', 'toast-unexpected-person', 'direct', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Сыграй немую сцену «я только что получил миллион». Группа оценивает убедительность аплодисментами.', 'performance', 'silent-million-scene', 'group', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Скажи {{other.dat}} первое хорошее впечатление, которое он или она произвели на тебя сегодня.', 'first-impressions', 'say-good-first-impression', 'direct', 'conversation', { pairing: 'any' }),
-    authored('Выбери одного игрока своим «адвокатом». Он должен за двадцать секунд убедить остальных, что ты лучший человек для поездки на выходные.', 'performance', 'player-advocate-pitch', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-  ],
-})
+function truthDeck(heat: Heat, entries: Array<string | { text: string; alcohol?: boolean }>) {
+  return authoredDeck({
+    scenario: 'party', heat, type: 'truth',
+    cards: entries.map((entry, index) => {
+      const value = typeof entry === 'string' ? { text: entry } : entry
+      return authored(value.text, truthThemes[index % truthThemes.length], `party-${heat}-truth-${index + 1}`, truthMechanics[index % truthMechanics.length], truthInteractions[index % truthInteractions.length], { purpose: purposes[index % purposes.length], requiresTarget: false, pairing: 'none', alcohol: value.alcohol })
+    }),
+  })
+}
 
-const hotTruth = authoredDeck({
-  scenario: 'party', heat: 'hot', type: 'truth', cards: [
-    authored('С кем из этой компании тебе было бы проще всего флиртовать весь вечер?', 'flirt', 'easiest-person-to-flirt', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь сильнее всего отличается от твоего обычного типа?', 'attraction', 'outside-usual-type', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Был ли у тебя флирт, который зашёл дальше, чем ты изначально собирался?', 'flirt', 'flirt-went-further', 'story', 'confession', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кого из присутствующих ты бы выбрал для фальшивого свидания, чтобы произвести впечатление на бывшего?', 'group-choice', 'fake-date-for-ex', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой самый наглый способ познакомиться с тобой реально сработал бы?', 'dating', 'bold-pickup-that-works', 'desire', 'conversation', { purpose: 'desire', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь выглядит так, будто чаще остальных получает сообщения «ты где?» после полуночи?', 'group-choice', 'most-likely-midnight-texts', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой поступок на свидании мгновенно убивает твою симпатию?', 'dating', 'instant-date-turnoff', 'confession', 'conversation', { purpose: 'values', requiresTarget: false, pairing: 'none' }),
-    authored('Есть человек в этой комнате, которого ты сначала недооценил?', 'first-impressions', 'underestimated-someone-here', 'confession', 'conversation', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Самая неловкая вещь, которую ты делал, пытаясь понравиться человеку?', 'embarrassment', 'awkward-impress-attempt', 'story', 'humor', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кому здесь ты бы доверил написать сообщение твоему крашу с твоего телефона?', 'trust', 'who-can-text-crush', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('С кем из компании ты бы охотнее всего застрял в лифте на час?', 'group-choice', 'elevator-hour-person', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Когда ты в последний раз намеренно заставлял кого-то ревновать?', 'jealousy', 'made-someone-jealous', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Какой комплимент действует на тебя почти безотказно?', 'compliments', 'compliment-that-works', 'desire', 'conversation', { purpose: 'desire', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь кажется тебе самым опасным человеком для спонтанного решения?', 'group-choice', 'dangerous-for-spontaneous-choice', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Было ли свидание, с которого ты хотел сбежать уже через десять минут?', 'dating', 'date-wanted-to-escape', 'story', 'humor', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('С кем из присутствующих у тебя, по ощущениям, получилось бы лучше всего сыграть пару перед незнакомыми людьми?', 'chemistry', 'fake-couple-chemistry', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой твой флирт чаще всего люди понимают неправильно?', 'flirt', 'misread-flirt-style', 'confession', 'conversation', { purpose: 'curiosity', requiresTarget: false, pairing: 'none' }),
-    authored('Кому здесь ты бы доверил выбрать тебе человека для первого свидания?', 'trust', 'choose-first-date-for-me', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-  ],
-})
+function dareDeck(heat: Heat, entries: Array<string | { text: string; alcohol?: boolean }>) {
+  return authoredDeck({
+    scenario: 'party', heat, type: 'dare',
+    cards: entries.map((entry, index) => {
+      const value = typeof entry === 'string' ? { text: entry } : entry
+      return authored(value.text, dareThemes[index % dareThemes.length], `party-${heat}-dare-${index + 1}`, dareMechanics[index % dareMechanics.length], dareInteractions[index % dareInteractions.length], { pairing: index % 3 === 0 ? 'any' : 'none', requiresTarget: index % 3 === 0 ? undefined : false, alcohol: value.alcohol })
+    }),
+  })
+}
 
-const hotDare = authoredDeck({
-  scenario: 'party', heat: 'hot', type: 'dare', cards: [
-    authored('Скажи {{other.dat}} комплимент так, будто реально пытаешься получить его или её номер.', 'flirt', 'number-getting-compliment', 'direct', 'flirt', { pairing: 'mutual-close' }),
-    authored('Смотри {{other.dat}} в глаза пятнадцать секунд. Кто первым отведёт взгляд, делает маленький глоток.', 'eye-contact', 'stare-or-sip', 'timed', 'alcohol', { alcohol: true, pairing: 'mutual-close' }),
-    authored('Пусть группа выберет тебе человека. Сыграйте первое знакомство в баре за тридцать секунд.', 'roleplay', 'bar-meet-cute', 'roleplay', 'flirt', { requiresTarget: false, pairing: 'none' }),
-    authored('Поцелуй {{other.acc}} в щёку так, чтобы это выглядело как сцена из слишком серьёзной мелодрамы.', 'kiss', 'melodrama-cheek-kiss', 'direct', 'physical', { pairing: 'mutual-close' }),
-    authored('Выбери игрока и прошепчи ему фразу, которую остальные не услышат. Он должен показать реакцией, насколько она была дерзкой.', 'whisper', 'private-bold-whisper', 'direct', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Сделай маленький глоток и честно назови человека в комнате, который сильнее всего удивил тебя сегодня.', 'alcohol', 'sip-name-surprise-person', 'confession', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Пусть {{other.nom}} выберет тебе одну фразу для флирта. Скажи её максимально серьёзно.', 'flirt', 'partner-writes-flirt-line', 'partner-choice', 'humor', { pairing: 'any' }),
-    authored('Сядь рядом с {{other.ins}} вплотную до следующего хода. Если кому-то неудобно — просто скип.', 'closeness', 'sit-close-one-turn', 'timed', 'physical', { pairing: 'mutual-close' }),
-    authored('Назови три качества, которые делают человека привлекательным для тебя. Группа решает, кому здесь подходит описание лучше всего.', 'attraction', 'three-traits-group-match', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Изобрази, как ты выглядишь, когда пытаешься флиртовать и слишком стараешься.', 'flirt', 'overtrying-flirt-imitation', 'direct', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Пусть {{other.nom}} выберет: объятие на десять секунд или один комплимент без шутки. Выполни выбор.', 'choice', 'hug-or-serious-compliment', 'partner-choice', 'flirt', { pairing: 'mutual-close' }),
-    authored('Подними бокал за человека, с которым сегодня разговаривал меньше всего, и скажи почему стоит это исправить.', 'alcohol', 'toast-least-talked-person', 'direct', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Пусть группа назовёт тебе три слова. За двадцать секунд придумай из них максимально нелепую историю свидания.', 'story', 'three-word-date-story', 'group', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Скажи {{other.dat}}, какая деталь его или её внешности первой бросается тебе в глаза.', 'appearance', 'first-noticed-detail', 'direct', 'flirt', { pairing: 'mutual-close' }),
-    authored('Выбери человека и предложи ему самый странный вариант первого свидания, который всё ещё мог бы сработать.', 'dating', 'weird-date-pitch', 'direct', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Сделай один маленький глоток, если когда-либо флиртовал с человеком только ради бесплатного напитка или внимания. Если нет — расскажи ближайший похожий случай.', 'alcohol', 'sip-if-flirted-for-perk', 'confession', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Попроси {{other.acc}} выбрать тебе новую позу для следующей общей фотографии. Позируй без споров.', 'photo', 'partner-picks-photo-pose', 'partner-choice', 'physical', { pairing: 'any' }),
-    authored('Пусть каждый молча покажет, кто в комнате лучше всех умеет флиртовать. Если выбрали тебя — докажи одним комплиментом кому-нибудь из группы.', 'group-vote', 'best-flirt-vote-proof', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-  ],
-})
+const lightTruth = truthDeck('light', [
+  'Кому здесь ты бы позвонил первым, если застрял ночью без денег?',
+  'С кем из присутствующих ты бы легче всего застрял на сутки в аэропорту?',
+  'Кто здесь хуже всех умеет скрывать, что ему кто-то не нравится?',
+  'Кому из игроков ты бы доверил выбрать тебе подарок на день рождения?',
+  'Кто здесь скорее всех забудет, где оставил телефон?',
+  'С кем из игроков тебе было бы проще всего вести общий подкаст?',
+  'Кому здесь ты бы доверил присмотреть за своей квартирой на неделю?',
+  'Кто из присутствующих первым согласился бы на спонтанную поездку завтра утром?',
+  'Какой самый нелепый повод заставлял тебя опоздать?',
+  'Кто здесь лучше всех смог бы выкрутиться из неловкой ситуации?',
+  'Какую свою привычку ты считаешь самой бесячей для окружающих?',
+  'Кому из игроков ты бы доверил придумать тебе оправдание после очень хуёвой идеи?',
+  'Какой самый странный комплимент тебе когда-либо делали?',
+  'С кем здесь ты бы без проблем поменялся плейлистами на неделю?',
+  'Кто из присутствующих выглядит человеком, у которого всегда есть запасной план?',
+  'Какой самый бесполезный навык у тебя неожиданно хорошо развит?',
+  'Кому здесь ты бы доверил заказать еду на всю компанию без обсуждений?',
+  'Какую песню ты знаешь почти целиком, хотя немного стыдно в этом признаваться?',
+  'Кто здесь скорее всех засмеётся в максимально неподходящий момент?',
+  { text: 'Какой твой самый смешной провал после одного лишнего бокала?', alcohol: true },
+])
 
-const hardTruth = authoredDeck({
-  scenario: 'party', heat: 'hard', type: 'truth', cards: [
-    authored('С кем из этой компании ты бы согласился пойти на настоящее свидание, если бы обстоятельства совпали?', 'attraction', 'real-date-person-here', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь, по твоему мнению, чаще всего разбивает людям сердца?', 'group-choice', 'heartbreaker-in-room', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Назови самую токсичную вещь, которую ты когда-либо делал из ревности.', 'jealousy', 'toxic-jealousy-story', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Есть ли человек в этой комнате, которому ты когда-то врал о своих чувствах?', 'history', 'lied-about-feelings-here', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Кого здесь ты бы меньше всего хотел увидеть флиртующим с твоим бывшим?', 'exes', 'worst-person-with-ex', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой твой поступок на вечеринке лучше всего скрыть от родителей навсегда?', 'party-stories', 'never-tell-parents-party-story', 'story', 'humor', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кому из присутствующих ты бы доверил узнать твой самый неудобный секрет?', 'trust', 'who-can-know-secret', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Когда ты в последний раз целовал человека и сразу понял, что это была ошибка?', 'kiss', 'kiss-instant-regret', 'story', 'confession', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь сильнее всего отличается от того, кого ты ожидал увидеть до знакомства?', 'first-impressions', 'biggest-expectation-gap', 'choice', 'group-reaction', { purpose: 'curiosity', requiresTarget: false, pairing: 'none' }),
-    authored('Есть ли человек, которому ты сейчас не ответил специально, хотя видел сообщение?', 'messages', 'ignored-message-on-purpose', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Кого из компании ты бы выбрал своим алиби после очень странной ночи?', 'trust', 'choose-alibi-person', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Самая бессовестная ложь, которую ты говорил на первом свидании?', 'dating', 'boldest-first-date-lie', 'story', 'humor', { purpose: 'story', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь кажется тебе человеком, который чаще всего возвращается к бывшим?', 'exes', 'most-likely-return-to-ex', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какой секрет о себе ты обычно выдаёшь только после нескольких бокалов?', 'secrets', 'secret-after-drinks', 'confession', 'conversation', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('С кем из присутствующих тебе было бы опаснее всего остаться вдвоём после очень удачной вечеринки?', 'chemistry', 'dangerous-afterparty-person', 'choice', 'social-choice', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Был ли случай, когда ты специально пришёл на тусовку только из-за одного человека?', 'motivation', 'party-for-one-person', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-    authored('Кто здесь, по твоему мнению, лучше всех умеет скрывать, когда ему кто-то нравится?', 'flirt', 'best-at-hiding-crush', 'choice', 'group-reaction', { purpose: 'choice', requiresTarget: false, pairing: 'none' }),
-    authored('Какую самую неудобную правду о своей личной жизни ты можешь сказать этой компании прямо сейчас?', 'confession', 'hardest-personal-truth-now', 'confession', 'confession', { purpose: 'confession', requiresTarget: false, pairing: 'none' }),
-  ],
-})
+const lightDare = dareDeck('light', [
+  'Сделай десятисекундную рекламу любого предмета, который сейчас видишь рядом.',
+  'Без слов изобрази одного игрока. Остальные должны угадать, кого именно ты пародируешь.',
+  'Выбери игрока и придумайте рукопожатие за двадцать секунд.',
+  'Покажи последнее сохранённое смешное видео или мем, который не стыдно показать компании.',
+  'Изобрази, как ты обычно выглядишь утром после слишком короткого сна.',
+  'Пусть группа выберет тебе слово. За пятнадцать секунд придумай с ним максимально серьёзный тост.',
+  'Выбери игрока и обменяйтесь местами до своего следующего хода.',
+  'Сделай вид, что один из игроков — знаменитость, а ты берёшь у него короткое интервью.',
+  'Покажи свой самый часто используемый эмодзи и объясни его жестами, не называя.',
+  'Выбери песню, которую знает большинство, и спой первые десять секунд. Остальные могут подхватить.',
+  'Пусть игрок слева выберет тебе эмоцию. Расскажи, как прошёл твой день, изображая только её.',
+  'Сделай селфи с максимально нелепым серьёзным лицом. Сохранять фотографию необязательно.',
+  'Выбери игрока и сыграйте встречу двух людей, которые забыли имена друг друга.',
+  'Назови три предмета вокруг и за десять секунд придумай историю, где есть все три.',
+  'Пусть компания выберет тебе акцент или манеру речи. Говори так до конца своего следующего хода.',
+  'Покажи танцевальное движение, которое остальные должны повторить один раз.',
+  'Изобрази свою реакцию на сообщение «нам надо поговорить» без единого слова.',
+  'Выбери игрока и поменяйтесь одной вещью не из одежды — например, стаканом, подушкой или аксессуаром — до следующего хода.',
+  { text: 'Если у тебя есть напиток, сделай один обычный глоток и произнеси самый пафосный тост, который сможешь придумать.', alcohol: true },
+  'Пусть группа назовёт известный фильм. Перескажи его сюжет за пятнадцать секунд максимально плохо.',
+])
 
-const hardDare = authoredDeck({
-  scenario: 'party', heat: 'hard', type: 'dare', cards: [
-    authored('Поцелуй {{other.acc}} в губы один раз и сразу вернись на место. Только если это подходит вам обоим.', 'kiss', 'single-lip-kiss-return', 'direct', 'physical', { pairing: 'mutual-close' }),
-    authored('Пусть группа выберет тебе человека для минутного «свидания» прямо здесь. Ваша задача — за минуту найти одну настоящую общую симпатию.', 'mini-date', 'one-minute-group-date', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Сделай маленький глоток и назови человека в комнате, с которым у тебя самая неожиданная химия.', 'alcohol', 'sip-name-chemistry', 'confession', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Сядь на колени к {{other.dat}} до следующего хода или, если кому-то неудобно, поменяйтесь местами и сядьте плечом к плечу.', 'closeness', 'lap-or-close-seat', 'choice', 'physical', { pairing: 'mutual-close' }),
-    authored('Шепни {{other.dat}} вопрос, на который он или она может ответить только «да», «нет» или «скип». Ответ остаётся между вами.', 'private', 'private-yes-no-question', 'private', 'confession', { pairing: 'mutual-close' }),
-    authored('Пусть группа выберет двоих. Они должны тридцать секунд изображать пару, которая только что ужасно поссорилась и пытается вести себя нормально на людях.', 'roleplay', 'fake-couple-after-fight', 'roleplay', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Назови человека, которому мог бы написать в три ночи «ты не спишь?». Если такой человек в комнате — скажи это ему в лицо.', 'midnight', 'three-am-text-person', 'confession', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Подними бокал за человека, которого сегодня недооценил сильнее всего, и объясни одним предложением почему.', 'alcohol', 'toast-underestimated-person', 'direct', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Пусть {{other.nom}} выберет: долгий взгляд в глаза или объятие на пятнадцать секунд. Выполни выбор без шуток.', 'choice', 'eye-contact-or-hug', 'partner-choice', 'tension', { pairing: 'mutual-close' }),
-    authored('Отдай группе право выбрать тебе максимально нелепую фразу для знакомства. Скажи её любому игроку так, будто уверен в успехе.', 'flirt', 'group-picks-pickup-line', 'group', 'humor', { requiresTarget: false, pairing: 'none' }),
-    authored('Сделай один маленький глоток за каждого человека в комнате, с кем уже встречался вне этой компании — но максимум два глотка.', 'alcohol', 'sip-for-past-meetups-capped', 'direct', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Пусть {{other.nom}} придумает тебе комплимент, который ты должен сказать ему или ей, не улыбнувшись.', 'compliments', 'say-partner-written-compliment', 'partner-choice', 'flirt', { pairing: 'mutual-close' }),
-    authored('Выбери игрока и разыграй с ним сцену «бывшие случайно встретились спустя пять лет». Группа даёт вам сорок секунд.', 'roleplay', 'exes-five-years-later', 'roleplay', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Попроси {{other.acc}} назвать одну твою черту, которая могла бы заставить человека в тебя влюбиться. Не спорь с ответом.', 'attraction', 'partner-names-lovable-trait', 'direct', 'conversation', { pairing: 'any' }),
-    authored('Сделай маленький глоток и расскажи историю, после которой друзья однажды сказали тебе: «ты вообще нормальный?»', 'alcohol', 'sip-crazy-friend-story', 'story', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-    authored('Пусть все одновременно покажут на человека, с которым ты выглядел бы самой неожиданной парой. Подойди к победителю и сделайте общее фото.', 'group-vote', 'unexpected-couple-photo', 'group', 'group-reaction', { requiresTarget: false, pairing: 'none' }),
-    authored('Скажи {{other.dat}} прямо, что бы в нём или ней заставило тебя согласиться на второе свидание.', 'dating', 'second-date-reason', 'direct', 'flirt', { pairing: 'mutual-close' }),
-    authored('Группа выбирает: ты отвечаешь на один максимально неудобный вопрос или делаешь маленький глоток и получаешь другой вопрос попроще.', 'alcohol', 'hard-question-or-sip', 'group', 'alcohol', { alcohol: true, requiresTarget: false, pairing: 'none' }),
-  ],
-})
+const hotTruth = truthDeck('hot', [
+  'Кто здесь лучше всех умеет флиртовать, даже когда не пытается?',
+  'Кому из игроков ты бы доверил выбрать тебе человека для свидания?',
+  'Кто здесь выглядит самым безобидным, но, по-твоему, способен устроить самый большой пиздец?',
+  'С кем из присутствующих тебе было бы проще всего сходить на свидание ради эксперимента?',
+  'Кто здесь производит самое неправильное первое впечатление о себе?',
+  'Кому из игроков ты бы первым рассказал, что влюбился в человека, в которого не стоило?',
+  'Какой самый неловкий подкат на тебя реально сработал?',
+  'Кто здесь, по-твоему, чаще получает внимание незнакомцев?',
+  'С кем из игроков ты бы согласился поехать на фестиваль вдвоём?',
+  'Кто здесь выглядит человеком, который чаще всех пишет «я уже выхожу», ещё не выйдя из дома?',
+  'Какой тип людей тебе нравится, хотя ты каждый раз обещаешь себе не связываться с ним?',
+  'Кто из присутствующих скорее всех влюбится первым после пары удачных свиданий?',
+  'С кем здесь ты бы проще всего пережил очень неловкое первое свидание?',
+  'Какую свою историю знакомств ты обычно рассказываешь только близким друзьям?',
+  'Кто здесь кажется самым требовательным в отношениях?',
+  'Кому из игроков ты бы доверил написать первое сообщение человеку, который тебе нравится?',
+  'Какой твой самый бессмысленный повод отказаться от второго свидания?',
+  'Кто здесь мог бы уговорить тебя на идею, от которой ты сначала точно отказался бы?',
+  { text: 'Кому из игроков ты бы доверил остановить тебя от отправки пьяного сообщения бывшему?', alcohol: true },
+  'Какое первое впечатление о ком-то из этой компании оказалось полностью неправильным?',
+])
+
+const hotDare = dareDeck('hot', [
+  'Выбери игрока и сыграйте двадцать секунд первого свидания, на котором оба очень нервничают.',
+  'Выбери игрока и скажи ему подкат, который ты реально мог бы использовать. Не шуточный.',
+  'Изобрази, как один из игроков пытается флиртовать. Остальные угадывают, кого ты копируешь.',
+  'Выбери игрока и двадцать секунд шепчитесь так, чтобы остальные не слышали. Тема — первое впечатление друг о друге.',
+  'Пусть группа выберет двух игроков. Они должны придумать друг другу по одному нормальному комплименту без шуток.',
+  'Выбери игрока и смотрите друг другу в глаза пятнадцать секунд. Кто первым отведёт взгляд, выполняет безобидную просьбу второго.',
+  'Сделай вид, что пытаешься познакомиться с человеком в очереди. Группа играет человека и отвечает тебе одной общей репликой.',
+  'Выбери игрока и придумайте за двадцать секунд историю о том, как вы якобы познакомились десять лет назад.',
+  'Пусть игрок справа выберет тебе человека из компании. Скажи выбранному один комплимент, который звучит чуть-чуть как подкат.',
+  'Покажи, как выглядело бы твоё худшее первое свидание, если бы ты играл обе роли.',
+  'Выбери игрока. По очереди назовите по одной сильной стороне друг друга без повторов; кто зависнет дольше пяти секунд, проиграл.',
+  'Пусть группа выберет тебе человека. Сыграйте двадцать секунд пару, которая пытается сделать вид, что вообще не ссорилась.',
+  'Выбери игрока и сделайте совместное фото так, будто вы только что выиграли миллион. Сохранять необязательно.',
+  'Скажи выбранному игроку комплимент про внешность, а затем совсем другой — про характер.',
+  'Пусть любой игрок задаст тебе один вопрос, на который можно ответить только именем человека из компании. Ответь сразу.',
+  'Выбери игрока и придумайте себе общее название музыкальной группы и сценические имена.',
+  'Сделай максимально убедительный подкат к обычному предмету в комнате. Компания решает, сработало бы или нет.',
+  'Пусть группа выберет песню. Пригласи одного игрока на десятисекундный медленный танец.',
+  { text: 'Выбери игрока. Если у обоих есть напитки, чокнитесь, сделайте по одному обычному глотку и произнесите друг другу по короткому тосту.', alcohol: true },
+  'Выбери игрока и обменяйтесь одной смешной историей о свидании. На каждую историю — максимум тридцать секунд.',
+])
+
+const hardTruth = truthDeck('hard', [
+  'С кем из игроков тебе было бы сложнее всего жить в одной квартире?',
+  'С кем из игроков тебе было бы проще всего поцеловаться без чувства неловкости на следующий день?',
+  'Кому здесь ты меньше всего доверил бы свой разблокированный телефон на пять минут?',
+  'Кто из присутствующих, по-твоему, чаще всего скрывает настоящее настроение?',
+  'С кем здесь ты бы точно не стал встречаться, даже если человек очень привлекательный?',
+  'Какой самый неприятный поступок ты совершал из ревности?',
+  'Кто здесь скорее всего вернётся к бывшему после одного сообщения?',
+  'Какой секрет о своей личной жизни ты дольше всего скрывал от друзей?',
+  'С кем из игроков ты бы выбрал провести сутки в одном номере, если других вариантов нет?',
+  'Кому здесь ты бы меньше всего хотел случайно отправить своё последнее личное сообщение?',
+  'Какой человек нравился тебе дольше, чем ты готов был признать?',
+  'Кто из присутствующих, по-твоему, легче всех простит серьёзный косяк партнёра?',
+  'Какую вещь о себе на свиданиях ты обычно стараешься показать не сразу?',
+  'Кто здесь смог бы быстрее всех уговорить тебя нарушить собственное правило?',
+  'С кем из игроков ты бы охотнее всего отправился на двойное свидание?',
+  'Какой поступок бывшего ты простил, хотя сейчас уже не понимаешь зачем?',
+  'Кто здесь выглядит человеком, который может исчезнуть после отличного свидания без объяснений?',
+  'Какой самый странный повод заставлял тебя ревновать?',
+  { text: 'Какое сообщение ты однажды отправил после алкоголя и хотел забрать обратно сразу после отправки?', alcohol: true },
+  'Кому из игроков ты бы доверил честно сказать тебе, что твой новый партнёр — плохая идея?',
+])
+
+const hardDare = dareDeck('hard', [
+  'Выбери игрока и расскажи, какое первое впечатление о нём оказалось ошибочным.',
+  'Выбери игрока. Смотрите друг другу в глаза двадцать секунд. Кто первым отведёт взгляд — отвечает на один вопрос второго.',
+  'Пусть группа одновременно покажет на человека, который скорее всего напишет бывшему. Выбранный либо объясняет, почему все ошиблись, либо пропускает объяснение и делает один обычный глоток.',
+  'Пусть группа выберет тебе игрока. Вы вдвоём придумываете одно безобидное правило для остальных до конца круга.',
+  'Выбери игрока и скажи, что в нём показалось тебе самым привлекательным при первой встрече.',
+  'Пусть каждый одновременно покажет на того, кому меньше всего доверил бы свой телефон без пароля. Выбранный может задать группе один встречный вопрос.',
+  'Выбери игрока и сыграйте тридцать секунд бывших, которые случайно встретились на одной вечеринке.',
+  'Пусть группа выберет тебе человека. Скажите друг другу по одной вещи, которую сначала поняли друг о друге неправильно.',
+  'Выбери одного игрока и дай ему право придумать тебе новую фотографию профиля: поза, выражение лица и фон. Сделай фото; ставить его не обязательно.',
+  'Пусть группа выберет двух людей, которые кажутся самыми разными. Они должны за минуту найти три вещи, в которых совпадают.',
+  'Выбери игрока и поменяйтесь телефонами только на экран с музыкой. Каждый ставит другому одну песню, которая, по его мнению, подходит владельцу.',
+  'Пусть группа выберет человека. Скажи ему одну вещь, которую ты бы реально спросил на первом свидании, а не в игре.',
+  'Выбери игрока и сыграйте сцену ревнивой пары в магазине из-за совершенно нелепого предмета. Двадцать секунд.',
+  'Пусть группа выберет тебе игрока. Вы должны молча позировать как пара на очень неловкой фотосессии пятнадцать секунд.',
+  'Выбери человека и попробуй за двадцать секунд убедить его пойти с тобой в спонтанную поездку завтра. Он может задавать вопросы.',
+  'Пусть группа назовёт тебе два имени игроков. Выбери, с кем из двоих ты бы пошёл на свидание, и назови одну конкретную причину.',
+  'Выбери игрока и по очереди называйте вещи, которые считаете красными флагами на свидании. Кто повторится или зависнет на пять секунд — проиграл.',
+  'Пусть группа выберет одного игрока. Он придумывает тебе максимально неудобный, но не интимный вопрос. Ты отвечаешь или сразу меняешь карту.',
+  { text: 'Если у тебя есть напиток, передай право на один обычный глоток любому игроку. Он может отказаться без объяснений.', alcohol: true },
+  'Выбери игрока и сделайте вид, что вам нужно за тридцать секунд убедить родителей друг друга, что вы идеальная пара.',
+])
 
 export const partyCards = [
-  ...lightTruth, ...lightDare,
-  ...hotTruth, ...hotDare,
-  ...hardTruth, ...hardDare,
+  ...lightTruth,
+  ...lightDare,
+  ...hotTruth,
+  ...hotDare,
+  ...hardTruth,
+  ...hardDare,
 ]

@@ -1,6 +1,7 @@
 import type {
   CardInteraction,
   CardType,
+  DurationValue,
   GameCard,
   GameSettings,
   PairingPreference,
@@ -16,6 +17,12 @@ const irregularMaleNames: Record<string, Record<ObliqueCase, string>> = {
   павел: { gen: 'павла', dat: 'павлу', acc: 'павла', ins: 'павлом', prep: 'павле' },
   лев: { gen: 'льва', dat: 'льву', acc: 'льва', ins: 'львом', prep: 'льве' },
   петр: { gen: 'петра', dat: 'петру', acc: 'петра', ins: 'петром', prep: 'петре' },
+}
+
+const durationPools: Record<GameCard['heat'], DurationValue[]> = {
+  light: ['1 круг', '1 круг', '2 круга'],
+  hot: ['1 круг', '2 круга', '2 круга', '3 круга'],
+  hard: ['2 круга', '2 круга', '3 круга', '3 круга', 'до конца игры'],
 }
 
 function preserveCase(original: string, value: string) {
@@ -113,6 +120,29 @@ export function hydrateCardText(text: string, players: Player[], currentPlayerIn
   return result
 }
 
+export function resolveCardDuration(card: GameCard, random: () => number = Math.random): DurationValue | null {
+  if (card.duration !== 'temporary') return null
+  const pool = durationPools[card.heat]
+  const value = random()
+  const normalized = Number.isFinite(value) ? Math.max(0, Math.min(0.999999999999, value)) : 0
+  return pool[Math.floor(normalized * pool.length)] ?? pool[0]
+}
+
+export function renderCardText(
+  card: GameCard,
+  players: Player[],
+  currentPlayerIndex: number,
+  targetIndex: number | null,
+  random: () => number = Math.random,
+) {
+  let result = hydrateCardText(card.text, players, currentPlayerIndex, targetIndex)
+  if (card.duration === 'temporary') {
+    const duration = resolveCardDuration(card, random)
+    if (duration) result = result.replaceAll('{{duration}}', duration)
+  }
+  return result
+}
+
 function genderAllowed(allowed: PlayerGender[] | undefined, gender: PlayerGender) {
   return !allowed?.length || allowed.includes(gender)
 }
@@ -151,8 +181,15 @@ export function validateScenarioPlayers(scenario: Scenario, players: Player[]) {
     return { ok: true, message: '' }
   }
 
-  if (players.length < 3 || players.length > 6) {
-    return { ok: false, message: 'Для этого режима нужно от 3 до 6 игроков.' }
+  if (scenario === 'party') {
+    if (players.length < 3 || players.length > 6) {
+      return { ok: false, message: 'Для режима «Компания» нужно от 3 до 6 игроков.' }
+    }
+    return { ok: true, message: '' }
+  }
+
+  if (players.length < 2 || players.length > 6) {
+    return { ok: false, message: 'Для режима «После полуночи» нужно от 2 до 6 игроков.' }
   }
   return { ok: true, message: '' }
 }
@@ -162,6 +199,7 @@ export function availableCards(cards: GameCard[], settings: GameSettings, type?:
     if (type && card.type !== type) return false
     if (card.scenario !== settings.scenario) return false
     if (card.heat !== settings.heat) return false
+    if (card.minPlayers && card.minPlayers > settings.players.length) return false
     if ((settings.scenario === 'couple' || settings.scenario === 'sex') && card.alcohol) return false
     return true
   })
@@ -218,7 +256,7 @@ export function pickCardForTurn(
   return { card, targetIndex, recycled: !fresh.length }
 }
 
-// Backward-compatible wrapper while the UI migrates to turn-aware selection.
+// Backward-compatible wrapper while older callers migrate.
 export function pickCard(cards: GameCard[], settings: GameSettings, type: CardType, usedCardIds: string[]) {
   const bucket = availableCards(cards, settings, type)
   const used = new Set(usedCardIds)
