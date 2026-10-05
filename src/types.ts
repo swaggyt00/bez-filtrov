@@ -5,6 +5,7 @@ export type PlayerGender = 'male' | 'female'
 export type GameStage = 'choice' | 'card'
 export type PairingPreference = 'male' | 'female' | 'any' | 'none'
 export type PairingRule = 'none' | 'any' | 'mutual-close'
+export type DurationValue = '1 круг' | '2 круга' | '3 круга' | 'до конца игры'
 
 export type CardMechanic =
   | 'direct'
@@ -93,6 +94,8 @@ export interface GameCard {
   scene?: CardScene
   sexualAction?: boolean
   alcohol?: boolean
+  minPlayers?: number
+  duration?: 'temporary'
 }
 
 export interface GameSettings {
