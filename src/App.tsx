@@ -1,35 +1,116 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { cards } from './data/cards'
-import { availableCards, chooseTargetIndex, hydrateCardText, pickCard } from './deck'
+import { availableCards, hydrateCardText, pickCardForTurn, validateScenarioPlayers } from './deck'
 import { clearGame, loadGame, loadSettings, saveGame, saveSettings } from './storage'
-import type { CardType, GameCard, GameSettings, GameStage, Heat, PlayerGender, Scenario } from './types'
+import type {
+  CardType,
+  GameCard,
+  GameSettings,
+  GameStage,
+  Heat,
+  PairingPreference,
+  PlayerGender,
+  Scenario,
+} from './types'
 
-const scenarioMeta: Record<Scenario, { title: string; icon: string; description: string; minPlayers: number }> = {
-  couple: { title: 'Пара', icon: '♥', description: 'Для двоих: отношения, ревность, бывшие, секс и неудобная правда.', minPlayers: 2 },
-  sex: { title: 'Секс', icon: '✦', description: 'Реальный секс: позы, мастурбация, инициатива, фантазии и действия.', minPlayers: 2 },
-  party: { title: 'Компания', icon: '◉', description: '3–6 игроков: выбор людей, флирт, поцелуи и провокации.', minPlayers: 3 },
-  afterdark: { title: 'После полуночи', icon: '☾', description: 'Ночной хаос: приватные челленджи, риск и опциональный алкоголь.', minPlayers: 2 },
+type ScenarioMeta = {
+  title: string
+  icon: string
+  description: string
+  minPlayers: number
+  maxPlayers: number
 }
 
-const heatMeta: Record<Heat, { title: string; short: string; description: string }> = {
-  light: { title: 'Легко', short: '01', description: 'Флирт, неловкость и первые действия.' },
-  hot: { title: 'Горячо', short: '02', description: 'Больше тела, меньше намёков.' },
-  hard: { title: 'Жёстко', short: '03', description: 'Самые прямые вопросы и действия этого сценария.' },
+const scenarioMeta: Record<Scenario, ScenarioMeta> = {
+  couple: {
+    title: 'Пара',
+    icon: '♥',
+    description: 'Узнать друг друга лучше: смешное, личное, поцелуи и неудобная правда.',
+    minPlayers: 2,
+    maxPlayers: 2,
+  },
+  sex: {
+    title: 'Секс',
+    icon: '✦',
+    description: 'Для двоих: от лёгкого напряжения до откровенных управляемых сценариев.',
+    minPlayers: 2,
+    maxPlayers: 2,
+  },
+  party: {
+    title: 'Компания',
+    icon: '◉',
+    description: '3–6 игроков: выборы, флирт, подколы, алкоголь и реакции всей компании.',
+    minPlayers: 3,
+    maxPlayers: 6,
+  },
+  afterdark: {
+    title: 'После полуночи',
+    icon: '☾',
+    description: '3–6 игроков: алкоголь, ночной трэш, стыд, одежда и странные задания.',
+    minPlayers: 3,
+    maxPlayers: 6,
+  },
+}
+
+const heatMeta: Record<Heat, { title: string; short: string }> = {
+  light: { title: 'Легко', short: '01' },
+  hot: { title: 'Горячо', short: '02' },
+  hard: { title: 'Жёстко', short: '03' },
+}
+
+const heatDescriptions: Record<Scenario, Record<Heat, string>> = {
+  couple: {
+    light: 'Смешное, привычки, приятные мелочи и лёгкая близость.',
+    hot: 'Личнее: ревность, бывшие, границы, поцелуи и неловкие признания.',
+    hard: 'Неприятная правда, уязвимость и очень прямые вопросы без разврата.',
+  },
+  sex: {
+    light: 'Взгляд, массаж, шея, ухо и контакт, от которого становится теплее.',
+    hot: 'Больше тела и напряжения. Почти переход за черту — но игра держит паузу.',
+    hard: 'Прямой разврат, роли и короткие сексуальные сцены, после которых игра продолжается.',
+  },
+  party: {
+    light: 'Юмор, выбор людей, подколы и лёгкие алкогольные задания.',
+    hot: 'Больше флирта, неловких парных заданий, признаний и провокаций.',
+    hard: 'Максимально смелая компания: личное, телесное и очень неудобные выборы.',
+  },
+  afterdark: {
+    light: 'Алкоголь уже в игре: лёгкий трэш, абсурд и первые неловкие задания.',
+    hot: 'Одежда, стыд, странные приказы и более смелые ночные челленджи.',
+    hard: 'Бельё, раздевание и максимальный тусовочный трэш — без превращения в Секс.',
+  },
 }
 
 const heatOrder: Heat[] = ['light', 'hot', 'hard']
 const scenarioOrder: Scenario[] = ['couple', 'sex', 'party', 'afterdark']
 
+const pairingLabels: Record<PairingPreference, string> = {
+  any: 'со всеми',
+  male: 'с мужчинами',
+  female: 'с женщинами',
+  none: 'ни с кем',
+}
+
 type Screen = 'age' | 'setup' | 'game'
-type DraftPlayer = { name: string; gender: PlayerGender | null }
+type DraftPlayer = {
+  name: string
+  gender: PlayerGender | null
+  pairingPreference: PairingPreference
+}
 
 function initialDraftPlayers(): DraftPlayer[] {
   const saved = loadSettings()
-  if (saved?.players?.length >= 2) return saved.players.map((player) => ({ ...player }))
+  if (saved?.players?.length >= 2) {
+    return saved.players.map((player) => ({
+      name: player.name,
+      gender: player.gender,
+      pairingPreference: player.pairingPreference ?? 'any',
+    }))
+  }
   return [
-    { name: 'Игрок 1', gender: null },
-    { name: 'Игрок 2', gender: null },
+    { name: 'Игрок 1', gender: null, pairingPreference: 'any' },
+    { name: 'Игрок 2', gender: null, pairingPreference: 'any' },
   ]
 }
 
@@ -39,8 +120,6 @@ function App() {
   const [draftPlayers, setDraftPlayers] = useState<DraftPlayer[]>(initialDraftPlayers)
   const [scenario, setScenario] = useState<Scenario>(previousSettings?.scenario ?? 'sex')
   const [heat, setHeat] = useState<Heat>(previousSettings?.heat ?? 'hot')
-  const [alcoholCards, setAlcoholCards] = useState(previousSettings?.alcoholCards ?? false)
-  const [soundEnabled, setSoundEnabled] = useState(previousSettings?.soundEnabled ?? true)
   const [settings, setSettings] = useState<GameSettings | null>(null)
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [usedCardIds, setUsedCardIds] = useState<string[]>([])
@@ -54,9 +133,10 @@ function App() {
   const savedGame = useMemo(() => loadGame(), [screen])
 
   const currentPlayer = settings?.players[currentPlayerIndex]
+  const groupScenario = scenario === 'party' || scenario === 'afterdark'
   const visibleCards = useMemo(
-    () => cards.filter((card) => card.scenario === scenario && card.heat === heat && (alcoholCards || !card.alcohol)),
-    [scenario, heat, alcoholCards],
+    () => cards.filter((card) => card.scenario === scenario && card.heat === heat),
+    [scenario, heat],
   )
   const truthCount = visibleCards.filter((card) => card.type === 'truth').length
   const dareCount = visibleCards.filter((card) => card.type === 'dare').length
@@ -78,7 +158,6 @@ function App() {
   }, [screen, settings, currentPlayerIndex, usedCardIds, turnsPlayed, stage, currentCard, currentTargetIndex, renderedText, notice])
 
   function sound(kind: 'tap' | 'reveal') {
-    if (!soundEnabled) return
     try {
       const ctx = audioRef.current ?? new window.AudioContext()
       audioRef.current = ctx
@@ -92,7 +171,7 @@ function App() {
       osc.start()
       osc.stop(ctx.currentTime + 0.11)
     } catch {
-      // Sound is optional.
+      // Sound is decorative and never blocks the game.
     }
   }
 
@@ -105,9 +184,16 @@ function App() {
     sound('tap')
   }
 
+  function updatePlayerPreference(index: number, pairingPreference: PairingPreference) {
+    setDraftPlayers((players) => players.map((player, i) => i === index ? { ...player, pairingPreference } : player))
+  }
+
   function addPlayer() {
-    if (draftPlayers.length >= 6) return
-    setDraftPlayers((players) => [...players, { name: `Игрок ${players.length + 1}`, gender: null }])
+    if (!groupScenario || draftPlayers.length >= 6) return
+    setDraftPlayers((players) => [
+      ...players,
+      { name: `Игрок ${players.length + 1}`, gender: null, pairingPreference: 'any' },
+    ])
   }
 
   function removePlayer(index: number) {
@@ -122,20 +208,22 @@ function App() {
       return null
     }
     if (draftPlayers.some((player) => !player.gender)) {
-      setNotice('Укажи пол каждого игрока — он нужен для нормальных формулировок карточек.')
+      setNotice('Укажи пол каждого игрока — он нужен, чтобы карточки попадали правильному человеку.')
       return null
     }
-    if (draftPlayers.length < scenarioMeta[scenario].minPlayers) {
-      setNotice(`Для режима «${scenarioMeta[scenario].title}» нужно минимум ${scenarioMeta[scenario].minPlayers} игрока.`)
+
+    const players = draftPlayers.map((player, index) => ({
+      name: names[index],
+      gender: player.gender as PlayerGender,
+      pairingPreference: player.pairingPreference,
+    }))
+    const validation = validateScenarioPlayers(scenario, players)
+    if (!validation.ok) {
+      setNotice(validation.message)
       return null
     }
-    return {
-      players: draftPlayers.map((player, index) => ({ name: names[index], gender: player.gender as PlayerGender })),
-      scenario,
-      heat,
-      alcoholCards,
-      soundEnabled,
-    }
+
+    return { players, scenario, heat }
   }
 
   function startGame() {
@@ -165,11 +253,13 @@ function App() {
     if (!saved) return
     const restoredCard = saved.currentCardId ? cards.find((card) => card.id === saved.currentCardId) ?? null : null
     setSettings(saved.settings)
-    setDraftPlayers(saved.settings.players.map((player) => ({ ...player })))
+    setDraftPlayers(saved.settings.players.map((player) => ({
+      name: player.name,
+      gender: player.gender,
+      pairingPreference: player.pairingPreference ?? 'any',
+    })))
     setScenario(saved.settings.scenario)
     setHeat(saved.settings.heat)
-    setAlcoholCards(saved.settings.alcoholCards)
-    setSoundEnabled(saved.settings.soundEnabled)
     setCurrentPlayerIndex(Math.min(saved.currentPlayerIndex, saved.settings.players.length - 1))
     setUsedCardIds(saved.usedCardIds ?? [])
     setTurnsPlayed(saved.turnsPlayed ?? 0)
@@ -184,24 +274,25 @@ function App() {
   function choose(type: CardType) {
     if (!settings) return
     let nextUsed = usedCardIds
-    let result = pickCard(cards, settings, type, nextUsed)
+    let result = pickCardForTurn(cards, settings, type, nextUsed, currentPlayerIndex)
     if (!result.card) {
-      setNotice('Для этого режима и уровня не нашлось карточек. Это нужно чинить в базе.')
+      setNotice('Для этого игрока сейчас не нашлось подходящей карты. Попробуй другой тип или проверь настройки игроков.')
       return
     }
+
     if (result.recycled) {
       const bucketIds = new Set(availableCards(cards, settings, type).map((card) => card.id))
       nextUsed = nextUsed.filter((id) => !bucketIds.has(id))
-      result = pickCard(cards, settings, type, nextUsed)
+      result = pickCardForTurn(cards, settings, type, nextUsed, currentPlayerIndex)
       setNotice(`${type === 'truth' ? 'Правды' : 'Действия'} этой колоды закончились — перемешал только её.`)
     } else {
       setNotice('')
     }
+
     if (!result.card) return
-    const targetIndex = chooseTargetIndex(settings.players, currentPlayerIndex)
     setCurrentCard(result.card)
-    setCurrentTargetIndex(targetIndex)
-    setRenderedText(hydrateCardText(result.card.text, settings.players, currentPlayerIndex, targetIndex))
+    setCurrentTargetIndex(result.targetIndex)
+    setRenderedText(hydrateCardText(result.card.text, settings.players, currentPlayerIndex, result.targetIndex))
     setUsedCardIds([...nextUsed, result.card.id])
     setStage('card')
     sound('reveal')
@@ -226,11 +317,13 @@ function App() {
 
   function backToSetup() {
     if (settings) {
-      setDraftPlayers(settings.players.map((player) => ({ ...player })))
+      setDraftPlayers(settings.players.map((player) => ({
+        name: player.name,
+        gender: player.gender,
+        pairingPreference: player.pairingPreference ?? 'any',
+      })))
       setScenario(settings.scenario)
       setHeat(settings.heat)
-      setAlcoholCards(settings.alcoholCards)
-      setSoundEnabled(settings.soundEnabled)
     }
     setScreen('setup')
   }
@@ -280,18 +373,35 @@ function App() {
           <div className="block-title"><h2>Игроки</h2><span>{draftPlayers.length}/6</span></div>
           <div className="player-list">
             {draftPlayers.map((player, index) => (
-              <div className="player-row" key={index}>
-                <span className="player-index">{index + 1}</span>
-                <input value={player.name} maxLength={18} onChange={(event: ChangeEvent<HTMLInputElement>) => updatePlayerName(index, event.target.value)} aria-label={`Имя игрока ${index + 1}`} />
-                <div className="gender-toggle" aria-label={`Пол игрока ${index + 1}`}>
-                  <button className={player.gender === 'male' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'male')}>М</button>
-                  <button className={player.gender === 'female' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'female')}>Ж</button>
+              <div className="player-entry" key={index}>
+                <div className="player-row">
+                  <span className="player-index">{index + 1}</span>
+                  <input value={player.name} maxLength={18} onChange={(event: ChangeEvent<HTMLInputElement>) => updatePlayerName(index, event.target.value)} aria-label={`Имя игрока ${index + 1}`} />
+                  <div className="gender-toggle" aria-label={`Пол игрока ${index + 1}`}>
+                    <button className={player.gender === 'male' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'male')}>М</button>
+                    <button className={player.gender === 'female' ? 'active' : ''} onClick={() => updatePlayerGender(index, 'female')}>Ж</button>
+                  </div>
+                  {draftPlayers.length > 2 && <button className="remove-button" onClick={() => removePlayer(index)} aria-label="Удалить игрока">×</button>}
                 </div>
-                {draftPlayers.length > 2 && <button className="remove-button" onClick={() => removePlayer(index)} aria-label="Удалить игрока">×</button>}
+                {groupScenario && (
+                  <label className="pairing-preference">
+                    <span>Интимные задания</span>
+                    <select
+                      value={player.pairingPreference}
+                      onChange={(event: ChangeEvent<HTMLSelectElement>) => updatePlayerPreference(index, event.target.value as PairingPreference)}
+                      aria-label={`Интимные задания игрока ${index + 1}`}
+                    >
+                      {(Object.keys(pairingLabels) as PairingPreference[]).map((value) => (
+                        <option key={value} value={value}>{pairingLabels[value]}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
             ))}
           </div>
-          {draftPlayers.length < 6 && <button className="text-button" onClick={addPlayer}>+ добавить игрока</button>}
+          {groupScenario && draftPlayers.length < 6 && <button className="text-button" onClick={addPlayer}>+ добавить игрока</button>}
+          {groupScenario && <p className="setup-hint">Эта настройка влияет только на близкие парные задания. Обычные вопросы и приколы остаются для всей компании.</p>}
         </section>
 
         <section className="setup-block">
@@ -308,24 +418,18 @@ function App() {
         </section>
 
         <section className="setup-block">
-          <div className="block-title"><h2>Накал</h2><span>три понятных режима</span></div>
+          <div className="block-title"><h2>Накал</h2><span>три реально разных уровня</span></div>
           <div className="heat-list">
             {heatOrder.map((item) => (
               <button key={item} className={`heat-row heat-${item} ${heat === item ? 'active' : ''}`} onClick={() => { setHeat(item); setNotice(''); sound('tap') }}>
                 <span className="heat-number">{heatMeta[item].short}</span>
-                <span className="heat-copy"><strong>{heatMeta[item].title}</strong><small>{heatMeta[item].description}</small></span>
+                <span className="heat-copy"><strong>{heatMeta[item].title}</strong><small>{heatDescriptions[scenario][item]}</small></span>
                 <span className="heat-dot" />
               </button>
             ))}
           </div>
           <div className="deck-size">В этой колоде: <strong>{truthCount} правд</strong> · <strong>{dareCount} действий</strong></div>
         </section>
-
-        <details className="extras">
-          <summary>Дополнительно</summary>
-          <label><span><strong>Алко-карты</strong><small>Только небольшие глотки и отдельные темы про алкоголь. Секс и алкоголь не связаны между собой.</small></span><input type="checkbox" checked={alcoholCards} onChange={(event) => setAlcoholCards(event.target.checked)} /></label>
-          <label><span><strong>Звук</strong><small>Короткие сигналы интерфейса.</small></span><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /></label>
-        </details>
 
         {notice && <div className="notice">{notice}</div>}
         <button className="primary-button start-button" onClick={startGame}>Начать · {scenarioMeta[scenario].title} · {heatMeta[heat].title}</button>
