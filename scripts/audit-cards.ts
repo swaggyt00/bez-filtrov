@@ -52,7 +52,7 @@ const vagueReferents = [
 ]
 const dangerousAlcohol = /(залпом|несколько шотов|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
-const partySpeechOnlyDare = [
+const speechOnlyDare = [
   /^(?:расскажи|опиши|назови|объясни|сформулируй|ответь|вспомни|перечисли|оцени|признайся|поделись|перескажи)(?=\s|[.,;:!?—-]|$)/i,
   /^выбери[^.!?]{0,120}(?:назови|объясни|оцени)(?=\s|[.,;:!?—-]|$)/i,
   /(?:^|\s)мини-дебат/i,
@@ -91,16 +91,16 @@ function hasTargetGenderLeak(text: string) {
   return masculineTargetAgreement.test(stripGenderVariants(text))
 }
 
-const partyDareSpeechSelfChecks = [
+const dareSpeechSelfChecks = [
   { text: 'Расскажи историю за двадцать секунд.', bad: true },
   { text: 'Назови три причины.', bad: true },
   { text: 'Выбери игрока и объясни свой выбор.', bad: true },
   { text: 'Выбери игрока и удерживай взгляд пятнадцать секунд.', bad: false },
   { text: 'Станцуй двадцать секунд.', bad: false },
 ]
-for (const fixture of partyDareSpeechSelfChecks) {
-  const actual = partySpeechOnlyDare.some((pattern) => pattern.test(fixture.text))
-  if (actual !== fixture.bad) fail(`self-check Party Dare speech mismatch: ${fixture.text}`)
+for (const fixture of dareSpeechSelfChecks) {
+  const actual = speechOnlyDare.some((pattern) => pattern.test(fixture.text))
+  if (actual !== fixture.bad) fail(`self-check Dare speech mismatch: ${fixture.text}`)
 }
 
 const perspectiveSelfChecks = [
@@ -171,8 +171,8 @@ for (const card of cards) {
   if (/сними (?:свой )?(?:лифчик|бюстгальтер)/i.test(card.text) && !card.actorGenders?.includes('female')) {
     fail(`${card.id}: собственный лифчик требует female actor metadata`)
   }
-  if (card.scenario === 'party' && card.type === 'dare' && partySpeechOnlyDare.some((pattern) => pattern.test(card.text))) {
-    fail(`${card.id}: Party Dare сводится к разговору вместо игрового действия: ${card.text}`)
+  if (card.type === 'dare' && speechOnlyDare.some((pattern) => pattern.test(card.text))) {
+    fail(`${card.id}: Dare сводится к разговору вместо игрового действия: ${card.text}`)
   }
   if (card.type === 'truth' && !card.text.trim().endsWith('?')) fail(`${card.id}: Truth должен быть явным вопросом: ${card.text}`)
   const textKey = normalize(card.text)
