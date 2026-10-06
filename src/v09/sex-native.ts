@@ -1,4 +1,4 @@
-import type { BoundaryTag, ChainFamily, DirectorCard, RiskLevel, SessionStage } from './types'
+import type { BoundaryTag, ChainFamily, ClothingState, DirectorCard, RiskLevel, SessionStage } from './types'
 
 type NativeOptions = {
   boundaries?: BoundaryTag[]
@@ -6,7 +6,8 @@ type NativeOptions = {
   position?: string | null
   requiresPositions?: string[]
   leader?: 'actor' | 'target' | 'clear'
-  actorClothing?: DirectorCard['effects'] extends infer E ? never : never
+  actorClothing?: ClothingState
+  targetClothing?: ClothingState
   targetRequired?: boolean
   tensionDelta?: number
 }
@@ -18,10 +19,7 @@ function native(
   stages: SessionStage[],
   chains: ChainFamily[],
   text: string,
-  options: Omit<NativeOptions, 'actorClothing'> & {
-    actorClothing?: 'clothed' | 'partially-undressed' | 'underwear' | 'partially-nude' | 'nude'
-    targetClothing?: 'clothed' | 'partially-undressed' | 'underwear' | 'partially-nude' | 'nude'
-  } = {},
+  options: NativeOptions = {},
 ): DirectorCard {
   return {
     id: `v09-native-sex-${id}`,
@@ -110,16 +108,16 @@ export const sexNativeCards: DirectorCard[] = [
     'dare',
     1,
     [3, 4],
-    ['manual' as ChainFamily],
+    ['manual'],
     'Если оба согласны, одну минуту ласкай гениталии {{other.gen}} рукой в одном спокойном ритме. {{other.nom}} может в любой момент изменить темп словами.',
-    { boundaries: ['manual'], next: ['manual' as ChainFamily] },
+    { boundaries: ['manual'], next: ['manual'] },
   ),
   native(
     'manual-02',
     'dare',
     2,
     [3, 4],
-    ['manual' as ChainFamily],
+    ['manual'],
     'Если оба согласны, две минуты {{other.nom}} направляет твою руку на своих гениталиях и полностью задаёт скорость и давление.',
     { boundaries: ['manual'], next: ['edging'], leader: 'target', tensionDelta: 4 },
   ),
@@ -128,7 +126,7 @@ export const sexNativeCards: DirectorCard[] = [
     'dare',
     3,
     [3, 4],
-    ['manual' as ChainFamily],
+    ['manual'],
     'Если оба согласны, три минуты {{other.g:дрочи его пенис|ласкай её вульву и клитор}}. Не меняй ритм без прямой команды {{other.gen}}.',
     { boundaries: ['manual'], next: ['edging'], tensionDelta: 6 },
   ),
@@ -137,7 +135,7 @@ export const sexNativeCards: DirectorCard[] = [
     'dare',
     3,
     [3, 4],
-    ['control', 'manual' as ChainFamily],
+    ['control', 'manual'],
     'Если оба согласны, {{other.nom}} выбирает: быстрее, медленнее или не останавливаться. Две минуты выполняй только эти команды во время ручной стимуляции.',
     { boundaries: ['manual'], next: ['control'], leader: 'target', tensionDelta: 6 },
   ),
@@ -146,9 +144,9 @@ export const sexNativeCards: DirectorCard[] = [
     'truth',
     2,
     [3, 4],
-    ['manual' as ChainFamily],
+    ['manual'],
     'Как именно тебе приятнее ручная стимуляция: где, с каким давлением и в каком темпе?',
-    { boundaries: ['manual'], next: ['manual' as ChainFamily] },
+    { boundaries: ['manual'], next: ['manual'] },
   ),
 
   // Stage 3–4 — oral branch.
