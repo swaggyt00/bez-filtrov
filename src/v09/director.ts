@@ -134,6 +134,10 @@ export function scoreCard(card: DirectorCard, state: DirectorState) {
   const last = recent.at(-1)
   if (last && last.chains.some((chain) => card.chains.includes(chain))) score += 18
 
+  const lastTwo = recent.slice(-2)
+  if (lastTwo.length === 2 && lastTwo.every((entry) => entry.type === card.type)) score -= 26
+  else if (last && last.type !== card.type) score += 7
+
   const sameCardRecently = recent.some((entry) => entry.cardId === card.id)
   if (sameCardRecently) score -= 100
 
@@ -183,10 +187,9 @@ function riskTension(risk: RiskLevel) {
 function clothingGateAllowsNextStage(state: DirectorState, nextStage: SessionStage) {
   if (state.scenario !== 'sex') return true
   const minimumClothingRank = Math.min(...state.players.map((player) => clothingRank[player.clothing]))
-  if (nextStage <= 1) return true
-  if (nextStage === 2) return minimumClothingRank >= 1
-  if (nextStage === 3) return minimumClothingRank >= 2
-  return minimumClothingRank >= 3
+  if (nextStage <= 2) return true
+  if (nextStage === 3) return minimumClothingRank >= 1
+  return minimumClothingRank >= 2
 }
 
 export function maybeAdvanceStage(state: DirectorState): DirectorState {
