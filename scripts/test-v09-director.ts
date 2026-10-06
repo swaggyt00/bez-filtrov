@@ -68,7 +68,7 @@ const continuationA: DirectorCard = {
   type: 'dare',
   text: 'A',
   risk: 2,
-  stages: [state.sessionStage],
+  stages: [2],
   chains: ['control'],
   nextHooks: ['control'],
 }
@@ -78,7 +78,7 @@ const continuationB: DirectorCard = {
   type: 'dare',
   text: 'B',
   risk: 2,
-  stages: [state.sessionStage],
+  stages: [2],
   chains: ['control'],
   nextHooks: ['control'],
 }
@@ -88,7 +88,7 @@ const unrelated: DirectorCard = {
   type: 'dare',
   text: 'C',
   risk: 2,
-  stages: [state.sessionStage],
+  stages: [2],
   chains: ['conversation'],
 }
 state = { ...state, sessionStage: 2, chainFamily: 'control', chainDepth: 3, tension: 70 }
