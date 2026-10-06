@@ -9,6 +9,7 @@ import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickE
 import { chooseEventForTurn } from './v09/events'
 import { pickTurnModifiers } from './v09/modifiers'
 import { buildBossSession } from './v09/bosses'
+import { sexNativeCards } from './v09/sex-native'
 import { clearV09Game, loadV09Game, loadV09Settings, saveV09Game, saveV09Settings } from './v09/storage'
 import type {
   BoundaryChoice,
@@ -111,7 +112,7 @@ const sexStartLabels: Record<SexStartState, string> = {
   nude: 'Раздеты',
 }
 
-const directorDeck = adaptLegacyDeck(cards)
+const directorDeck = [...adaptLegacyDeck(cards), ...sexNativeCards]
 const directorById = new Map(directorDeck.map((card) => [card.id, card]))
 const sourceById = new Map(cards.map((card) => [card.id, card]))
 
