@@ -1,7 +1,7 @@
 {
   "name": "bez-filtrov",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,9 @@
     "test:deck": "tsx scripts/test-deck.ts && tsx scripts/test-v08-content.ts",
     "audit:cards": "tsx scripts/audit-cards.ts",
     "test:e2e": "npm run build && playwright test",
-    "test": "npm run test:deck && npm run audit:cards",
-    "check": "npm test && tsc -b"
+    "test": "npm run test:deck && npm run test:director && npm run audit:cards",
+    "check": "npm test && tsc -b",
+    "test:director": "tsx scripts/test-v09-director.ts && tsx scripts/test-v09-coverage.ts && tsx scripts/test-v09-events.ts && tsx scripts/test-v09-simulation.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

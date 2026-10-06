@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { cards } from './data/cards'
-import { availableCards, pickCardForTurn, renderCardText, validateScenarioPlayers } from './deck'
-import { clearGame, loadGame, loadSettings, saveGame, saveSettings } from './storage'
+import { eligibleTargetIndices, renderCardText, validateScenarioPlayers } from './deck'
+import { loadSettings as loadLegacySettings } from './storage'
+import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from './types'
+import { adaptLegacyDeck } from './v09/legacy-adapter'
+import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from './v09/director'
+import { chooseEventForTurn } from './v09/events'
+import { pickTurnModifiers } from './v09/modifiers'
+import { buildBossSession } from './v09/bosses'
+import { clearV09Game, loadV09Game, loadV09Settings, saveV09Game, saveV09Settings } from './v09/storage'
 import type {
-  CardType,
-  GameCard,
-  GameSettings,
-  GameStage,
-  Heat,
-  PairingPreference,
-  PlayerGender,
-  Scenario,
-} from './types'
+  BoundaryChoice,
+  BoundaryTag,
+  BossSession,
+  DirectorCard,
+  DirectorEvent,
+  DirectorState,
+  GameView,
+  RiskLevel,
+  SexStartState,
+  TurnModifier,
+  V09GameSettings,
+} from './v09/types'
 
 type ScenarioMeta = {
   title: string
@@ -26,63 +36,33 @@ const scenarioMeta: Record<Scenario, ScenarioMeta> = {
   couple: {
     title: 'Пара',
     icon: '♥',
-    description: 'Для двоих: смешное, личное, поцелуи и неудобная правда.',
+    description: 'Для двоих: личное, смешное, флирт и близость.',
     minPlayers: 2,
     maxPlayers: 2,
   },
   sex: {
     title: 'Секс',
     icon: '✦',
-    description: 'Для двоих: от напряжения и флирта до прямых коротких сцен.',
+    description: 'Для двоих: скрытая эскалация, фетиши, контроль и секс в разрешённых границах.',
     minPlayers: 2,
     maxPlayers: 2,
   },
   party: {
     title: 'Компания',
     icon: '●',
-    description: '3–6 игроков: подколы, флирт, выборы, алкоголь и реакции компании.',
+    description: '3–6 игроков: социальный риск, флирт, кринж и групповые челленджи.',
     minPlayers: 3,
     maxPlayers: 6,
   },
   afterdark: {
     title: 'После полуночи',
     icon: '☾',
-    description: '2–6 игроков: алкоголь, одежда, неловкость и ночной трэш.',
+    description: '2–6 игроков: ночной хаос, одежда, провокации и временные правила.',
     minPlayers: 2,
     maxPlayers: 6,
   },
 }
 
-const heatMeta: Record<Heat, { title: string; short: string }> = {
-  light: { title: 'Легко', short: '01' },
-  hot: { title: 'Горячо', short: '02' },
-  hard: { title: 'Жёстко', short: '03' },
-}
-
-const heatDescriptions: Record<Scenario, Record<Heat, string>> = {
-  couple: {
-    light: 'Привычки, воспоминания, юмор и тёплые мелочи.',
-    hot: 'Ревность, границы, трения, флирт и более личные признания.',
-    hard: 'Уязвимость, обиды, ответственность и прямые разговоры.',
-  },
-  sex: {
-    light: 'Взгляд, поцелуи, прикосновения и ожидание.',
-    hot: 'Больше тела, инициативы и прямых желаний.',
-    hard: 'Откровенные желания и короткие сексуальные сцены с чётким финалом.',
-  },
-  party: {
-    light: 'Юмор, выбор людей и простые групповые задания.',
-    hot: 'Флирт, неловкость, подколы и смелее парные задания.',
-    hard: 'Самые неудобные выборы и социальные провокации.',
-  },
-  afterdark: {
-    light: 'Ночной абсурд, музыка, алкоголь и первые странные правила.',
-    hot: 'Флирт, одежда, временные запреты и больше неловкости.',
-    hard: 'Раздевание, обмен одеждой и максимум тусовочного трэша.',
-  },
-}
-
-const heatOrder: Heat[] = ['light', 'hot', 'hard']
 const scenarioOrder: Scenario[] = ['couple', 'sex', 'party', 'afterdark']
 const pairingLabels: Record<PairingPreference, string> = {
   any: 'со всеми',
@@ -91,17 +71,67 @@ const pairingLabels: Record<PairingPreference, string> = {
   none: 'ни с кем',
 }
 
-type Screen = 'age' | 'setup' | 'game'
+const boundaryOrder: BoundaryTag[] = [
+  'manual',
+  'oral',
+  'penetration',
+  'spanking',
+  'bondage',
+  'dom-sub',
+  'edging',
+  'toys',
+  'anal',
+  'feet',
+  'roleplay',
+]
+
+const boundaryLabels: Record<BoundaryTag, string> = {
+  manual: 'Стимуляция руками',
+  oral: 'Оральный секс',
+  penetration: 'Проникновение',
+  spanking: 'Шлепки',
+  bondage: 'Фиксация / bondage',
+  'dom-sub': 'Доминирование / подчинение',
+  edging: 'Edging / контроль оргазма',
+  toys: 'Игрушки',
+  anal: 'Анальные практики',
+  feet: 'Feet / foot fetish',
+  roleplay: 'Ролевые сценарии',
+}
+
+const boundaryChoiceLabels: Record<BoundaryChoice, string> = {
+  yes: 'Да',
+  maybe: 'Может быть',
+  no: 'Нет',
+}
+
+const sexStartLabels: Record<SexStartState, string> = {
+  clothed: 'В одежде',
+  underwear: 'В белье',
+  nude: 'Раздеты',
+}
+
+const directorDeck = adaptLegacyDeck(cards)
+const directorById = new Map(directorDeck.map((card) => [card.id, card]))
+const sourceById = new Map(cards.map((card) => [card.id, card]))
+
+type Screen = 'age' | 'setup' | 'boundaries' | 'handover' | 'game'
 type DraftPlayer = {
   name: string
   gender: PlayerGender | null
   pairingPreference: PairingPreference
 }
 
+function blankBoundaryChoices(): Record<BoundaryTag, BoundaryChoice> {
+  return Object.fromEntries(boundaryOrder.map((tag) => [tag, 'no'])) as Record<BoundaryTag, BoundaryChoice>
+}
+
 function initialDraftPlayers(): DraftPlayer[] {
-  const saved = loadSettings()
-  if (saved?.players?.length >= 2) {
-    return saved.players.map((player) => ({
+  const saved = loadV09Settings()
+  const legacy = loadLegacySettings()
+  const players = saved?.players?.length ? saved.players : legacy?.players
+  if (players?.length) {
+    return players.map((player) => ({
       name: player.name,
       gender: player.gender,
       pairingPreference: player.pairingPreference ?? 'any',
@@ -114,48 +144,68 @@ function initialDraftPlayers(): DraftPlayer[] {
 }
 
 function App() {
-  const previousSettings = loadSettings()
+  const previousSettings = loadV09Settings()
   const [screen, setScreen] = useState<Screen>('age')
   const [draftPlayers, setDraftPlayers] = useState<DraftPlayer[]>(initialDraftPlayers)
   const [scenario, setScenario] = useState<Scenario>(previousSettings?.scenario ?? 'sex')
-  const [heat, setHeat] = useState<Heat>(previousSettings?.heat ?? 'hot')
-  const [settings, setSettings] = useState<GameSettings | null>(null)
+  const [sexStartState, setSexStartState] = useState<SexStartState>(previousSettings?.sexStartState ?? 'clothed')
+  const [settings, setSettings] = useState<V09GameSettings | null>(null)
+  const [directorState, setDirectorState] = useState<DirectorState | null>(null)
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
-  const [usedCardIds, setUsedCardIds] = useState<string[]>([])
-  const [turnsPlayed, setTurnsPlayed] = useState(0)
-  const [stage, setStage] = useState<GameStage>('choice')
-  const [currentCard, setCurrentCard] = useState<GameCard | null>(null)
+  const [view, setView] = useState<GameView>('risk')
+  const [currentDirectorCard, setCurrentDirectorCard] = useState<DirectorCard | null>(null)
+  const [currentRisk, setCurrentRisk] = useState<RiskLevel | null>(null)
   const [currentTargetIndex, setCurrentTargetIndex] = useState<number | null>(null)
   const [renderedText, setRenderedText] = useState('')
+  const [currentModifiers, setCurrentModifiers] = useState<TurnModifier[]>([])
+  const [pendingEvent, setPendingEvent] = useState<DirectorEvent | null>(null)
+  const [boss, setBoss] = useState<BossSession | null>(null)
+  const [bossPhaseIndex, setBossPhaseIndex] = useState(0)
   const [notice, setNotice] = useState('')
+  const [preparedPlayers, setPreparedPlayers] = useState<Player[] | null>(null)
+  const [boundaryStep, setBoundaryStep] = useState(0)
+  const [boundaryDrafts, setBoundaryDrafts] = useState<Record<number, Record<BoundaryTag, BoundaryChoice>>>({})
+  const [boundaryChoices, setBoundaryChoices] = useState<Record<BoundaryTag, BoundaryChoice>>(blankBoundaryChoices)
   const audioRef = useRef<AudioContext | null>(null)
-  const savedGame = useMemo(() => loadGame(), [screen])
+  const savedGame = useMemo(() => loadV09Game(), [screen])
 
-  const currentPlayer = settings?.players[currentPlayerIndex]
+  const currentPlayer = settings?.players[currentPlayerIndex] ?? null
   const currentTarget = settings && currentTargetIndex !== null ? settings.players[currentTargetIndex] : null
   const groupScenario = scenario === 'party' || scenario === 'afterdark'
-  const visibleCards = useMemo(
-    () => cards.filter((card) => card.scenario === scenario && card.heat === heat),
-    [scenario, heat],
-  )
-  const truthCount = visibleCards.filter((card) => card.type === 'truth').length
-  const dareCount = visibleCards.filter((card) => card.type === 'dare').length
 
   useEffect(() => {
-    if (screen !== 'game' || !settings) return
-    saveGame({
+    if (screen !== 'game' || !settings || !directorState) return
+    saveV09Game({
       settings,
+      director: directorState,
       currentPlayerIndex,
-      usedCardIds,
-      turnsPlayed,
-      stage,
-      currentCardId: currentCard?.id ?? null,
+      view,
+      currentDirectorCardId: currentDirectorCard?.id ?? null,
+      currentSourceCardId: currentDirectorCard?.sourceCardId ?? null,
+      currentRisk,
       currentTargetIndex,
       renderedText,
-      notice,
+      currentModifiers,
+      pendingEvent,
+      boss,
+      bossPhaseIndex,
       updatedAt: Date.now(),
     })
-  }, [screen, settings, currentPlayerIndex, usedCardIds, turnsPlayed, stage, currentCard, currentTargetIndex, renderedText, notice])
+  }, [
+    screen,
+    settings,
+    directorState,
+    currentPlayerIndex,
+    view,
+    currentDirectorCard,
+    currentRisk,
+    currentTargetIndex,
+    renderedText,
+    currentModifiers,
+    pendingEvent,
+    boss,
+    bossPhaseIndex,
+  ])
 
   function sound(kind: 'tap' | 'reveal') {
     try {
@@ -201,18 +251,18 @@ function App() {
     setDraftPlayers((players) => players.filter((_, i) => i !== index))
   }
 
-  function buildSettings(): GameSettings | null {
+  function buildPlayers(): Player[] | null {
     const names = draftPlayers.map((player, index) => player.name.trim() || `Игрок ${index + 1}`)
     if (new Set(names.map((name) => name.toLocaleLowerCase('ru'))).size !== names.length) {
       setNotice('Имена игроков должны отличаться.')
       return null
     }
     if (draftPlayers.some((player) => !player.gender)) {
-      setNotice('Укажи пол каждого игрока — он нужен, чтобы карточки попадали правильному человеку.')
+      setNotice('Укажи пол каждого игрока.')
       return null
     }
 
-    const players = draftPlayers.map((player, index) => ({
+    const players: Player[] = draftPlayers.map((player, index) => ({
       name: names[index],
       gender: player.gender as PlayerGender,
       pairingPreference: player.pairingPreference,
@@ -222,96 +272,239 @@ function App() {
       setNotice(validation.message)
       return null
     }
-    return { players, scenario, heat }
+    return players
   }
 
-  function startGame() {
-    const nextSettings = buildSettings()
-    if (!nextSettings) return
-    if (!availableCards(cards, nextSettings).length) {
-      setNotice('В этой комбинации нет карточек. Это баг колоды.')
-      return
+  function beginGame(players: Player[], mutuallyAllowedBoundaries: BoundaryTag[]) {
+    const nextSettings: V09GameSettings = {
+      players,
+      scenario,
+      sexStartState,
+      mutuallyAllowedBoundaries,
     }
-    clearGame()
-    saveSettings(nextSettings)
+    const director = createDirectorState(
+      scenario,
+      players,
+      scenario === 'sex' ? sexStartState : 'clothed',
+      mutuallyAllowedBoundaries,
+    )
+
+    clearV09Game()
+    saveV09Settings(nextSettings)
     setSettings(nextSettings)
+    setDirectorState(director)
     setCurrentPlayerIndex(0)
-    setUsedCardIds([])
-    setTurnsPlayed(0)
-    setStage('choice')
-    setCurrentCard(null)
+    setView('risk')
+    setCurrentDirectorCard(null)
+    setCurrentRisk(null)
     setCurrentTargetIndex(null)
     setRenderedText('')
+    setCurrentModifiers([])
+    setPendingEvent(null)
+    setBoss(null)
+    setBossPhaseIndex(0)
     setNotice('')
     setScreen('game')
     sound('reveal')
   }
 
+  function requestStart() {
+    const players = buildPlayers()
+    if (!players) return
+    if (scenario !== 'sex') {
+      beginGame(players, [])
+      return
+    }
+
+    setPreparedPlayers(players)
+    setBoundaryStep(0)
+    setBoundaryDrafts({})
+    setBoundaryChoices(blankBoundaryChoices())
+    setScreen('boundaries')
+  }
+
+  function saveBoundaryStep() {
+    if (!preparedPlayers) return
+    const nextDrafts = { ...boundaryDrafts, [boundaryStep]: boundaryChoices }
+    setBoundaryDrafts(nextDrafts)
+
+    if (boundaryStep < preparedPlayers.length - 1) {
+      setBoundaryStep((step) => step + 1)
+      setBoundaryChoices(blankBoundaryChoices())
+      setScreen('handover')
+      return
+    }
+
+    const mutual = boundaryOrder.filter((tag) =>
+      preparedPlayers.every((_, index) => nextDrafts[index]?.[tag] !== 'no'),
+    )
+    beginGame(preparedPlayers, mutual)
+  }
+
   function resumeGame() {
-    const saved = loadGame()
+    const saved = loadV09Game()
     if (!saved) return
-    const restoredCard = saved.currentCardId ? cards.find((card) => card.id === saved.currentCardId) ?? null : null
     setSettings(saved.settings)
+    setDirectorState(saved.director)
     setDraftPlayers(saved.settings.players.map((player) => ({
       name: player.name,
       gender: player.gender,
       pairingPreference: player.pairingPreference ?? 'any',
     })))
     setScenario(saved.settings.scenario)
-    setHeat(saved.settings.heat)
+    setSexStartState(saved.settings.sexStartState)
     setCurrentPlayerIndex(Math.min(saved.currentPlayerIndex, saved.settings.players.length - 1))
-    setUsedCardIds(saved.usedCardIds ?? [])
-    setTurnsPlayed(saved.turnsPlayed ?? 0)
-    setCurrentCard(restoredCard)
-    setCurrentTargetIndex(saved.currentTargetIndex ?? null)
-    setRenderedText(restoredCard ? saved.renderedText : '')
-    setStage(restoredCard && saved.stage === 'card' ? 'card' : 'choice')
-    setNotice(saved.notice ?? '')
+    setView(saved.view)
+    setCurrentDirectorCard(saved.currentDirectorCardId ? directorById.get(saved.currentDirectorCardId) ?? null : null)
+    setCurrentRisk(saved.currentRisk)
+    setCurrentTargetIndex(saved.currentTargetIndex)
+    setRenderedText(saved.renderedText)
+    setCurrentModifiers(saved.currentModifiers ?? [])
+    setPendingEvent(saved.pendingEvent)
+    setBoss(saved.boss)
+    setBossPhaseIndex(saved.bossPhaseIndex ?? 0)
+    setNotice('')
     setScreen('game')
   }
 
-  function choose(type: CardType) {
-    if (!settings) return
-    let nextUsed = usedCardIds
-    let result = pickCardForTurn(cards, settings, type, nextUsed, currentPlayerIndex)
-    if (!result.card) {
-      setNotice('Для этого игрока сейчас не нашлось подходящей карты. Попробуй другой тип или проверь настройки.')
+  function eligibleDirectorCards(event: DirectorEvent | null) {
+    if (!settings || !directorState) return [] as DirectorCard[]
+    const actor = settings.players[currentPlayerIndex]
+    const base = directorDeck.filter((directorCard) => {
+      if (directorCard.scenario !== settings.scenario) return false
+      const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
+      if (!source) return false
+      if (source.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
+      if (source.minPlayers && source.minPlayers > settings.players.length) return false
+
+      const needsTarget = source.requiresTarget !== false && source.pairing !== 'none'
+      if (needsTarget && eligibleTargetIndices(source, settings.players, currentPlayerIndex).length === 0) return false
+
+      if (event?.forcedChain && !directorCard.chains.includes(event.forcedChain)) return false
+      if (event?.forcedBoundary && !directorCard.requires?.boundaries?.includes(event.forcedBoundary)) return false
+      return true
+    })
+
+    if (base.length) return base
+
+    return directorDeck.filter((directorCard) => {
+      if (directorCard.scenario !== settings.scenario) return false
+      const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
+      if (!source) return false
+      if (source.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
+      if (source.minPlayers && source.minPlayers > settings.players.length) return false
+      const needsTarget = source.requiresTarget !== false && source.pairing !== 'none'
+      return !needsTarget || eligibleTargetIndices(source, settings.players, currentPlayerIndex).length > 0
+    })
+  }
+
+  function chooseRisk(risk: RiskLevel) {
+    if (!settings || !directorState) return
+
+    const candidates = eligibleDirectorCards(pendingEvent)
+    const picked = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, risk)
+
+    if (!picked) {
+      setNotice('Director не нашёл логичную карту для текущего состояния. Это нужно поправить в разметке.')
       return
     }
 
-    if (result.recycled) {
-      const bucketIds = new Set(availableCards(cards, settings, type).map((card) => card.id))
-      nextUsed = nextUsed.filter((id) => !bucketIds.has(id))
-      result = pickCardForTurn(cards, settings, type, nextUsed, currentPlayerIndex)
-      setNotice(`${type === 'truth' ? 'Правды' : 'Действия'} закончились — перемешал эту часть колоды.`)
-    } else {
-      setNotice('')
+    const source = picked.card.sourceCardId ? sourceById.get(picked.card.sourceCardId) : null
+    if (!source) {
+      setNotice('Не найден исходник карточки.')
+      return
     }
 
-    if (!result.card) return
-    const finalText = renderCardText(result.card, settings.players, currentPlayerIndex, result.targetIndex)
-    setCurrentCard(result.card)
-    setCurrentTargetIndex(result.targetIndex)
+    const targets = eligibleTargetIndices(source, settings.players, currentPlayerIndex)
+    const targetIndex = targets.length ? targets[Math.floor(Math.random() * targets.length)] : null
+    const finalText = renderCardText({ ...source, text: picked.card.text }, settings.players, currentPlayerIndex, targetIndex)
+
+    let forcedModifierCount = pendingEvent?.modifierCount ?? 0
+    if (pendingEvent?.id === 'double-stake' && risk === 2) forcedModifierCount = 2
+    if (pendingEvent?.id === 'double-stake' && risk === 3) forcedModifierCount = 0
+
+    setCurrentDirectorCard(picked.card)
+    setCurrentRisk(risk)
+    setCurrentTargetIndex(targetIndex)
     setRenderedText(finalText)
-    setUsedCardIds([...nextUsed, result.card.id])
-    setStage('card')
+    setCurrentModifiers(pickTurnModifiers(picked.card, directorState, risk, forcedModifierCount))
+    setPendingEvent(null)
+    setView('card')
+    setNotice('')
     sound('reveal')
   }
 
-  function nextTurn() {
-    if (!settings) return
-    setCurrentPlayerIndex((index) => (index + 1) % settings.players.length)
-    setTurnsPlayed((turns) => turns + 1)
-    setCurrentCard(null)
+  function prepareNextTurn(nextDirector: DirectorState, nextPlayerIndex: number) {
+    const event = chooseEventForTurn(nextDirector, nextPlayerIndex)
+    setDirectorState(nextDirector)
+    setCurrentPlayerIndex(nextPlayerIndex)
+    setCurrentDirectorCard(null)
+    setCurrentRisk(null)
     setCurrentTargetIndex(null)
     setRenderedText('')
-    setStage('choice')
+    setCurrentModifiers([])
+    setPendingEvent(event)
+    setBoss(null)
+    setBossPhaseIndex(0)
+    setView(event ? 'event' : 'risk')
     setNotice('')
+  }
+
+  function completeCurrent(skipped: boolean) {
+    if (!settings || !directorState || !currentDirectorCard || currentRisk === null) return
+    const base = tickEffects(directorState)
+    const nextDirector = completeTurn(
+      base,
+      currentDirectorCard,
+      currentPlayerIndex,
+      currentTargetIndex,
+      currentRisk,
+      skipped,
+    )
+
+    if (!skipped && bossIsReady(nextDirector) && Math.random() < 0.5) {
+      setDirectorState(nextDirector)
+      setBoss(buildBossSession(nextDirector))
+      setBossPhaseIndex(0)
+      setCurrentDirectorCard(null)
+      setCurrentRisk(null)
+      setCurrentTargetIndex(null)
+      setRenderedText('')
+      setCurrentModifiers([])
+      setView('boss')
+      sound('reveal')
+      return
+    }
+
+    const nextPlayer = (currentPlayerIndex + 1) % settings.players.length
+    prepareNextTurn(nextDirector, nextPlayer)
     sound('tap')
   }
 
-  function reroll() {
-    if (currentCard) choose(currentCard.type)
+  function acceptEvent() {
+    if (!directorState) return
+    setDirectorState({ ...directorState, lastEventTurn: directorState.turnsPlayed })
+    setView('risk')
+    sound('reveal')
+  }
+
+  function nextBossPhase() {
+    if (!boss || !settings || !directorState) return
+    if (bossPhaseIndex < boss.phases.length - 1) {
+      setBossPhaseIndex((index) => index + 1)
+      sound('reveal')
+      return
+    }
+
+    const resetDirector: DirectorState = {
+      ...directorState,
+      lastBossTurn: directorState.turnsPlayed,
+      tension: Math.max(8, directorState.tension - 28),
+      chainDepth: 0,
+    }
+    const nextPlayer = (currentPlayerIndex + 1) % settings.players.length
+    prepareNextTurn(resetDirector, nextPlayer)
+    sound('tap')
   }
 
   function backToSetup() {
@@ -322,19 +515,19 @@ function App() {
         pairingPreference: player.pairingPreference ?? 'any',
       })))
       setScenario(settings.scenario)
-      setHeat(settings.heat)
+      setSexStartState(settings.sexStartState)
     }
     setScreen('setup')
   }
 
   function newGameFromScratch() {
-    clearGame()
+    clearV09Game()
     setSettings(null)
-    setCurrentCard(null)
-    setCurrentTargetIndex(null)
-    setRenderedText('')
+    setDirectorState(null)
+    setCurrentDirectorCard(null)
+    setPendingEvent(null)
+    setBoss(null)
     setNotice('')
-    setStage('choice')
     setScreen('setup')
   }
 
@@ -343,12 +536,64 @@ function App() {
       <main className="app-shell center-screen">
         <section className="age-screen">
           <div className="brand-mark">БЕЗ ФИЛЬТРОВ</div>
-          <h1>Правда.<br />Или действие.</h1>
-          <p className="lead">18+. Игра для взрослых, которые сами решают, насколько далеко заходить.</p>
+          <h1>Риск выбираешь ты.<br />Карту — игра.</h1>
+          <p className="lead">18+. Каждая сессия запоминает ваши решения и сама повышает ставки.</p>
           <div className="age-orb">18+</div>
-          <p className="safety-note">Любую карту можно заменить или пропустить. Объяснять ничего не нужно.</p>
+          <p className="safety-note">Любую карту можно пропустить. Пропуск и границы никогда не считаются «трусостью».</p>
           <button className="primary-button" onClick={() => setScreen('setup')}>Мне есть 18</button>
         </section>
+      </main>
+    )
+  }
+
+  if (screen === 'handover' && preparedPlayers) {
+    const player = preparedPlayers[boundaryStep]
+    return (
+      <main className="app-shell center-screen">
+        <section className="handover-screen">
+          <div className="brand-mark">ЛИЧНО</div>
+          <h1>Передай телефон<br />{player?.name}</h1>
+          <p>Предыдущие ответы скрыты. Сейчас настраиваются только личные границы этого игрока.</p>
+          <button className="primary-button" onClick={() => setScreen('boundaries')}>Я {player?.name}</button>
+        </section>
+      </main>
+    )
+  }
+
+  if (screen === 'boundaries' && preparedPlayers) {
+    const player = preparedPlayers[boundaryStep]
+    return (
+      <main className="app-shell setup-shell boundary-shell">
+        <header className="setup-header">
+          <div>
+            <div className="brand-mark">СЕКС · ГРАНИЦЫ</div>
+            <h1>{player?.name}</h1>
+          </div>
+          <span className="mini-18">18+</span>
+        </header>
+        <p className="boundary-intro">Отметь только для себя. Второй игрок не увидит несовпавшие ответы.</p>
+        <section className="setup-block boundary-list">
+          {boundaryOrder.map((tag) => (
+            <div className="boundary-row" key={tag}>
+              <strong>{boundaryLabels[tag]}</strong>
+              <div className="boundary-options">
+                {(Object.keys(boundaryChoiceLabels) as BoundaryChoice[]).map((choice) => (
+                  <button
+                    type="button"
+                    key={choice}
+                    className={boundaryChoices[tag] === choice ? 'active' : ''}
+                    onClick={() => setBoundaryChoices((value) => ({ ...value, [tag]: choice }))}
+                  >
+                    {boundaryChoiceLabels[choice]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+        <button className="primary-button start-button" onClick={saveBoundaryStep}>
+          {boundaryStep < preparedPlayers.length - 1 ? 'Сохранить и передать' : 'Сохранить и начать'}
+        </button>
       </main>
     )
   }
@@ -367,8 +612,8 @@ function App() {
         {savedGame && (
           <button className="resume-card" onClick={resumeGame}>
             <span>Продолжить</span>
-            <strong>{scenarioMeta[savedGame.settings.scenario].title} · {heatMeta[savedGame.settings.heat].title}</strong>
-            <small>{savedGame.settings.players.map((player) => player.name).join(' · ')} · ход {savedGame.turnsPlayed + 1}</small>
+            <strong>{scenarioMeta[savedGame.settings.scenario].title}</strong>
+            <small>{savedGame.settings.players.map((player) => player.name).join(' · ')} · ход {savedGame.director.turnsPlayed + 1}</small>
           </button>
         )}
 
@@ -398,14 +643,18 @@ function App() {
             ))}
           </div>
           {groupScenario && draftPlayers.length < 6 && <button type="button" className="text-button" onClick={addPlayer}>+ добавить игрока</button>}
-          {groupScenario && <p className="setup-hint">Настройка влияет только на близкие парные задания. Обычные вопросы и приколы остаются для всех.</p>}
         </section>
 
         <section className="setup-block">
-          <div className="block-title"><h2>Сценарий</h2></div>
+          <div className="block-title"><h2>Режим</h2><span>сложность выбирается каждым ходом</span></div>
           <div className="scenario-grid">
             {scenarioOrder.map((item) => (
-              <button type="button" key={item} className={`scenario-card ${scenario === item ? 'active' : ''}`} onClick={() => { setScenario(item); setNotice(''); sound('tap') }}>
+              <button
+                type="button"
+                key={item}
+                className={`scenario-card ${scenario === item ? 'active' : ''}`}
+                onClick={() => { setScenario(item); setNotice(''); sound('tap') }}
+              >
                 <span className="scenario-icon">{scenarioMeta[item].icon}</span>
                 <strong>{scenarioMeta[item].title}</strong>
                 <small>{scenarioMeta[item].description}</small>
@@ -414,65 +663,138 @@ function App() {
           </div>
         </section>
 
-        <section className="setup-block">
-          <div className="block-title"><h2>Накал</h2><span>выбери потолок</span></div>
-          <div className="heat-list">
-            {heatOrder.map((item) => (
-              <button type="button" key={item} className={`heat-row heat-${item} ${heat === item ? 'active' : ''}`} onClick={() => { setHeat(item); setNotice(''); sound('tap') }}>
-                <span className="heat-number">{heatMeta[item].short}</span>
-                <span className="heat-copy"><strong>{heatMeta[item].title}</strong><small>{heatDescriptions[scenario][item]}</small></span>
-                <span className="heat-dot" />
-              </button>
-            ))}
-          </div>
-          <div className="deck-size"><strong>{truthCount} правд</strong><span>·</span><strong>{dareCount} действий</strong></div>
+        {scenario === 'sex' && (
+          <section className="setup-block">
+            <div className="block-title"><h2>Как начинаете</h2><span>по умолчанию — в одежде</span></div>
+            <div className="start-state-grid">
+              {(Object.keys(sexStartLabels) as SexStartState[]).map((state) => (
+                <button
+                  type="button"
+                  key={state}
+                  className={sexStartState === state ? 'active' : ''}
+                  onClick={() => setSexStartState(state)}
+                >
+                  {sexStartLabels[state]}
+                </button>
+              ))}
+            </div>
+            <p className="setup-hint no-indent">После старта каждый игрок отдельно отметит сексуальные границы. Совпадения останутся скрыты внутри Director.</p>
+          </section>
+        )}
+
+        <section className="director-note">
+          <strong>🔥 вместо Light / Hot / Hard</strong>
+          <span>На каждом ходу сначала выбираешь риск, а уже потом узнаёшь — Правда или Действие. Director запоминает последствия и строит продолжение.</span>
         </section>
 
         {notice && <div className="notice">{notice}</div>}
-        <button className="primary-button start-button" onClick={startGame}>Начать · {scenarioMeta[scenario].title}</button>
+        <button className="primary-button start-button" onClick={requestStart}>Начать · {scenarioMeta[scenario].title}</button>
       </main>
     )
   }
 
-  if (!settings || !currentPlayer) return null
+  if (!settings || !directorState || !currentPlayer) return null
+
+  const riskChooserName = pendingEvent?.partnerChoosesRisk
+    ? settings.players.find((_, index) => index !== currentPlayerIndex)?.name
+    : currentPlayer.name
+  const minimumRisk: RiskLevel = pendingEvent?.id === 'double-stake' ? 2 : pendingEvent?.forcedMinimumRisk ?? 1
 
   return (
-    <main className={`app-shell game-shell game-${settings.heat}`}>
+    <main className="app-shell game-shell game-v09">
       <header className="game-header">
         <button type="button" className="ghost-button" onClick={backToSetup}>← настройки</button>
-        <span>{scenarioMeta[settings.scenario].title} · {heatMeta[settings.heat].title}</span>
+        <span>{scenarioMeta[settings.scenario].title}</span>
         <button type="button" className="ghost-button" onClick={newGameFromScratch}>сброс</button>
       </header>
 
       <section className="turn-area">
-        <div className="turn-label">ХОД {String(turnsPlayed + 1).padStart(2, '0')}</div>
-        <h1 className="current-player">{currentPlayer.name}</h1>
-        <div className="gender-caption">{currentPlayer.gender === 'male' ? 'Мужчина' : 'Женщина'}</div>
-
-        {stage === 'choice' ? (
-          <div className="choice-panel">
-            <p className="choice-kicker">твой выбор</p>
-            <h2 className="choice-title">Правда<br />{' '}или действие?</h2>
-            <div className="choice-buttons">
-              <button type="button" className="truth-choice" onClick={() => choose('truth')}><span>П</span><strong>Правда</strong><small>отвечай прямо</small></button>
-              <button type="button" className="dare-choice" onClick={() => choose('dare')}><span>Д</span><strong>Действие</strong><small>сделай сейчас</small></button>
-            </div>
+        {directorState.activeEffects.length > 0 && (
+          <div className="effect-strip">
+            {directorState.activeEffects.map((effect) => <span key={effect.id}>{effect.label}</span>)}
           </div>
-        ) : (
-          <section className={`game-card ${currentCard?.type === 'dare' ? 'dare-card' : 'truth-card'}`}>
+        )}
+        {directorState.leaderIndex !== null && (
+          <div className="effect-strip"><span>♛ {settings.players[directorState.leaderIndex]?.name} ведёт</span></div>
+        )}
+
+        {view !== 'boss' && (
+          <>
+            <div className="turn-label">ХОД {String(directorState.turnsPlayed + 1).padStart(2, '0')}</div>
+            <h1 className="current-player">{currentPlayer.name}</h1>
+          </>
+        )}
+
+        {view === 'event' && pendingEvent && (
+          <section className="event-card">
+            <div className="event-kicker">БЕЗ ФИЛЬТРОВ</div>
+            <h2>{pendingEvent.title}</h2>
+            <p>{pendingEvent.description}</p>
+            <button type="button" className="primary-button" onClick={acceptEvent}>Принято</button>
+          </section>
+        )}
+
+        {view === 'risk' && (
+          <section className="risk-panel">
+            <p className="choice-kicker">{pendingEvent?.partnerChoosesRisk ? `риск выбирает ${riskChooserName}` : 'выбери риск'}</p>
+            <h2>Карту увидишь<br />после выбора.</h2>
+            <div className="risk-buttons">
+              {([1, 2, 3] as RiskLevel[]).map((risk) => (
+                <button
+                  type="button"
+                  key={risk}
+                  className={`risk-button risk-${risk}`}
+                  disabled={risk < minimumRisk}
+                  onClick={() => chooseRisk(risk)}
+                  aria-label={`Риск ${risk}`}
+                >
+                  <strong>{'🔥'.repeat(risk)}</strong>
+                  {pendingEvent?.id === 'double-stake' && risk === 2 && <small>2 условия</small>}
+                  {pendingEvent?.id === 'double-stake' && risk === 3 && <small>без гарантии</small>}
+                </button>
+              ))}
+            </div>
+            <p className="risk-hint">Огонь определяет риск хода. Стадию сессии Director держит скрытой.</p>
+          </section>
+        )}
+
+        {view === 'card' && currentDirectorCard && (
+          <section className={`game-card ${currentDirectorCard.type === 'dare' ? 'dare-card' : 'truth-card'}`}>
             <div className="card-glow" />
             <div className="card-topline">
-              <span>{currentCard?.type === 'truth' ? 'ПРАВДА' : 'ДЕЙСТВИЕ'}</span>
-              <span>{heatMeta[settings.heat].title.toUpperCase()}</span>
+              <span>{currentDirectorCard.type === 'truth' ? 'ПРАВДА' : 'ДЕЙСТВИЕ'}</span>
+              <span>{currentRisk ? '🔥'.repeat(currentRisk) : ''}</span>
             </div>
-            {currentTarget && <div className="target-chip">для пары с {currentTarget.name}</div>}
+            {currentTarget && <div className="target-chip">с {currentTarget.name}</div>}
             <p className="card-text">{renderedText}</p>
-            <p className="pass-copy">Не хочешь — меняй или пропускай. Без оправданий.</p>
-            <button type="button" className="primary-button card-next" onClick={nextTurn}>Готово <span>→</span></button>
-            <div className="secondary-actions">
-              <button type="button" onClick={reroll}>Другая карта</button>
-              <button type="button" onClick={nextTurn}>Пропустить</button>
+            {currentModifiers.length > 0 && (
+              <div className="modifier-stack">
+                {currentModifiers.map((modifier) => (
+                  <div className="modifier-card" key={modifier.id}>
+                    <span>УСЛОВИЕ</span>
+                    <strong>{modifier.label}</strong>
+                    <small>{modifier.description}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="pass-copy">Пропуск не влияет на скрытую оценку осторожности.</p>
+            <button type="button" className="primary-button card-next" onClick={() => completeCurrent(false)}>Выполнено <span>→</span></button>
+            <div className="secondary-actions one-action">
+              <button type="button" onClick={() => completeCurrent(true)}>Пропустить</button>
             </div>
+          </section>
+        )}
+
+        {view === 'boss' && boss && (
+          <section className="boss-card">
+            <div className="boss-kicker">🔥 БЕЗ ФИЛЬТРОВ 🔥</div>
+            <h2>{boss.title}</h2>
+            <div className="boss-progress">{bossPhaseIndex + 1} / {boss.phases.length}</div>
+            <p>{boss.phases[bossPhaseIndex]}</p>
+            <button type="button" className="primary-button" onClick={nextBossPhase}>
+              {bossPhaseIndex < boss.phases.length - 1 ? 'Следующая фаза' : 'Завершить'}
+            </button>
           </section>
         )}
 
