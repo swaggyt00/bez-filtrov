@@ -52,6 +52,7 @@ const vagueReferents = [
 ]
 const dangerousAlcohol = /(залпом|несколько шотов|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
+const partyExplicitTopic = /(?:^|[^а-яё])(?:секс(?:а|е|ом|у)?|порно|мастурб\w*|оральн\w*|анальн\w*|бдсм|кинк\w*|оргазм\w*)(?![а-яё])/i
 const speechOnlyDare = [
   /^(?:расскажи|опиши|назови|объясни|сформулируй|ответь|вспомни|перечисли|оцени|признайся|поделись|перескажи)(?=\s|[.,;:!?—-]|$)/i,
   /^выбери[^.!?]{0,160}(?:назови|объясни|оцени|расскажи)(?=\s|[.,;:!?—-]|$)/i,
@@ -162,6 +163,7 @@ for (const card of cards) {
   if (card.type === 'truth' && !card.purpose) fail(`${card.id}: Truth без purpose`)
   if (!card.sourceRef || !(card.sourceRef in CARD_SOURCE_REGISTRY)) fail(`${card.id}: отсутствует или неизвестен sourceRef`)
   if (card.sourceRef === 'original-editorial') fail(`${card.id}: v0.8 допускает только внешний конкурентный sourceRef`)
+  if (card.scenario === 'party' && partyExplicitTopic.test(card.text)) fail(`${card.id}: Party содержит Sex-only тему: ${card.text}`)
   if (hasPerspectiveLeak(card.text)) fail(`${card.id}: сломана перспектива игрока (opponent-voice first person): ${card.text}`)
   if (hasCurrentPlayerGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для текущего игрока: ${card.text}`)
   if (hasTargetGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для динамического target: ${card.text}`)
