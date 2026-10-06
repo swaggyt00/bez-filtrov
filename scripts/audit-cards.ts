@@ -64,6 +64,13 @@ const firstPersonOpponentVoice = /(?<![а-яё])(?:я|меня|мне|мной|�
 const masculineCurrentPlayerVoice = /(?<![а-яё])ты(?=[^.!?]{0,80}(?:совершал|отправил|искал|сходил|попробовал|выбрал|описал|понял|узнал|предлагал|стал|поставил|доверил|пропустил|предпочёл|начинал|заказал|заменил|ответил|чувствовал|хотел|стеснялся|заметил|пробовал|считал|согласился|жалел|понимал|решился|встретил|нажал|мог|готов|должен|сам|первым|уверен|прав|свободен|согласен)(?![а-яё]))[^.!?]*/i
 const masculineTargetAgreement = /\{\{other\.nom\}\}(?=[^.!?]{0,22}(?:узнал|выглядел|спрашивал|показался|замечал|согласен|должен|сам|первым|привлекательным|притягательным|сексуальным|готов|мог|стал|понял|выбрал|решил)(?![а-яё]))[^.!?]*/i
 
+const implicitCurrentPlayerGender = [
+  /(?<![а-яё])сам(?=\s+(?:не\s+)?(?:считаешь|предпочитаешь|хотел|замри|наблюдаешь))/i,
+  /(?<![а-яё])(?:готов|согласен)(?=\s+(?:обсуждать|выполнить|попробовать))/i,
+  /(?<![а-яё])заметил(?![а-яё])/i,
+  /остановись первым(?![а-яё])/i,
+]
+
 function normalize(text: string) {
   return text.toLowerCase().replace(/\{\{[^}]+\}\}/g, 'x').replace(/[^а-яёa-z0-9]+/gi, ' ').trim()
 }
@@ -151,6 +158,7 @@ for (const card of cards) {
   if (hasPerspectiveLeak(card.text)) fail(`${card.id}: сломана перспектива игрока (opponent-voice first person): ${card.text}`)
   if (hasCurrentPlayerGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для текущего игрока: ${card.text}`)
   if (hasTargetGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для динамического target: ${card.text}`)
+  if (implicitCurrentPlayerGender.some((pattern) => pattern.test(stripGenderVariants(stripQuotedSpeech(card.text))))) fail(`${card.id}: неявный мужской род захардкожен для текущего игрока: ${card.text}`)
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
