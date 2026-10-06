@@ -34,6 +34,9 @@ jobs:
       - name: Deck tests
         run: npm run test:deck
 
+      - name: Director tests
+        run: npm run test:director
+
       - name: Audit cards
         run: npm run audit:cards
 
