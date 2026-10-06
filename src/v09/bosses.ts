@@ -6,6 +6,7 @@ function familyForState(state: DirectorState): BossFamily {
   if (state.scenario === 'couple') return 'connection'
 
   const chain = state.chainFamily
+  if (chain === 'manual') return 'manual'
   if (chain === 'oral') return 'oral'
   if (chain === 'position') return state.sessionStage >= 4 ? 'sex' : 'position'
   if (chain === 'edging') return 'edging'
@@ -26,6 +27,11 @@ function sexPhases(family: BossFamily, stage: number) {
     'Текущий ведущий выбирает положение партнёра и задаёт правила на одну минуту.',
     'Добавьте одно ограничение: без рук, закрытые глаза или запрет менять положение.',
     'Поменяйтесь властью ещё на одну минуту, не обнуляя уже начатую сцену.',
+  ]
+  if (family === 'manual' && stage >= 3) return [
+    'Начните с ручной стимуляции в уже выбранном положении и держите один ритм одну минуту.',
+    'Следующую минуту получающий полностью задаёт скорость и давление только короткими командами.',
+    'Финальную минуту не меняйте способ ласки: усиливайте только то, что уже работает, или остановитесь по стоп-сигналу.',
   ]
   if (family === 'oral' && stage >= 3) return [
     'Начните с медленного орального teasing без спешки и без резкой смены положения.',
