@@ -63,12 +63,6 @@ export const CARD_SOURCE_REGISTRY: Record<CardSourceRef, CardSourceEntry> = {
     url: 'https://blog.xdares.com/truth-or-dare-for-couples/',
     patternNote: 'Reviewed 2026-10-06. Selected relationship questions and date-night actions, with explicit targets and completion conditions.',
   },
-  'original-editorial': {
-    id: 'original-editorial', family: 'Bez Filtrov editorial',
-    title: 'Independent editorial cards and commonplace party challenges',
-    url: 'https://github.com/swaggyt00/bez-filtrov/blob/v0.8-content-rebuild/docs/content-research-2026-10-06.md',
-    patternNote: 'Original combinations and commonplace game mechanics. Not attributed to a competitor card or represented as a licensed import.',
-  },
   'foreplay-guide': {
     id: 'foreplay-guide',
     family: 'The Foreplay Game',
