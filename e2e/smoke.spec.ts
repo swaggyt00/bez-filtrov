@@ -93,7 +93,7 @@ test('temporary duration resolves once and survives resume', async ({ page }) =>
   expect(rendered).toContain('Правило действует')
   expect(rendered).not.toContain('{{duration}}')
   await page.waitForFunction((expected) => {
-    const raw = localStorage.getItem('bez-filtrov:game:v7')
+    const raw = localStorage.getItem('bez-filtrov:game:v8')
     if (!raw) return false
     return JSON.parse(raw).renderedText === expected
   }, rendered)
