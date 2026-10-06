@@ -124,3 +124,21 @@ let manualOnly = stateAt(3, ['manual'], 'underwear')
 assert.equal(maybeAdvanceStage(manualOnly).sessionStage, 4, 'manual boundary should support full stage 4')
 
 console.log('✓ v0.9 Sex curation, boundary and risk coverage passed')
+
+
+const threeFireTruths = fullDeck.filter((card) => card.type === 'truth' && card.risk === 3)
+assert.ok(threeFireTruths.length >= 15, `expected a substantial curated three-fire Truth pool, got ${threeFireTruths.length}`)
+assert.ok(
+  threeFireTruths.every((card) => !card.sourceCardId),
+  'legacy Sex Truths must never become three-fire just because of their index inside a family',
+)
+for (const stage of [0, 1, 2, 3, 4] as SessionStage[]) {
+  const count = threeFireTruths.filter((card) => card.stages.includes(stage)).length
+  assert.ok(count >= 4, `Sex stage ${stage} has only ${count} intentional three-fire Truths`)
+}
+
+const weakGestureTruth = legacy.find((card) => card.text.includes('Какой жест {{other.gen}} сильнее всего привлекает внимание?'))
+assert.ok(weakGestureTruth, 'fixture truth about attractive gesture must exist')
+assert.ok((weakGestureTruth?.risk ?? 3) <= 2, 'generic attraction Truth must never be three-fire')
+
+console.log('✓ v0.9 three-fire Truths are intentional native disclosures')
