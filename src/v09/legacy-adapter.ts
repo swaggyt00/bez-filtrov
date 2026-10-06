@@ -33,6 +33,33 @@ function idHash(id: string) {
   return value
 }
 
+const LEGACY_THREE_FIRE_TRUTH_IDS = new Set([
+  // Couple: emotionally costly disclosures, not ordinary preferences.
+  'couple-hard-truth-001',
+  'couple-hard-truth-003',
+  'couple-hard-truth-004',
+  'couple-hard-truth-005',
+  'couple-hard-truth-014',
+  'couple-hard-truth-015',
+  'couple-hard-truth-016',
+  'couple-hard-truth-018',
+
+  // Party: admissions that expose real secrets, jealousy or regretted behaviour.
+  'party-hard-truth-006',
+  'party-hard-truth-008',
+  'party-hard-truth-016',
+  'party-hard-truth-019',
+
+  // Afterdark: concrete embarrassing/regretted night stories.
+  'afterdark-hard-truth-001',
+  'afterdark-hard-truth-002',
+  'afterdark-hard-truth-003',
+  'afterdark-hard-truth-004',
+  'afterdark-hard-truth-008',
+  'afterdark-hard-truth-010',
+  'afterdark-hard-truth-013',
+])
+
 function riskWithinLegacyBucket(card: GameCard): RiskLevel {
   const text = card.text.toLowerCase()
   let score = 1
@@ -53,7 +80,9 @@ function riskWithinLegacyBucket(card: GameCard): RiskLevel {
   if (card.type === 'truth') {
     if (card.heat === 'light') return 1
     if (card.heat === 'hot') return Math.min(2, score) as RiskLevel
-    return Math.min(3, score) as RiskLevel
+    return LEGACY_THREE_FIRE_TRUTH_IDS.has(card.id)
+      ? 3
+      : Math.min(2, score) as RiskLevel
   }
 
   const hash = idHash(card.id)
