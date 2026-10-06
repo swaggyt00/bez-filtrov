@@ -402,12 +402,7 @@ function App() {
     if (!settings || !directorState) return
 
     const candidates = eligibleDirectorCards(pendingEvent)
-    const attempts: RiskLevel[] = risk === 3 ? [3, 2, 1] : risk === 2 ? [2, 3, 1] : [1, 2, 3]
-    let picked = null as ReturnType<typeof pickDirectorCard>
-    for (const attempt of attempts) {
-      picked = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, attempt)
-      if (picked) break
-    }
+    const picked = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, risk)
 
     if (!picked) {
       setNotice('Director не нашёл логичную карту для текущего состояния. Это нужно поправить в разметке.')
@@ -422,7 +417,7 @@ function App() {
 
     const targets = eligibleTargetIndices(source, settings.players, currentPlayerIndex)
     const targetIndex = targets.length ? targets[Math.floor(Math.random() * targets.length)] : null
-    const finalText = renderCardText(source, settings.players, currentPlayerIndex, targetIndex)
+    const finalText = renderCardText({ ...source, text: picked.card.text }, settings.players, currentPlayerIndex, targetIndex)
 
     let forcedModifierCount = pendingEvent?.modifierCount ?? 0
     if (pendingEvent?.id === 'double-stake' && risk === 2) forcedModifierCount = 2
