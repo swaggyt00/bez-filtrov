@@ -73,4 +73,19 @@ const firstImpression = cards.filter((card) => card.scenario === 'couple' && car
 assert.ok(firstImpression.length >= 6, 'first-impression family should include both Truth and Dare variants')
 assert.equal(new Set(firstImpression.map((card) => card.coreIdea)).size, 1, 'cards from one semantic family must share coreIdea so runtime anti-repeat can suppress near-repeats')
 
+// Truth and Dare are dealt independently; a dare cannot depend on its paired question.
+const danglingReference = /^(?:покажи|изобрази|сыграй|произнеси|напо[йи])\s+(?:этот|эту|это|этой|такой|такую)\s/i
+const spokenAnswer = /^(?:скажи|расскажи|объясни|назови|опиши|произнеси|сочини|придумай одну фразу|дай .*комплимент|сделай .*речь)\s/i
+const numericalRating = /(?:по шкале|из десяти|от одного до десяти|от 1 до 10)/i
+assert.ok(danglingReference.test('Изобрази этот страх как трейлер.'), 'must catch a reference to an unseen Truth')
+assert.ok(!danglingReference.test('Изобрази работающий бытовой прибор.'), 'standalone mime must remain allowed')
+assert.ok(spokenAnswer.test('Скажи группе один пример такого сообщения своими словами.'), 'must catch the reported speech-only Dare')
+for (const card of bucket('party', 'light', 'dare')) {
+  assert.ok(!danglingReference.test(card.text), `${card.id}: depends on an unseen Truth`)
+  assert.ok(!spokenAnswer.test(card.text), `${card.id}: spoken answer instead of an action`)
+}
+for (const card of [...bucket('party', 'light', 'truth'), ...bucket('party', 'light', 'dare')]) {
+  assert.ok(!numericalRating.test(card.text), `${card.id}: ratings are not a game mechanic`)
+}
+
 console.log('✓ v0.8 content corpus checks passed')

@@ -14,6 +14,16 @@ export type CardSourceRef =
   | 'xdares-dirty-bank'
   | 'xdares-adult-bank'
   | 'spiced-couple-bank'
+  | 'psycat-public-bank'
+  | 'tableparty-public-bank'
+  | 'truthordaregame-public-bank'
+  | 'xdares-couples-bank'
+  | 'original-editorial'
+  | 'spinwheel-public-bank'
+  | 'openers-public-bank'
+  | 'truthordarego-public-bank'
+  | 'guessy-public-bank'
+  | 'allpartygames-public-bank'
 
 export type CardMechanic =
   | 'direct'
