@@ -127,11 +127,29 @@ console.log('✓ v0.9 Sex curation, boundary and risk coverage passed')
 
 
 const threeFireTruths = fullDeck.filter((card) => card.type === 'truth' && card.risk === 3)
-assert.ok(threeFireTruths.length >= 15, `expected a substantial curated three-fire Truth pool, got ${threeFireTruths.length}`)
+assert.equal(threeFireTruths.length, 23, `three-fire Sex Truth pool must stay explicitly curated, got ${threeFireTruths.length}`)
 assert.ok(
   threeFireTruths.every((card) => !card.sourceCardId),
   'legacy Sex Truths must never become three-fire just because of their index inside a family',
 )
+assert.ok(
+  threeFireTruths.every((card) => card.id.startsWith('v09-native-sex-truth3-')),
+  'every three-fire Sex Truth must come from the explicitly curated truth3 pool',
+)
+
+const weakThreeFireWording = [
+  'Какой жест {{other.gen}} сильнее всего привлекает внимание?',
+  'Какую вещь на {{other.prep}} тебе сильнее всего хочется снять самому',
+  'Какое конкретное действие от {{other.gen}} заставило бы тебя сейчас подумать',
+  'Что ты хотел бы услышать от {{other.gen}} во время секса, но никогда прямо об этом не просил?',
+  'какую позу, темп и роль ты хочешь прямо сейчас',
+]
+for (const wording of weakThreeFireWording) {
+  assert.ok(
+    threeFireTruths.every((card) => !card.text.includes(wording)),
+    `weak/generic wording leaked into three-fire Sex Truths: ${wording}`,
+  )
+}
 for (const stage of [0, 1, 2, 3, 4] as SessionStage[]) {
   const count = threeFireTruths.filter((card) => card.stages.includes(stage)).length
   assert.ok(count >= 4, `Sex stage ${stage} has only ${count} intentional three-fire Truths`)
