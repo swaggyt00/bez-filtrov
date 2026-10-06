@@ -57,6 +57,7 @@ function inferBoundaries(card: GameCard): BoundaryTag[] {
   if (card.scenario !== 'sex') return []
   const text = card.text.toLowerCase()
   const result: BoundaryTag[] = []
+  if (/(?:дроч|стимул.*(?:пенис|вульв|клитор)|ласкай.*(?:пенис|вульв|клитор)|рук.*(?:пенис|вульв|клитор))/i.test(text)) result.push('manual')
   if (/минет|кунилинг|оральн|соси|лижи.*(?:вульв|клитор|пенис)|69/.test(text)) result.push('oral')
   if (/проникнов|трах|догги|наездниц|миссионер|вагинальн/.test(text)) result.push('penetration')
   if (/шлеп|шлёп|spank/.test(text)) result.push('spanking')
