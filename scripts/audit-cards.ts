@@ -65,6 +65,11 @@ const speechOnlyDare = [
 ]
 const speechVerbDare = /(?:скажи|расскажи|назови|объясни|признайся|ответь|опиши|перечисли|обсуди|поделись|вспомни|сформулируй|защити|сравни|оцени|попроси)(?=\s|[.,;:!?—-]|$)/i
 const concreteDareAction = /(?:встан|сяд|подой|станц|поцел|обним|массаж|сними|надень|поменя|возьми|открой|покажи|изобраз|сыграй|разыграй|сделай|держи|замри|двигай|пройди|положи|закрой|прикос|проведи|напиши|запиши|отправь|позвони|чокни|выпей|глоток|передай|нарисуй|спой|прочитай|повтори|поставь|перестав|наклони|поверни|шепни|целуй|ласкай|накорми|завяжи|обменя|прыг|присед|отжим|баланс|поймай|построй|трогай|ласк)/i
+const abstractPropDare = /(?:предмет(?:а|ы|ом|ов)?|символ|мини-макет|инсталляц|кино-постер|стоп-кадр|разложи|расставь|поставь[^.!?]{0,90}(?:как|в\s+зону)|визуальн\w*\s+нам[её]к)/i
+const vagueActionDare = /(?:выбери\s+(?:один\s+)?(?:элемент|вариант)|сыграйте\s+обе\s+схемы|без\s+сексуального\s+действия|без\s+выполнения|геометри\w*\s+положения)/i
+const slashGenderDraft = /(?:ему\/ей|его\/её|сам\/сама|согласен\/согласна|ним\/ней|он\/она)/i
+const sexConcreteLexicon = /(?:поцел|ше[еяю]|ключиц|груд|соск|тал(?:ия|ию|ии)|ягод|бедр|пах|бель|пенис|вульв|вагин|клитор|минет|кунилингус|дроч|оральн|проникнов|трах|догги|наездниц|миссионер|69|ложк|колен|таз|генитал)/i
+const sexDirectLexicon = /(?:пенис|вульв|вагин|клитор|минет|кунилингус|дроч|оральн|проникнов|трах|69|миссионер|догги|наездниц|генитал)/i
 
 const firstPersonOpponentVoice = /(?<![а-яё])(?:я|меня|мне|мной|мною|мой|моя|моё|мое|мои|моего|моей|моему|моим|моими|моих)(?![а-яё])/i
 const masculineCurrentPlayerVoice = /(?<![а-яё])ты(?=[^.!?]{0,80}(?:совершал|отправил|искал|сходил|попробовал|выбрал|описал|понял|узнал|предлагал|стал|поставил|доверил|пропустил|предпочёл|начинал|заказал|заменил|ответил|чувствовал|хотел|стеснялся|заметил|пробовал|считал|согласился|жалел|понимал|решился|встретил|нажал|мог|готов|должен|сам|первым|уверен|прав|свободен|согласен)(?![а-яё]))[^.!?]*/i
@@ -196,6 +201,15 @@ for (const card of cards) {
   if (card.type === 'dare' && speechVerbDare.test(card.text) && !concreteDareAction.test(card.text)) {
     fail(`${card.id}: Dare содержит только разговор без конкретного игрового действия: ${card.text}`)
   }
+  if (card.type === 'dare' && abstractPropDare.test(card.text)) {
+    fail(`${card.id}: Dare использует абстрактный предмет/символ вместо конкретного действия: ${card.text}`)
+  }
+  if (card.type === 'dare' && vagueActionDare.test(card.text)) {
+    fail(`${card.id}: Dare сформулирован абстрактно вместо конкретного действия: ${card.text}`)
+  }
+  if (slashGenderDraft.test(card.text)) {
+    fail(`${card.id}: в тексте осталась черновая гендерная форма через слэш: ${card.text}`)
+  }
   if (card.type === 'truth' && !card.text.trim().endsWith('?')) fail(`${card.id}: Truth должен быть явным вопросом: ${card.text}`)
   const textKey = normalize(card.text)
   const duplicate = texts.get(textKey)
@@ -242,9 +256,16 @@ for (const scenario of scenarios) {
   }
 }
 
+const sexHotDares = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hot' && card.type === 'dare')
 const sexHardDares = cards.filter((card) => card.scenario === 'sex' && card.heat === 'hard' && card.type === 'dare')
 const sexualScenes = sexHardDares.filter((card) => card.sexualAction && card.scene?.endCondition)
+const hotConcrete = sexHotDares.filter((card) => sexConcreteLexicon.test(card.text))
+const hardConcrete = sexHardDares.filter((card) => sexConcreteLexicon.test(card.text))
+const hardDirect = sexHardDares.filter((card) => sexDirectLexicon.test(card.text))
 if (sexHardDares.length === 80 && sexualScenes.length < 20) fail(`Sex/Hard: нужно минимум 20 ограниченных sexualAction-сцен, найдено ${sexualScenes.length}`)
+if (sexHotDares.length === 70 && hotConcrete.length < 50) fail(`Sex/Hot: слишком мало конкретных телесных Dare — ${hotConcrete.length}/70`)
+if (sexHardDares.length === 80 && hardConcrete.length < 55) fail(`Sex/Hard: слишком мало конкретных телесных Dare — ${hardConcrete.length}/80`)
+if (sexHardDares.length === 80 && hardDirect.length < 20) fail(`Sex/Hard: слишком мало прямой сексуальной лексики/поз — ${hardDirect.length}/80`)
 
 console.log('v0.8 bucket/source coverage:', JSON.stringify(coverageSummary, null, 2))
 if (failed) process.exit(1)
