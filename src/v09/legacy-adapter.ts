@@ -46,6 +46,16 @@ function riskWithinLegacyBucket(card: GameCard): RiskLevel {
     || /пенис|вульв|вагин|клитор|минет|кунилинг|проникнов|трах|69|догги|наездниц|миссионер|раздень|сними бель|голышом/.test(text)
   ) score = 3
 
+  // A Truth's risk must come from its content, never from its id/hash. The old
+  // lottery could turn a generic preference question into a three-fire reveal.
+  // Keep legacy heat as a hard ceiling for questions; only semantically explicit
+  // Hard truths may reach risk 3 before scenario-specific curation is applied.
+  if (card.type === 'truth') {
+    if (card.heat === 'light') return 1
+    if (card.heat === 'hot') return Math.min(2, score) as RiskLevel
+    return Math.min(3, score) as RiskLevel
+  }
+
   const hash = idHash(card.id)
   if (score === 1 && hash % 7 === 0) score = 3
   else if (score === 1 && hash % 3 === 0) score = 2
