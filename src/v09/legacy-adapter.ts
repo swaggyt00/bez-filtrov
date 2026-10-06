@@ -71,6 +71,31 @@ function inferBoundaries(card: GameCard): BoundaryTag[] {
   return [...new Set(result)]
 }
 
+function normalizeLegacyText(card: GameCard) {
+  if (card.scenario !== 'sex' || card.heat !== 'hard' || !card.sexualAction) return card.text
+
+  const penetration = /вагинальн|проникнов|занимайтесь сексом|трахай/i.test(card.text)
+  let text = card.text
+
+  if (penetration) {
+    text = text
+      .replaceAll('до сорока секунд', 'до трёх минут')
+      .replaceAll('не дольше тридцати секунд', 'не дольше двух минут')
+      .replaceAll('сорок секунд', 'три минуты')
+      .replaceAll('тридцать секунд', 'две минуты')
+      .replaceAll('двадцать секунд', 'полторы минуты')
+  } else {
+    text = text
+      .replaceAll('до сорока секунд', 'до двух минут')
+      .replaceAll('не дольше тридцати секунд', 'не дольше полутора минут')
+      .replaceAll('сорок секунд', 'две минуты')
+      .replaceAll('тридцать секунд', 'полторы минуты')
+      .replaceAll('двадцать секунд', 'одну минуту')
+  }
+
+  return text
+}
+
 function inferPosition(text: string) {
   const value = text.toLowerCase()
   if (/догги/.test(value)) return 'doggy'
@@ -114,7 +139,7 @@ export function adaptLegacyCard(card: GameCard): DirectorCard {
     sourceCardId: card.id,
     scenario: card.scenario,
     type: card.type,
-    text: card.text,
+    text: normalizeLegacyText(card),
     risk: riskWithinLegacyBucket(card),
     stages: stageMap[card.scenario][card.heat],
     chains: [chain],
