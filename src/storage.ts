@@ -1,6 +1,6 @@
 import type { GameSettings, Heat, PairingPreference, PersistedGame, Player } from './types'
 
-const GAME_KEY = 'bez-filtrov:game:v6'
+const GAME_KEY = 'bez-filtrov:game:v8'
 const SETTINGS_KEY = 'bez-filtrov:settings:v6'
 const OLD_SETTINGS_KEYS = ['bez-filtrov:settings:v5', 'bez-filtrov:settings:v4', 'bez-filtrov:settings:v3']
 

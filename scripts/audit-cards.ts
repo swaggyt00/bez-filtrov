@@ -1,6 +1,6 @@
 import { cards } from '../src/data/cards'
 import { CARD_SOURCE_REGISTRY } from '../src/data/source-registry'
-import { renderCardText } from '../src/deck'
+import { gameplayInteractionKey, renderCardText } from '../src/deck'
 import type { CardType, Heat, Player, Scenario } from '../src/types'
 
 declare const process: { exit(code?: number): never }
@@ -52,9 +52,30 @@ const vagueReferents = [
 ]
 const dangerousAlcohol = /(залпом|несколько шотов|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
+const partyExplicitTopic = /(?:^|[^а-яё])(?:секс(?:а|е|ом|у)?|порно|мастурб\w*|оральн\w*|анальн\w*|бдсм|кинк\w*|оргазм\w*)(?![а-яё])/i
+const speechOnlyDare = [
+  /^(?:расскажи|опиши|назови|объясни|сформулируй|ответь|вспомни|перечисли|оцени|признайся|поделись|перескажи)(?=\s|[.,;:!?—-]|$)/i,
+  /^выбери[^.!?]{0,160}(?:назови|объясни|оцени|расскажи)(?=\s|[.,;:!?—-]|$)/i,
+  /(?:^|\s)мини-дебат/i,
+  /(?:^|\s)защити позицию(?=\s|[.,;:!?—-]|$)/i,
+  /(?:^|\s)назови три аргумента(?=\s|[.,;:!?—-]|$)/i,
+  /(?:^|\s)составь пример сообщения(?=\s|[.,;:!?—-]|$)/i,
+  /^скажи группе[^.!?]{0,180}(?:пример|своими словами|что думаешь|как считаешь)(?=\s|[.,;:!?—-]|$)/i,
+  /^скажи[^.!?]{0,120}(?:пример такого|своими словами)(?=\s|[.,;:!?—-]|$)/i,
+]
+const speechVerbDare = /(?:скажи|расскажи|назови|объясни|признайся|ответь|опиши|перечисли|обсуди|поделись|вспомни|сформулируй|защити|сравни|оцени|попроси)(?=\s|[.,;:!?—-]|$)/i
+const concreteDareAction = /(?:встан|сяд|подой|станц|поцел|обним|массаж|сними|надень|поменя|возьми|открой|покажи|изобраз|сыграй|разыграй|сделай|держи|замри|двигай|пройди|положи|закрой|прикос|проведи|напиши|запиши|отправь|позвони|чокни|выпей|глоток|передай|нарисуй|спой|прочитай|повтори|поставь|перестав|наклони|поверни|шепни|целуй|ласкай|накорми|завяжи|обменя|прыг|присед|отжим|баланс|поймай|построй|трогай|ласк)/i
+
 const firstPersonOpponentVoice = /(?<![а-яё])(?:я|меня|мне|мной|мною|мой|моя|моё|мое|мои|моего|моей|моему|моим|моими|моих)(?![а-яё])/i
 const masculineCurrentPlayerVoice = /(?<![а-яё])ты(?=[^.!?]{0,80}(?:совершал|отправил|искал|сходил|попробовал|выбрал|описал|понял|узнал|предлагал|стал|поставил|доверил|пропустил|предпочёл|начинал|заказал|заменил|ответил|чувствовал|хотел|стеснялся|заметил|пробовал|считал|согласился|жалел|понимал|решился|встретил|нажал|мог|готов|должен|сам|первым|уверен|прав|свободен|согласен)(?![а-яё]))[^.!?]*/i
-const masculineTargetAgreement = /\{\{other\.nom\}\}(?=[^.!?]{0,22}(?:узнал|выглядел|спрашивал|показался|замечал|согласен|должен|сам|первым|привлекательным|притягательным|сексуальным|готов|мог)(?![а-яё]))[^.!?]*/i
+const masculineTargetAgreement = /\{\{other\.nom\}\}(?=[^.!?]{0,22}(?:узнал|выглядел|спрашивал|показался|замечал|согласен|должен|сам|первым|привлекательным|притягательным|сексуальным|готов|мог|стал|понял|выбрал|решил)(?![а-яё]))[^.!?]*/i
+
+const implicitCurrentPlayerGender = [
+  /(?<![а-яё])сам(?=\s+(?:не\s+)?(?:считаешь|предпочитаешь|хотел|замри|наблюдаешь))/i,
+  /(?<![а-яё])(?:готов|согласен)(?=\s+(?:обсуждать|выполнить|попробовать))/i,
+  /(?<![а-яё])заметил(?![а-яё])/i,
+  /остановись первым(?![а-яё])/i,
+]
 
 function normalize(text: string) {
   return text.toLowerCase().replace(/\{\{[^}]+\}\}/g, 'x').replace(/[^а-яёa-z0-9]+/gi, ' ').trim()
@@ -81,6 +102,21 @@ function hasCurrentPlayerGenderLeak(text: string) {
 
 function hasTargetGenderLeak(text: string) {
   return masculineTargetAgreement.test(stripGenderVariants(text))
+}
+
+const dareSpeechSelfChecks = [
+  { text: 'Расскажи историю за двадцать секунд.', bad: true },
+  { text: 'Назови три причины.', bad: true },
+  { text: 'Скажи группе один пример такого сообщения своими словами.', bad: true },
+  { text: 'Выбери игрока и объясни свой выбор.', bad: true },
+  { text: 'Выбери {{other.acc}} и назови одну деталь одежды.', bad: true },
+  { text: 'Выбери жест и ответь тем же жестом прямо сейчас.', bad: false },
+  { text: 'Выбери игрока и удерживай взгляд пятнадцать секунд.', bad: false },
+  { text: 'Станцуй двадцать секунд.', bad: false },
+]
+for (const fixture of dareSpeechSelfChecks) {
+  const actual = speechOnlyDare.some((pattern) => pattern.test(fixture.text.replace(/\{\{[^}]+\}\}/g, 'PLAYER')))
+  if (actual !== fixture.bad) fail(`self-check Dare speech mismatch: ${fixture.text}`)
 }
 
 const perspectiveSelfChecks = [
@@ -126,9 +162,12 @@ for (const card of cards) {
   if (!card.theme || !card.coreIdea || !card.interaction || !card.mechanic) fail(`${card.id}: неполные semantic metadata`)
   if (card.type === 'truth' && !card.purpose) fail(`${card.id}: Truth без purpose`)
   if (!card.sourceRef || !(card.sourceRef in CARD_SOURCE_REGISTRY)) fail(`${card.id}: отсутствует или неизвестен sourceRef`)
+  if (card.sourceRef === 'original-editorial') fail(`${card.id}: v0.8 допускает только внешний конкурентный sourceRef`)
+  if (card.scenario === 'party' && partyExplicitTopic.test(card.text)) fail(`${card.id}: Party содержит Sex-only тему: ${card.text}`)
   if (hasPerspectiveLeak(card.text)) fail(`${card.id}: сломана перспектива игрока (opponent-voice first person): ${card.text}`)
   if (hasCurrentPlayerGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для текущего игрока: ${card.text}`)
   if (hasTargetGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для динамического target: ${card.text}`)
+  if (implicitCurrentPlayerGender.some((pattern) => pattern.test(stripGenderVariants(stripQuotedSpeech(card.text))))) fail(`${card.id}: неявный мужской род захардкожен для текущего игрока: ${card.text}`)
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
@@ -150,6 +189,12 @@ for (const card of cards) {
   }
   if (/сними (?:свой )?(?:лифчик|бюстгальтер)/i.test(card.text) && !card.actorGenders?.includes('female')) {
     fail(`${card.id}: собственный лифчик требует female actor metadata`)
+  }
+  if (card.type === 'dare' && speechOnlyDare.some((pattern) => pattern.test(card.text.replace(/\{\{[^}]+\}\}/g, 'PLAYER')))) {
+    fail(`${card.id}: Dare сводится к разговору вместо игрового действия: ${card.text}`)
+  }
+  if (card.type === 'dare' && speechVerbDare.test(card.text) && !concreteDareAction.test(card.text)) {
+    fail(`${card.id}: Dare содержит только разговор без конкретного игрового действия: ${card.text}`)
   }
   if (card.type === 'truth' && !card.text.trim().endsWith('?')) fail(`${card.id}: Truth должен быть явным вопросом: ${card.text}`)
   const textKey = normalize(card.text)
@@ -176,7 +221,7 @@ for (const scenario of scenarios) {
       const sourceFamilies = new Set<string>()
       for (const card of bucket) {
         coreCounts.set(card.coreIdea ?? card.theme, (coreCounts.get(card.coreIdea ?? card.theme) ?? 0) + 1)
-        interactions.add(card.interaction ?? card.mechanic)
+        interactions.add(gameplayInteractionKey(card))
         themes.add(card.theme)
         if (card.sourceRef && CARD_SOURCE_REGISTRY[card.sourceRef]) sourceFamilies.add(CARD_SOURCE_REGISTRY[card.sourceRef].family)
       }
