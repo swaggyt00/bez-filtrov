@@ -39,6 +39,7 @@ export type ChainFamily =
   | 'chaos'
 
 export type BoundaryTag =
+  | 'manual'
   | 'oral'
   | 'penetration'
   | 'spanking'
