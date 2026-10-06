@@ -8,6 +8,8 @@ export type BossFamily =
   | 'tease'
   | 'control'
   | 'undress'
+  | 'manual'
+  | 'manual'
   | 'oral'
   | 'position'
   | 'edging'
