@@ -124,6 +124,21 @@ for (const fixture of dareSpeechSelfChecks) {
   if (actual !== fixture.bad) fail(`self-check Dare speech mismatch: ${fixture.text}`)
 }
 
+
+// abstract Dare self-check — regressions from manual QA screenshots
+const abstractDareSelfChecks = [
+  'Размести два предмета как «смотреть» и «делать» на разной дистанции от себя.',
+  'Разложи три предмета как эти элементы и придвинь самый важный.',
+  'Возьми четыре безопасных предмета как символы категорий и молча выбери один.',
+  'Сыграйте две схемы по пятнадцать секунд, управляя только движением и дистанцией.',
+  'Поставь телефон экраном вниз и положи рядом предмет как знак «только для себя».',
+]
+for (const text of abstractDareSelfChecks) {
+  if (!abstractPropDare.test(text) && !vagueActionDare.test(text)) {
+    fail(`abstract Dare self-check пропустил плохую карточку: ${text}`)
+  }
+}
+
 const perspectiveSelfChecks = [
   { text: 'Что я делаю, что для тебя выглядит как флирт?', bad: true },
   { text: 'Что тебе приятнее во время поцелуя: когда я смотрю на тебя или закрываю глаза?', bad: true },
