@@ -264,14 +264,7 @@ function App() {
     setTurnsPlayed(saved.turnsPlayed ?? 0)
     setCurrentCard(restoredCard)
     setCurrentTargetIndex(saved.currentTargetIndex ?? null)
-    setRenderedText(restoredCard
-      ? renderCardText(
-          restoredCard,
-          saved.settings.players,
-          Math.min(saved.currentPlayerIndex, saved.settings.players.length - 1),
-          saved.currentTargetIndex ?? null,
-        )
-      : '')
+    setRenderedText(restoredCard ? saved.renderedText : '')
     setStage(restoredCard && saved.stage === 'card' ? 'card' : 'choice')
     setNotice(saved.notice ?? '')
     setScreen('game')
