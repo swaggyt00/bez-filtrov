@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { cards } from './data/cards'
-import { eligibleTargetIndices, renderCardText, validateScenarioPlayers } from './deck'
+import { eligibleTargetIndices, hydrateCardText, renderCardText, validateScenarioPlayers } from './deck'
 import { loadSettings as loadLegacySettings } from './storage'
 import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from './types'
 import { adaptLegacyDeck } from './v09/legacy-adapter'
@@ -373,12 +373,19 @@ function App() {
     const base = directorDeck.filter((directorCard) => {
       if (directorCard.scenario !== settings.scenario) return false
       const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
-      if (!source) return false
-      if (source.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
-      if (source.minPlayers && source.minPlayers > settings.players.length) return false
+      if (directorCard.sourceCardId && !source) return false
+      if (source?.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
+      if (source?.minPlayers && source.minPlayers > settings.players.length) return false
 
-      const needsTarget = source.requiresTarget !== false && source.pairing !== 'none'
-      if (needsTarget && eligibleTargetIndices(source, settings.players, currentPlayerIndex).length === 0) return false
+      const needsTarget = source
+        ? source.requiresTarget !== false && source.pairing !== 'none'
+        : directorCard.targetRequired !== false
+      if (needsTarget) {
+        const targets = source
+          ? eligibleTargetIndices(source, settings.players, currentPlayerIndex)
+          : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
+        if (targets.length === 0) return false
+      }
 
       if (event?.forcedChain && !directorCard.chains.includes(event.forcedChain)) return false
       if (event?.forcedBoundary && !directorCard.requires?.boundaries?.includes(event.forcedBoundary)) return false
@@ -390,11 +397,16 @@ function App() {
     return directorDeck.filter((directorCard) => {
       if (directorCard.scenario !== settings.scenario) return false
       const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
-      if (!source) return false
-      if (source.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
-      if (source.minPlayers && source.minPlayers > settings.players.length) return false
-      const needsTarget = source.requiresTarget !== false && source.pairing !== 'none'
-      return !needsTarget || eligibleTargetIndices(source, settings.players, currentPlayerIndex).length > 0
+      if (directorCard.sourceCardId && !source) return false
+      if (source?.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
+      if (source?.minPlayers && source.minPlayers > settings.players.length) return false
+      const needsTarget = source
+        ? source.requiresTarget !== false && source.pairing !== 'none'
+        : directorCard.targetRequired !== false
+      if (!needsTarget) return true
+      return source
+        ? eligibleTargetIndices(source, settings.players, currentPlayerIndex).length > 0
+        : settings.players.length > 1
     })
   }
 
@@ -410,14 +422,20 @@ function App() {
     }
 
     const source = picked.card.sourceCardId ? sourceById.get(picked.card.sourceCardId) : null
-    if (!source) {
+    if (picked.card.sourceCardId && !source) {
       setNotice('Не найден исходник карточки.')
       return
     }
 
-    const targets = eligibleTargetIndices(source, settings.players, currentPlayerIndex)
+    const targets = source
+      ? eligibleTargetIndices(source, settings.players, currentPlayerIndex)
+      : picked.card.targetRequired === false
+        ? []
+        : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
     const targetIndex = targets.length ? targets[Math.floor(Math.random() * targets.length)] : null
-    const finalText = renderCardText({ ...source, text: picked.card.text }, settings.players, currentPlayerIndex, targetIndex)
+    const finalText = source
+      ? renderCardText({ ...source, text: picked.card.text }, settings.players, currentPlayerIndex, targetIndex)
+      : hydrateCardText(picked.card.text, settings.players, currentPlayerIndex, targetIndex)
 
     let forcedModifierCount = pendingEvent?.modifierCount ?? 0
     if (pendingEvent?.id === 'double-stake' && risk === 2) forcedModifierCount = 2
