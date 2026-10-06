@@ -12,7 +12,7 @@
     "test:e2e": "npm run build && playwright test",
     "test": "npm run test:deck && npm run test:director && npm run audit:cards",
     "check": "npm test && tsc -b",
-    "test:director": "tsx scripts/test-v09-director.ts && tsx scripts/test-v09-coverage.ts && tsx scripts/test-v09-events.ts && tsx scripts/test-v09-simulation.ts"
+    "test:director": "tsx scripts/test-v09-director.ts && tsx scripts/test-v09-coverage.ts && tsx scripts/test-v09-events.ts && tsx scripts/test-v09-sex-curation.ts && tsx scripts/test-v09-simulation.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

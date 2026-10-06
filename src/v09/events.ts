@@ -1,6 +1,20 @@
 import { maybeCreateCautionEvent } from './director'
 import type { BoundaryTag, DirectorEvent, DirectorState } from './types'
 
+const boundaryChains: Partial<Record<BoundaryTag, DirectorState['chainFamily']>> = {
+  manual: 'manual',
+  oral: 'oral',
+  penetration: 'position',
+  spanking: 'fetish',
+  bondage: 'fetish',
+  'dom-sub': 'dom-sub',
+  edging: 'edging',
+  toys: 'fetish',
+  anal: 'fetish',
+  feet: 'fetish',
+  roleplay: 'roleplay',
+}
+
 function normalizedRandom(random: () => number) {
   const value = random()
   if (!Number.isFinite(value)) return 0
@@ -74,7 +88,7 @@ export function chooseEventForTurn(
         title: 'ФЕТИШ-ВЕТКА',
         description: 'Следующие ходы Director попробует развить одну из взаимно разрешённых тем.',
         targetPlayerIndex: actorIndex,
-        forcedChain: 'fetish',
+        forcedChain: boundaryChains[tag] ?? 'fetish',
         forcedBoundary: tag,
         remainingTurns: 1,
       })

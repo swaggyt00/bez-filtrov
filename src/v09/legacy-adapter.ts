@@ -1,5 +1,6 @@
 import type { GameCard, Heat } from '../types'
 import type { BoundaryTag, ChainFamily, ClothingState, DirectorCard, RiskLevel, SessionStage } from './types'
+import { curateSexLegacyCard } from './sex-curation'
 
 const stageMap: Record<GameCard['scenario'], Record<Heat, SessionStage[]>> = {
   couple: { light: [0, 1], hot: [1, 2], hard: [2, 3] },
@@ -134,7 +135,7 @@ export function adaptLegacyCard(card: GameCard): DirectorCard {
     else effects.actorClothing = clothing
   }
 
-  return {
+  const base: DirectorCard = {
     id: `v09:${card.id}`,
     sourceCardId: card.id,
     scenario: card.scenario,
@@ -151,6 +152,8 @@ export function adaptLegacyCard(card: GameCard): DirectorCard {
     effects: Object.keys(effects).length ? effects : undefined,
     targetRequired: card.requiresTarget !== false && card.pairing !== 'none',
   }
+
+  return card.scenario === 'sex' ? curateSexLegacyCard(card, base) : base
 }
 
 export function adaptLegacyDeck(cards: GameCard[]) {
