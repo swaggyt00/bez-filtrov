@@ -13,7 +13,7 @@ const pairs = [
   ], { truthMechanic: 'experience', truthInteraction: 'conversation', truthPurpose: 'experience', dareMechanic: 'direct', dareInteraction: 'flirt' }),
   ...family('smush-couples-bank', 'small-care', [
     ['Какая маленькая забота от {{other.gen}} радует тебя сильнее, чем кажется со стороны?', 'Сделай для {{other.gen}} прямо сейчас одну маленькую заботливую вещь без слов.'],
-    ['Какой бытовой жест {{other.gen}} ощущается для тебя особенно тёплым?', 'Повтори одну привычную мелочь {{other.gen}} жестом или движением так точно, чтобы {{other.nom}} сразу узнал себя.'],
+    ['Какой бытовой жест {{other.gen}} ощущается для тебя особенно тёплым?', 'Повтори одну привычную мелочь {{other.gen}} жестом или движением так точно, чтобы {{other.nom}} сразу {{other.g:узнал|узнала}} себя.'],
     ['Чего небольшого от {{other.gen}} хотелось бы получать чуть чаще?', 'Сделай {{other.dat}} короткий знак внимания, который реально можно повторять каждый день.'],
   ]),
   ...family('wargamer-spicy-bank', 'compliments', [
