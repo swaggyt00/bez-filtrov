@@ -135,6 +135,8 @@ export interface DirectorEvent {
   forcedMinimumRisk?: RiskLevel
   partnerChoosesRisk?: boolean
   modifierCount?: number
+  forcedChain?: ChainFamily
+  forcedBoundary?: BoundaryTag
   remainingTurns: number
 }
 
