@@ -152,3 +152,45 @@ export interface DirectorPick {
   card: DirectorCard
   score: number
 }
+
+
+export type BoundaryChoice = 'yes' | 'maybe' | 'no'
+export type SexStartState = 'clothed' | 'underwear' | 'nude'
+export type GameView = 'risk' | 'card' | 'event' | 'boss'
+
+export interface V09GameSettings {
+  players: Player[]
+  scenario: Scenario
+  sexStartState: SexStartState
+  mutuallyAllowedBoundaries: BoundaryTag[]
+}
+
+export interface TurnModifier {
+  id: string
+  label: string
+  description: string
+}
+
+export interface BossSession {
+  id: string
+  family: BossFamily
+  title: string
+  phases: string[]
+}
+
+export interface PersistedV09Game {
+  settings: V09GameSettings
+  director: DirectorState
+  currentPlayerIndex: number
+  view: GameView
+  currentDirectorCardId: string | null
+  currentSourceCardId: string | null
+  currentRisk: RiskLevel | null
+  currentTargetIndex: number | null
+  renderedText: string
+  currentModifiers: TurnModifier[]
+  pendingEvent: DirectorEvent | null
+  boss: BossSession | null
+  bossPhaseIndex: number
+  updatedAt: number
+}
