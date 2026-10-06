@@ -209,7 +209,7 @@ export function maybeAdvanceStage(state: DirectorState): DirectorState {
   if (
     state.scenario === 'sex'
     && next === 4
-    && !state.mutuallyAllowedBoundaries.some((tag) => ['manual', 'oral', 'penetration', 'anal'].includes(tag))
+    && !state.mutuallyAllowedBoundaries.some((tag) => ['manual', 'oral', 'penetration'].includes(tag))
   ) return state
   if (!clothingGateAllowsNextStage(state, next)) return state
   return { ...state, sessionStage: next }
