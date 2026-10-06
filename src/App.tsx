@@ -392,6 +392,7 @@ function App() {
       const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
       if (!source) return false
       if (source.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
+      if (source.minPlayers && source.minPlayers > settings.players.length) return false
       const needsTarget = source.requiresTarget !== false && source.pairing !== 'none'
       return !needsTarget || eligibleTargetIndices(source, settings.players, currentPlayerIndex).length > 0
     })
