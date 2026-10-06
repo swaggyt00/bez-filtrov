@@ -115,7 +115,7 @@ export function cardIsEligible(
   if (!clothingAllowed(card, state, actorIndex, targetIndex)) return false
   if (!effectsCompatible(card, state)) return false
   if (card.requires?.positions?.length && !card.requires.positions.includes(state.currentPosition ?? '')) return false
-  if (card.targetRequired && targetIndex === null) return false
+  if (card.targetRequired && targetIndex === null && state.players.length < 2) return false
   return true
 }
 
