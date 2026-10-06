@@ -7,11 +7,12 @@ const assert = {
 import { cards } from '../src/data/cards'
 import { eligibleTargetIndices } from '../src/deck'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
+import { sexNativeCards } from '../src/v09/sex-native'
 import { completeTurn, createDirectorState, pickDirectorCard, tickEffects } from '../src/v09/director'
 import type { BoundaryTag, RiskLevel } from '../src/v09/types'
 import type { Player, Scenario } from '../src/types'
 
-const deck = adaptLegacyDeck(cards)
+const deck = [...adaptLegacyDeck(cards), ...sexNativeCards]
 const sourceById = new Map(cards.map((card) => [card.id, card]))
 const allBoundaries: BoundaryTag[] = [
   'manual', 'oral', 'penetration', 'spanking', 'bondage', 'dom-sub',
@@ -38,11 +39,15 @@ function candidatePool(scenario: Scenario, players: Player[], actorIndex: number
   return deck.filter((directorCard) => {
     if (directorCard.scenario !== scenario) return false
     const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
-    if (!source) return false
-    if (source.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
-    if (source.minPlayers && source.minPlayers > players.length) return false
-    const needsTarget = source.requiresTarget !== false && source.pairing !== 'none'
-    return !needsTarget || eligibleTargetIndices(source, players, actorIndex).length > 0
+    if (directorCard.sourceCardId && !source) return false
+    if (source?.actorGenders?.length && !source.actorGenders.includes(actor.gender)) return false
+    if (source?.minPlayers && source.minPlayers > players.length) return false
+    const needsTarget = source
+      ? source.requiresTarget !== false && source.pairing !== 'none'
+      : directorCard.targetRequired !== false
+    return !needsTarget || (source
+      ? eligibleTargetIndices(source, players, actorIndex).length > 0
+      : players.length > 1)
   })
 }
 
@@ -67,8 +72,12 @@ for (const profile of profiles) {
     if (!picked) break
 
     const source = picked.card.sourceCardId ? sourceById.get(picked.card.sourceCardId) : null
-    const targets = source ? eligibleTargetIndices(source, profile.players, actorIndex) : []
-    const targetIndex = targets[0] ?? (profile.players.length === 2 ? (actorIndex + 1) % 2 : null)
+    const targets = source
+      ? eligibleTargetIndices(source, profile.players, actorIndex)
+      : picked.card.targetRequired === false
+        ? []
+        : profile.players.map((_, index) => index).filter((index) => index !== actorIndex)
+    const targetIndex = targets[0] ?? null
     state = completeTurn(tickEffects(state), picked.card, actorIndex, targetIndex, risk, false)
   }
 
