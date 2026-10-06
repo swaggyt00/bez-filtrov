@@ -12,6 +12,7 @@ function familyForState(state: DirectorState): BossFamily {
   if (chain === 'edging') return 'edging'
   if (chain === 'dom-sub') return 'dom-sub'
   if (chain === 'fetish') return 'fetish'
+  if (chain === 'roleplay') return 'roleplay'
   if (chain === 'undress') return 'undress'
   if (chain === 'control') return 'control'
   return state.sessionStage >= 4 ? 'sex' : 'tease'
@@ -47,6 +48,11 @@ function sexPhases(family: BossFamily, stage: number) {
     'Продолжите из текущего положения две минуты, не меняя выбранный темп без команды партнёра.',
     'Смените контроль: тот, кто до этого следовал, теперь выбирает темп и глубину следующей фазы.',
     'Перейдите только в одну логичную соседнюю позу и продолжайте ещё две минуты.',
+  ]
+  if (family === 'roleplay') return [
+    'Не выходите из уже начатых ролей. Две минуты продолжайте сцену без новых персонажей и случайной смены сюжета.',
+    'Добавьте одно правило власти или дистанции, которое логично для этих ролей, и держите его ещё две минуты.',
+    'Финальную фазу ведёт тот, кто до этого следовал: он меняет только одну деталь сцены и доводит её до естественной точки остановки.',
   ]
   if (family === 'fetish') return [
     'Оставьте текущую сцену и добавьте один заранее разрешённый фетиш-элемент.',
