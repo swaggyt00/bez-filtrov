@@ -67,9 +67,9 @@ export function createDirectorState(
     players: players.map((player) => ({
       player,
       clothing,
-      riskHistory: [],
+      riskHistory: [] as RiskLevel[],
       cautionPressure: 0,
-      activeEffectIds: [],
+      activeEffectIds: [] as string[],
     })),
     activeEffects: [],
     mutuallyAllowedBoundaries,
