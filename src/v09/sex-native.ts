@@ -1,0 +1,480 @@
+import type { BoundaryTag, ChainFamily, DirectorCard, RiskLevel, SessionStage } from './types'
+
+type NativeOptions = {
+  boundaries?: BoundaryTag[]
+  next?: ChainFamily[]
+  position?: string | null
+  requiresPositions?: string[]
+  leader?: 'actor' | 'target' | 'clear'
+  actorClothing?: DirectorCard['effects'] extends infer E ? never : never
+  targetRequired?: boolean
+  tensionDelta?: number
+}
+
+function native(
+  id: string,
+  type: DirectorCard['type'],
+  risk: RiskLevel,
+  stages: SessionStage[],
+  chains: ChainFamily[],
+  text: string,
+  options: Omit<NativeOptions, 'actorClothing'> & {
+    actorClothing?: 'clothed' | 'partially-undressed' | 'underwear' | 'partially-nude' | 'nude'
+    targetClothing?: 'clothed' | 'partially-undressed' | 'underwear' | 'partially-nude' | 'nude'
+  } = {},
+): DirectorCard {
+  return {
+    id: `v09-native-sex-${id}`,
+    scenario: 'sex',
+    type,
+    text,
+    risk,
+    stages,
+    chains,
+    nextHooks: options.next ?? chains,
+    requires: {
+      boundaries: options.boundaries,
+      positions: options.requiresPositions,
+    },
+    effects: {
+      ...(options.position !== undefined ? { position: options.position } : {}),
+      ...(options.leader ? { leader: options.leader } : {}),
+      ...(options.actorClothing ? { actorClothing: options.actorClothing } : {}),
+      ...(options.targetClothing ? { targetClothing: options.targetClothing } : {}),
+      ...(options.tensionDelta ? { tensionDelta: options.tensionDelta } : {}),
+    },
+    targetRequired: options.targetRequired ?? true,
+  }
+}
+
+export const sexNativeCards: DirectorCard[] = [
+  // Clothing is a real state transition, not decorative text.
+  native(
+    'undress-01',
+    'dare',
+    1,
+    [2],
+    ['undress'],
+    'Сними с себя одну верхнюю вещь и останься так до следующего изменения одежды.',
+    { actorClothing: 'partially-undressed', next: ['tease'] },
+  ),
+  native(
+    'undress-02',
+    'dare',
+    2,
+    [2],
+    ['undress'],
+    'С согласия {{other.gen}} медленно сними с {{other.gen}} одну вещь выше пояса. Не надевайте её обратно.',
+    { targetClothing: 'partially-undressed', next: ['tease'] },
+  ),
+  native(
+    'undress-03',
+    'dare',
+    3,
+    [2],
+    ['undress'],
+    'Разденьтесь друг перед другом до белья. Делайте это по очереди и не переходите к следующему действию, пока оба не закончили.',
+    { actorClothing: 'underwear', targetClothing: 'underwear', next: ['tease'], tensionDelta: 5 },
+  ),
+  native(
+    'undress-04',
+    'dare',
+    2,
+    [2],
+    ['undress'],
+    'Встань перед {{other.ins}} и позволь {{other.dat}} снять с тебя одну вещь. После этого останься вплотную ещё тридцать секунд.',
+    { actorClothing: 'partially-undressed', next: ['physical'] },
+  ),
+  native(
+    'undress-05',
+    'truth',
+    1,
+    [2],
+    ['undress'],
+    'Что тебе хочется снять с {{other.gen}} первым — и что хочется оставить дольше всего?',
+    { next: ['undress'] },
+  ),
+  native(
+    'undress-06',
+    'dare',
+    3,
+    [2],
+    ['undress'],
+    'Оставьте на себе только бельё, затем одну минуту целуйтесь и держите руки на теле друг друга, не переходя к гениталиям.',
+    { actorClothing: 'underwear', targetClothing: 'underwear', next: ['kissing'], tensionDelta: 6 },
+  ),
+
+  // Stage 3 — direct manual branch.
+  native(
+    'manual-01',
+    'dare',
+    1,
+    [3, 4],
+    ['manual' as ChainFamily],
+    'Если оба согласны, одну минуту ласкай гениталии {{other.gen}} рукой в одном спокойном ритме. {{other.nom}} может в любой момент изменить темп словами.',
+    { boundaries: ['manual'], next: ['manual' as ChainFamily] },
+  ),
+  native(
+    'manual-02',
+    'dare',
+    2,
+    [3, 4],
+    ['manual' as ChainFamily],
+    'Если оба согласны, две минуты {{other.nom}} направляет твою руку на своих гениталиях и полностью задаёт скорость и давление.',
+    { boundaries: ['manual'], next: ['edging'], leader: 'target', tensionDelta: 4 },
+  ),
+  native(
+    'manual-03',
+    'dare',
+    3,
+    [3, 4],
+    ['manual' as ChainFamily],
+    'Если оба согласны, три минуты {{other.g:дрочи его пенис|ласкай её вульву и клитор}}. Не меняй ритм без прямой команды {{other.gen}}.',
+    { boundaries: ['manual'], next: ['edging'], tensionDelta: 6 },
+  ),
+  native(
+    'manual-04',
+    'dare',
+    3,
+    [3, 4],
+    ['control', 'manual' as ChainFamily],
+    'Если оба согласны, {{other.nom}} выбирает: быстрее, медленнее или не останавливаться. Две минуты выполняй только эти команды во время ручной стимуляции.',
+    { boundaries: ['manual'], next: ['control'], leader: 'target', tensionDelta: 6 },
+  ),
+  native(
+    'manual-05',
+    'truth',
+    2,
+    [3, 4],
+    ['manual' as ChainFamily],
+    'Как именно тебе приятнее ручная стимуляция: где, с каким давлением и в каком темпе?',
+    { boundaries: ['manual'], next: ['manual' as ChainFamily] },
+  ),
+
+  // Stage 3–4 — oral branch.
+  native(
+    'oral-01',
+    'dare',
+    1,
+    [3, 4],
+    ['oral'],
+    'Если оба согласны, одну минуту делай {{other.g:минет|кунилингус}} в медленном темпе. Получающий говорит только «быстрее», «медленнее» или «стоп».',
+    { boundaries: ['oral'], next: ['oral'], tensionDelta: 3 },
+  ),
+  native(
+    'oral-02',
+    'dare',
+    2,
+    [3, 4],
+    ['oral'],
+    'Если оба согласны, две минуты делай {{other.g:минет|кунилингус}}, а {{other.nom}} рукой задаёт твой темп. Не меняй его сам.',
+    { boundaries: ['oral'], next: ['control'], leader: 'target', tensionDelta: 5 },
+  ),
+  native(
+    'oral-03',
+    'dare',
+    3,
+    [3, 4],
+    ['oral'],
+    'Если оба согласны, примите 69 и три минуты делайте друг другу оральные ласки. Остановитесь раньше только по стоп-сигналу.',
+    { boundaries: ['oral'], next: ['oral'], tensionDelta: 7 },
+  ),
+  native(
+    'oral-04',
+    'dare',
+    3,
+    [4],
+    ['oral', 'edging'],
+    'Если оба согласны, продолжай оральные ласки до момента, когда {{other.nom}} скажет «почти», затем полностью остановись на тридцать секунд.',
+    { boundaries: ['oral', 'edging'], next: ['edging'], tensionDelta: 7 },
+  ),
+  native(
+    'oral-05',
+    'truth',
+    2,
+    [3, 4],
+    ['oral'],
+    'Что тебе хочется изменить в оральных ласках прямо сейчас: темп, давление, язык, руки или положение?',
+    { boundaries: ['oral'], next: ['oral'] },
+  ),
+
+  // Stage 3 — penetration branch is prepared before penetration actually begins.
+  native(
+    'penetration-prep-01',
+    'dare',
+    1,
+    [3],
+    ['position'],
+    'Если вагинальное проникновение разрешено, примите миссионерскую позу и одну минуту двигайтесь и целуйтесь без проникновения.',
+    { boundaries: ['penetration'], position: 'missionary', next: ['position'] },
+  ),
+  native(
+    'penetration-prep-02',
+    'dare',
+    2,
+    [3],
+    ['position', 'control'],
+    'Если вагинальное проникновение разрешено, примите догги-стайл без проникновения. {{other.nom}} задаёт положение таза и дистанцию одну минуту.',
+    { boundaries: ['penetration'], position: 'doggy', next: ['control'], leader: 'target' },
+  ),
+  native(
+    'penetration-prep-03',
+    'dare',
+    3,
+    [3],
+    ['position', 'tease'],
+    'Если вагинальное проникновение разрешено, сядь сверху на {{other.acc}} в позе наездницы и две минуты двигайся без проникновения, максимально близко к началу секса.',
+    { boundaries: ['penetration'], position: 'rider', next: ['position'], tensionDelta: 6 },
+  ),
+
+  // Dom/sub and control branch.
+  native(
+    'domsub-01',
+    'dare',
+    1,
+    [3],
+    ['dom-sub', 'control'],
+    'Если эта ветка разрешена, {{other.nom}} выбирает твоё положение — стоя, сидя или на коленях — и ты остаёшься в нём одну минуту.',
+    { boundaries: ['dom-sub'], next: ['control'], leader: 'target' },
+  ),
+  native(
+    'domsub-02',
+    'dare',
+    2,
+    [3],
+    ['dom-sub', 'control'],
+    'Если эта ветка разрешена, отдай {{other.dat}} полный контроль над твоей позой и дистанцией на две минуты. Стоп-сигнал заканчивает эпизод сразу.',
+    { boundaries: ['dom-sub'], next: ['control'], leader: 'target', tensionDelta: 4 },
+  ),
+  native(
+    'domsub-03',
+    'dare',
+    3,
+    [3],
+    ['dom-sub', 'control'],
+    'Если эта ветка разрешена, встань на колени перед {{other.ins}}. Две минуты выполняй только короткие команды положения и прикосновения, не споря и не добавляя своих.',
+    { boundaries: ['dom-sub'], next: ['dom-sub'], leader: 'target', position: 'kneeling', tensionDelta: 6 },
+  ),
+
+  // Bondage / fixation without dangerous improvised tying.
+  native(
+    'bondage-01',
+    'dare',
+    2,
+    [3],
+    ['fetish', 'dom-sub'],
+    'Если bondage разрешён, {{other.nom}} мягко удерживает твои запястья вместе над головой одну минуту, пока вы целуетесь.',
+    { boundaries: ['bondage'], next: ['dom-sub'], leader: 'target' },
+  ),
+  native(
+    'bondage-02',
+    'dare',
+    3,
+    [3],
+    ['fetish', 'control'],
+    'Если bondage разрешён, ляг на спину и держи руки над головой две минуты. {{other.nom}} управляет позой и прикосновениями, но не фиксирует шею и не мешает дыханию.',
+    { boundaries: ['bondage'], next: ['control'], leader: 'target', position: 'lying', tensionDelta: 5 },
+  ),
+
+  // Impact play.
+  native(
+    'spanking-01',
+    'dare',
+    2,
+    [3],
+    ['fetish', 'control'],
+    'Если шлепки разрешены, {{other.nom}} выбирает ритм. Сделай до пяти лёгких шлепков по ягодицам, после каждого оставляя паузу для реакции.',
+    { boundaries: ['spanking'], next: ['control'] },
+  ),
+  native(
+    'spanking-02',
+    'dare',
+    3,
+    [3],
+    ['fetish', 'dom-sub'],
+    'Если шлепки разрешены, {{other.nom}} становится в выбранную позу, а ты две минуты чередуешь прикосновения к ягодицам и одиночные шлепки в согласованной силе.',
+    { boundaries: ['spanking'], next: ['dom-sub'], tensionDelta: 5 },
+  ),
+
+  // Feet branch.
+  native(
+    'feet-01',
+    'dare',
+    2,
+    [3],
+    ['fetish'],
+    'Если foot fetish разрешён, одну минуту медленно массируй и целуй стопы {{other.gen}}, не переключаясь на другую часть тела.',
+    { boundaries: ['feet'], next: ['fetish'] },
+  ),
+  native(
+    'feet-02',
+    'dare',
+    3,
+    [3],
+    ['fetish', 'control'],
+    'Если foot fetish разрешён, {{other.nom}} две минуты решает, где именно ты касаешься и целуешь стопы и ноги, а ты следуешь только этим указаниям.',
+    { boundaries: ['feet'], next: ['control'], leader: 'target' },
+  ),
+
+  // Roleplay branch.
+  native(
+    'roleplay-01',
+    'dare',
+    1,
+    [3],
+    ['roleplay'],
+    'Если ролевые сценарии разрешены, сыграйте две минуты как незнакомцы, которые только что оказались вдвоём в гостиничном номере. Не выходите из роли.',
+    { boundaries: ['roleplay'], next: ['roleplay'] },
+  ),
+  native(
+    'roleplay-02',
+    'dare',
+    2,
+    [3],
+    ['roleplay', 'control'],
+    'Если ролевые сценарии разрешены, один становится «хозяином комнаты» и две минуты решает, где второй стоит, сидит или лежит. Потом роли меняются.',
+    { boundaries: ['roleplay'], next: ['control'], leader: 'actor' },
+  ),
+  native(
+    'roleplay-03',
+    'dare',
+    3,
+    [3],
+    ['roleplay', 'dom-sub'],
+    'Если ролевые сценарии и доминирование разрешены, разыграйте три минуты сцену власти: один даёт короткие команды, второй выполняет их до смены ролей.',
+    { boundaries: ['roleplay', 'dom-sub'], next: ['dom-sub'], leader: 'actor', tensionDelta: 5 },
+  ),
+
+  // Edging branch.
+  native(
+    'edging-01',
+    'dare',
+    1,
+    [3, 4],
+    ['edging'],
+    'Если edging разрешён и выбранный способ стимуляции тоже разрешён, доведи {{other.acc}} заметно ближе к оргазму, затем полностью остановись на тридцать секунд.',
+    { boundaries: ['edging'], next: ['edging'], tensionDelta: 4 },
+  ),
+  native(
+    'edging-02',
+    'dare',
+    2,
+    [3, 4],
+    ['edging', 'control'],
+    'Если edging разрешён, сделайте два цикла: стимуляция до команды «почти», затем полная пауза на тридцать секунд. Темп задаёт получающий.',
+    { boundaries: ['edging'], next: ['edging'], leader: 'target', tensionDelta: 6 },
+  ),
+  native(
+    'edging-03',
+    'dare',
+    3,
+    [4],
+    ['edging', 'control'],
+    'Если edging разрешён, сделайте три цикла подряд. Каждый раз {{other.nom}} сам говорит, когда остановиться, а последний цикл заканчивается только по его команде.',
+    { boundaries: ['edging'], next: ['sex'], leader: 'target', tensionDelta: 8 },
+  ),
+
+  // Anal branch: stage 3 remains preparatory; stage 4 can escalate only after explicit opt-in.
+  native(
+    'anal-01',
+    'dare',
+    2,
+    [3],
+    ['fetish'],
+    'Если анальные практики разрешены, две минуты ограничься поцелуями, массажем ягодиц и прикосновениями вокруг анальной зоны без проникновения.',
+    { boundaries: ['anal'], next: ['fetish'] },
+  ),
+  native(
+    'anal-02',
+    'dare',
+    3,
+    [3],
+    ['fetish', 'control'],
+    'Если анальные практики разрешены, {{other.nom}} полностью управляет темпом внешних прикосновений вокруг анальной зоны две минуты и сам решает, когда остановиться.',
+    { boundaries: ['anal'], next: ['control'], leader: 'target', tensionDelta: 5 },
+  ),
+
+  // Stage 4 — full sex, with enough time to feel like a scene rather than a 20-second joke.
+  native(
+    'sex-missionary-01',
+    'dare',
+    1,
+    [4],
+    ['sex', 'position'],
+    'Если вагинальное проникновение разрешено, занимайтесь сексом в миссионерской позе две минуты в спокойном темпе. Не меняйте позу до конца эпизода.',
+    { boundaries: ['penetration'], position: 'missionary', next: ['position'], tensionDelta: 5 },
+  ),
+  native(
+    'sex-spoons-01',
+    'dare',
+    1,
+    [4],
+    ['sex', 'position'],
+    'Если вагинальное проникновение разрешено, перейдите в «ложки» и продолжайте три минуты. Получающий задаёт глубину и скорость.',
+    { boundaries: ['penetration'], position: 'spoons', next: ['control'], leader: 'target', tensionDelta: 5 },
+  ),
+  native(
+    'sex-doggy-02',
+    'dare',
+    2,
+    [4],
+    ['sex', 'position'],
+    'Если вагинальное проникновение разрешено, перейдите в догги-стайл на три минуты. Первую половину темп задаёт принимающий, вторую — активный партнёр.',
+    { boundaries: ['penetration'], position: 'doggy', next: ['control'], tensionDelta: 7 },
+  ),
+  native(
+    'sex-rider-02',
+    'dare',
+    2,
+    [4],
+    ['sex', 'position'],
+    'Если вагинальное проникновение разрешено, примите позу наездницы и продолжайте три минуты. Тот, кто сверху, полностью задаёт темп.',
+    { boundaries: ['penetration'], position: 'rider', next: ['control'], leader: 'actor', tensionDelta: 7 },
+  ),
+  native(
+    'sex-wall-03',
+    'dare',
+    3,
+    [4],
+    ['sex', 'position', 'control'],
+    'Если вагинальное проникновение разрешено и эта поза удобна обоим, продолжайте у стены до четырёх минут. Получающий в любой момент меняет темп одной командой.',
+    { boundaries: ['penetration'], position: 'against-wall', next: ['control'], leader: 'target', tensionDelta: 9 },
+  ),
+  native(
+    'sex-switch-03',
+    'dare',
+    3,
+    [4],
+    ['sex', 'position'],
+    'Если вагинальное проникновение разрешено, начните в текущей позе на две минуты, затем без паузы смените её на одну соседнюю и продолжайте ещё две минуты.',
+    {
+      boundaries: ['penetration'],
+      requiresPositions: ['missionary', 'doggy', 'rider', 'spoons', 'against-wall', 'on-top', 'lying', 'sitting'],
+      next: ['position'],
+      tensionDelta: 9,
+    },
+  ),
+  native(
+    'sex-control-03',
+    'dare',
+    3,
+    [4],
+    ['sex', 'control'],
+    'Если вагинальное проникновение разрешено, {{other.nom}} четыре минуты полностью управляет скоростью, глубиной и моментами пауз. Ты меняешь только то, что {{other.nom}} попросит.',
+    { boundaries: ['penetration'], next: ['control'], leader: 'target', tensionDelta: 10 },
+  ),
+  native(
+    'sex-current-position-02',
+    'dare',
+    2,
+    [4],
+    ['sex', 'position'],
+    'Если проникновение уже идёт и текущая поза устраивает обоих, не меняйте её ещё три минуты. Добавляйте только изменения темпа.',
+    {
+      boundaries: ['penetration'],
+      requiresPositions: ['missionary', 'doggy', 'rider', 'spoons', 'against-wall', 'on-top', 'lying', 'sitting'],
+      next: ['position'],
+      tensionDelta: 6,
+    },
+  ),
+]
