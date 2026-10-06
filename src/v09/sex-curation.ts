@@ -125,9 +125,15 @@ export function curateSexLegacyCard(source: GameCard, base: DirectorCard): Direc
   }
 
   const index = localFamilyIndex(source)
-  const risk = source.type === 'truth'
+  const patternedRisk = source.type === 'truth'
     ? pickRisk(themeProfile.truthRisk, index)
     : pickRisk(themeProfile.dareRisk, index)
+  // Legacy Truths were written before per-turn risk existed. None of them are allowed
+  // to become a three-fire reveal by position inside a family. Risk-3 Truths are
+  // curated natively below so every one is intentionally uncomfortable/revealing.
+  const risk = source.type === 'truth'
+    ? Math.min(patternedRisk, 2) as RiskLevel
+    : patternedRisk
 
   const boundaries = mergeBoundaries(base.requires?.boundaries, themeProfile.boundaries)
   const effects = {
