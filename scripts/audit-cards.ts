@@ -108,7 +108,7 @@ const dareSpeechSelfChecks = [
   { text: 'Станцуй двадцать секунд.', bad: false },
 ]
 for (const fixture of dareSpeechSelfChecks) {
-  const actual = speechOnlyDare.some((pattern) => pattern.test(fixture.text))
+  const actual = speechOnlyDare.some((pattern) => pattern.test(fixture.text.replace(/\{\{[^}]+\}\}/g, 'PLAYER')))
   if (actual !== fixture.bad) fail(`self-check Dare speech mismatch: ${fixture.text}`)
 }
 
