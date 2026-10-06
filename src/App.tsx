@@ -356,8 +356,11 @@ function App() {
     setSexStartState(saved.settings.sexStartState)
     setCurrentPlayerIndex(Math.min(saved.currentPlayerIndex, saved.settings.players.length - 1))
     setView(saved.view)
-    setCurrentDirectorCard(saved.currentDirectorCardId ? directorById.get(saved.currentDirectorCardId) ?? null : null)
-    setCurrentRisk(saved.currentRisk)
+    const resumedCard = saved.currentDirectorCardId ? directorById.get(saved.currentDirectorCardId) ?? null : null
+    setCurrentDirectorCard(resumedCard)
+    // The card is authoritative. A save created before a risk re-audit may contain
+    // an obsolete currentRisk value for the same card id.
+    setCurrentRisk(resumedCard ? resumedCard.risk : saved.currentRisk)
     setCurrentTargetIndex(saved.currentTargetIndex)
     setRenderedText(saved.renderedText)
     setCurrentModifiers(saved.currentModifiers ?? [])
@@ -443,10 +446,11 @@ function App() {
     if (pendingEvent?.id === 'double-stake' && risk === 3) forcedModifierCount = 0
 
     setCurrentDirectorCard(picked.card)
-    setCurrentRisk(risk)
+    // Keep one source of truth for the revealed intensity.
+    setCurrentRisk(picked.card.risk)
     setCurrentTargetIndex(targetIndex)
     setRenderedText(finalText)
-    setCurrentModifiers(pickTurnModifiers(picked.card, directorState, risk, forcedModifierCount))
+    setCurrentModifiers(pickTurnModifiers(picked.card, directorState, picked.card.risk, forcedModifierCount))
     setPendingEvent(null)
     setView('card')
     setNotice('')
@@ -470,14 +474,15 @@ function App() {
   }
 
   function completeCurrent(skipped: boolean) {
-    if (!settings || !directorState || !currentDirectorCard || currentRisk === null) return
+    if (!settings || !directorState || !currentDirectorCard) return
     const base = tickEffects(directorState)
+    const resolvedRisk = currentDirectorCard.risk
     const nextDirector = completeTurn(
       base,
       currentDirectorCard,
       currentPlayerIndex,
       currentTargetIndex,
-      currentRisk,
+      resolvedRisk,
       skipped,
     )
 
@@ -782,7 +787,7 @@ function App() {
             <div className="card-glow" />
             <div className="card-topline">
               <span>{currentDirectorCard.type === 'truth' ? 'ПРАВДА' : 'ДЕЙСТВИЕ'}</span>
-              <span>{currentRisk ? '🔥'.repeat(currentRisk) : ''}</span>
+              <span>{'🔥'.repeat(currentDirectorCard.risk)}</span>
             </div>
             {currentTarget && <div className="target-chip">с {currentTarget.name}</div>}
             <p className="card-text">{renderedText}</p>
