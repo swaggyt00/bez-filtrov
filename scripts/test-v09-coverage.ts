@@ -33,3 +33,17 @@ for (const scenario of scenarios) {
 }
 
 console.log('✓ v0.9 legacy adapter has risk coverage for every stage')
+
+
+const bySourceId = new Map(cards.map((card) => [card.id, card]))
+for (const card of deck) {
+  const source = card.sourceCardId ? bySourceId.get(card.sourceCardId) : null
+  if (source?.scenario === 'sex' && source.heat === 'hard' && source.sexualAction) {
+    assert.ok(
+      !/(двадцать|тридцать|сорок) секунд/i.test(card.text),
+      `${source.id}: direct sexual action still uses the old short timer: ${card.text}`,
+    )
+  }
+}
+
+console.log('✓ v0.9 direct Sex timers are expanded')
