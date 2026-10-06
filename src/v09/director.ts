@@ -199,7 +199,18 @@ export function maybeAdvanceStage(state: DirectorState): DirectorState {
   const next = (current + 1) as SessionStage
   if (state.tension < stageTensionThreshold[current]) return state
   if (state.turnsPlayed < stageMinTurns[current]) return state
-  if (state.scenario === 'sex' && next >= 3 && !state.mutuallyAllowedBoundaries.some((tag) => ['manual', 'oral', 'penetration', 'toys', 'anal', 'dom-sub', 'edging'].includes(tag))) return state
+  if (
+    state.scenario === 'sex'
+    && next === 3
+    && !state.mutuallyAllowedBoundaries.some((tag) =>
+      ['manual', 'oral', 'penetration', 'toys', 'anal', 'dom-sub', 'edging', 'spanking', 'bondage', 'feet', 'roleplay'].includes(tag),
+    )
+  ) return state
+  if (
+    state.scenario === 'sex'
+    && next === 4
+    && !state.mutuallyAllowedBoundaries.some((tag) => ['manual', 'oral', 'penetration', 'anal'].includes(tag))
+  ) return state
   if (!clothingGateAllowsNextStage(state, next)) return state
   return { ...state, sessionStage: next }
 }
