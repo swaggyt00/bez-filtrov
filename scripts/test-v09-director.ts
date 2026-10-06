@@ -91,7 +91,7 @@ const unrelated: DirectorCard = {
   stages: [state.sessionStage],
   chains: ['conversation'],
 }
-state = { ...state, chainFamily: 'control', chainDepth: 3, tension: 70 }
+state = { ...state, sessionStage: 2, chainFamily: 'control', chainDepth: 3, tension: 70 }
 const logical = pickDirectorCard([unrelated, continuationA, continuationB], state, 0, 1, 2, () => 0)
 assert.ok(logical?.card.chains.includes('control'), 'Director should prefer a logical chain continuation')
 assert.ok(bossIsReady({ ...state, turnsPlayed: 10, lastBossTurn: 0 }), 'deep high-tension chain should unlock boss')
