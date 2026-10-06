@@ -133,3 +133,8 @@ CI проверяет:
 - структурный аудит — **1440 карточек passed**;
 - редакторский аудит — passed;
 - Playwright — **5/5 passed**.
+
+
+## Concrete-action QA pass
+
+Manual QA removed abstract prop/symbol/scale Dare patterns and tightened Sex wording to explicit, concrete adult actions. The audit now blocks regressions of those patterns.
