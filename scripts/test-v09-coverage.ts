@@ -35,6 +35,22 @@ for (const scenario of scenarios) {
 console.log('✓ v0.9 legacy adapter has risk coverage for every stage')
 
 
+const adaptedBySourceId = new Map(deck.map((card) => [card.sourceCardId, card]))
+for (const source of cards.filter((card) => card.type === 'truth' && card.scenario !== 'sex')) {
+  const adapted = adaptedBySourceId.get(source.id)
+  assert.ok(adapted, `missing adapted Truth: ${source.id}`)
+  if (!adapted) continue
+  if (source.heat === 'light') {
+    assert.ok(adapted.risk === 1, `${source.id}: light Truth was inflated to risk ${adapted.risk}`)
+  }
+  if (source.heat === 'hot') {
+    assert.ok(adapted.risk <= 2, `${source.id}: hot Truth was inflated to three fire`)
+  }
+}
+
+console.log('✓ v0.9 Truth risk has no hash-based three-fire inflation')
+
+
 const bySourceId = new Map(cards.map((card) => [card.id, card]))
 for (const card of deck) {
   const source = card.sourceCardId ? bySourceId.get(card.sourceCardId) : null
