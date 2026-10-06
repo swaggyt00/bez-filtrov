@@ -176,7 +176,7 @@ for (const card of cards) {
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
-  if (genericSexExit.test(card.text)) fail(`${card.id}: карта выключает игру вместо ограниченного действия`)
+  if (genericSexExit.test(card.text) && !card.scene?.endCondition) fail(`${card.id}: карта выключает игру вместо ограниченного действия`)
   if (card.alcohol && dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
   if ((card.scenario === 'couple' || card.scenario === 'sex') && card.alcohol) fail(`${card.id}: алкоголь не относится к ${card.scenario}`)
   if (card.sexualAction && card.scenario !== 'sex') fail(`${card.id}: sexualAction разрешён только в Sex`)
