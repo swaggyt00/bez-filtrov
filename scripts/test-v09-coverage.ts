@@ -50,6 +50,39 @@ for (const source of cards.filter((card) => card.type === 'truth' && card.scenar
 
 console.log('✓ v0.9 Truth risk has no hash-based three-fire inflation')
 
+const expectedLegacyThreeFireTruthIds = [
+  'afterdark-hard-truth-001',
+  'afterdark-hard-truth-002',
+  'afterdark-hard-truth-003',
+  'afterdark-hard-truth-004',
+  'afterdark-hard-truth-008',
+  'afterdark-hard-truth-010',
+  'afterdark-hard-truth-013',
+  'couple-hard-truth-001',
+  'couple-hard-truth-003',
+  'couple-hard-truth-004',
+  'couple-hard-truth-005',
+  'couple-hard-truth-014',
+  'couple-hard-truth-015',
+  'couple-hard-truth-016',
+  'couple-hard-truth-018',
+  'party-hard-truth-006',
+  'party-hard-truth-008',
+  'party-hard-truth-016',
+  'party-hard-truth-019',
+]
+const actualLegacyThreeFireTruthIds = deck
+  .filter((card) => card.scenario !== 'sex' && card.type === 'truth' && card.risk === 3)
+  .map((card) => card.sourceCardId)
+  .filter((id): id is string => Boolean(id))
+  .sort()
+assert.ok(
+  JSON.stringify(actualLegacyThreeFireTruthIds) === JSON.stringify(expectedLegacyThreeFireTruthIds),
+  `three-fire legacy Truth allowlist drifted: ${actualLegacyThreeFireTruthIds.join(', ')}`,
+)
+
+console.log('✓ v0.9 legacy three-fire Truths are manual allowlist only')
+
 
 const bySourceId = new Map(cards.map((card) => [card.id, card]))
 for (const card of deck) {
