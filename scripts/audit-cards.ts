@@ -158,6 +158,7 @@ for (const card of cards) {
   if (!card.theme || !card.coreIdea || !card.interaction || !card.mechanic) fail(`${card.id}: неполные semantic metadata`)
   if (card.type === 'truth' && !card.purpose) fail(`${card.id}: Truth без purpose`)
   if (!card.sourceRef || !(card.sourceRef in CARD_SOURCE_REGISTRY)) fail(`${card.id}: отсутствует или неизвестен sourceRef`)
+  if (card.sourceRef === 'original-editorial') fail(`${card.id}: v0.8 допускает только внешний конкурентный sourceRef`)
   if (hasPerspectiveLeak(card.text)) fail(`${card.id}: сломана перспектива игрока (opponent-voice first person): ${card.text}`)
   if (hasCurrentPlayerGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для текущего игрока: ${card.text}`)
   if (hasTargetGenderLeak(card.text)) fail(`${card.id}: мужской род захардкожен для динамического target: ${card.text}`)
