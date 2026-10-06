@@ -33,6 +33,7 @@ export type ChainFamily =
   | 'edging'
   | 'dom-sub'
   | 'fetish'
+  | 'sex'
   | 'social'
   | 'embarrassment'
   | 'chaos'
