@@ -18,7 +18,6 @@ export type CardSourceRef =
   | 'tableparty-public-bank'
   | 'truthordaregame-public-bank'
   | 'xdares-couples-bank'
-  | 'original-editorial'
   | 'spinwheel-public-bank'
   | 'openers-public-bank'
   | 'truthordarego-public-bank'
