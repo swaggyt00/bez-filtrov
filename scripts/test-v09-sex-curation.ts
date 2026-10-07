@@ -8,6 +8,7 @@ const assert = {
 }
 
 import { cards } from '../src/data/cards'
+import { hydrateCardText } from '../src/deck'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
 import { createDirectorState, maybeAdvanceStage, pickDirectorCard } from '../src/v09/director'
 import { sexNativeCards } from '../src/v09/sex-native'
@@ -58,6 +59,34 @@ for (const card of legacy.filter((card) => card.sourceCardId?.startsWith('sex-ha
 
 assert.ok(sexNativeCards.length >= 40, 'native Sex deck must be substantial, not a token patch')
 assert.equal(new Set(sexNativeCards.map((card) => card.id)).size, sexNativeCards.length, 'native Sex ids must be unique')
+
+const nativeAmbiguity = [
+  /\bэта ветка\b/i,
+  /\bэта поза\b/i,
+  /\bэтот жест\b/i,
+  /\bэтот способ\b/i,
+  /\bтакой способ\b/i,
+  /\bпродолжай(?:те)?\b/i,
+  /\bостанься вплотную\b/i,
+  /\bполучающ(?:ий|ая|его|ей)\b/i,
+]
+for (const card of sexNativeCards) {
+  for (const [actorIndex, targetIndex] of [[0, 1], [1, 0]] as const) {
+    const rendered = hydrateCardText(card.text, players, actorIndex, targetIndex)
+    assert.ok(!/\{\{[^}]+\}\}/.test(rendered), `${card.id}: unresolved template after render: ${rendered}`)
+  }
+  if (card.type === 'truth') {
+    assert.ok(card.text.trim().endsWith('?'), `${card.id}: native Truth must be an explicit question`)
+  } else {
+    assert.ok(
+      nativeAmbiguity.every((pattern) => !pattern.test(card.text)),
+      `${card.id}: native Dare contains context-dependent wording: ${card.text}`,
+    )
+  }
+}
+
+console.log('✓ v0.9 native Sex cards are self-contained and render without hidden context')
+
 
 const expectedNativeBoundaries: BoundaryTag[] = [
   'manual', 'oral', 'penetration', 'spanking', 'bondage', 'dom-sub',
