@@ -60,6 +60,11 @@ for (const card of legacy.filter((card) => card.sourceCardId?.startsWith('sex-ha
 assert.ok(sexNativeCards.length >= 40, 'native Sex deck must be substantial, not a token patch')
 assert.equal(new Set(sexNativeCards.map((card) => card.id)).size, sexNativeCards.length, 'native Sex ids must be unique')
 
+const players: Player[] = [
+  { name: 'Максим', gender: 'male', pairingPreference: 'female' },
+  { name: 'Рада', gender: 'female', pairingPreference: 'male' },
+]
+
 const nativeAmbiguity = [
   /\bэта ветка\b/i,
   /\bэта поза\b/i,
@@ -99,10 +104,6 @@ for (const boundary of expectedNativeBoundaries) {
   )
 }
 
-const players: Player[] = [
-  { name: 'Максим', gender: 'male', pairingPreference: 'female' },
-  { name: 'Рада', gender: 'female', pairingPreference: 'male' },
-]
 
 function stateAt(stage: SessionStage, boundaries: BoundaryTag[], clothing: 'clothed' | 'underwear' = 'underwear') {
   const state = createDirectorState('sex', players, clothing, boundaries)
