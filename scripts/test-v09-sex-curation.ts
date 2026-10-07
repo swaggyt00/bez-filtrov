@@ -82,6 +82,10 @@ for (const card of sexNativeCards) {
   }
   if (card.type === 'truth') {
     assert.ok(card.text.trim().endsWith('?'), `${card.id}: native Truth must be an explicit question`)
+    assert.ok(
+      /^(?:Если [^:]+:\s*)?(?:Что|Как|Какой|Какая|Какие|Какую|Какое|Когда|Где|Кого|Кому|Насколько|Кем|Чего)\b/i.test(card.text.trim()),
+      `${card.id}: native Truth must start as a question, not an instruction: ${card.text}`,
+    )
   } else {
     assert.ok(
       nativeAmbiguity.every((pattern) => !pattern.test(card.text)),
