@@ -66,14 +66,14 @@ const players: Player[] = [
 ]
 
 const nativeAmbiguity = [
-  /\bэта ветка\b/i,
-  /\bэта поза\b/i,
-  /\bэтот жест\b/i,
-  /\bэтот способ\b/i,
-  /\bтакой способ\b/i,
-  /\bпродолжай(?:те)?\b/i,
-  /\bостанься вплотную\b/i,
-  /\bполучающ(?:ий|ая|его|ей)\b/i,
+  /эта ветка/i,
+  /эта поза/i,
+  /этот жест/i,
+  /этот способ/i,
+  /такой способ/i,
+  /продолжай(?:те)?/i,
+  /останься вплотную/i,
+  /получающ(?:ий|ая|его|ей)/i,
 ]
 for (const card of sexNativeCards) {
   for (const [actorIndex, targetIndex] of [[0, 1], [1, 0]] as const) {
@@ -83,7 +83,7 @@ for (const card of sexNativeCards) {
   if (card.type === 'truth') {
     assert.ok(card.text.trim().endsWith('?'), `${card.id}: native Truth must be an explicit question`)
     assert.ok(
-      /^(?:Если [^:]+:\s*)?(?:Что|Как|Какой|Какая|Какие|Какую|Какое|Когда|Где|Кого|Кому|Насколько|Кем|Чего)\b/i.test(card.text.trim()),
+      /^(?:Если [^:]+:\s*)?(?:Что|Как|Какой|Какая|Какие|Какую|Какое|Когда|Где|Кого|Кому|Насколько|Кем|Чего)(?=\s|[?:])/i.test(card.text.trim()),
       `${card.id}: native Truth must start as a question, not an instruction: ${card.text}`,
     )
   } else {
