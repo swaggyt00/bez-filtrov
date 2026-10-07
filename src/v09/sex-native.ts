@@ -71,7 +71,7 @@ export const sexNativeCards: DirectorCard[] = [
     3,
     [2],
     ['undress'],
-    'Разденьтесь друг перед другом до белья. Делайте это по очереди и не переходите к следующему действию, пока оба не закончили.',
+    'По очереди снимайте с себя одежду, пока оба не останетесь только в белье. Когда оба закончили, остановитесь и переходите к следующей карте.',
     { actorClothing: 'underwear', targetClothing: 'underwear', next: ['tease'], tensionDelta: 5 },
   ),
   native(
@@ -80,7 +80,7 @@ export const sexNativeCards: DirectorCard[] = [
     2,
     [2],
     ['undress'],
-    'Встань перед {{other.ins}} и позволь {{other.dat}} снять с тебя одну вещь. После этого останься вплотную ещё тридцать секунд.',
+    'Встань лицом к {{other.dat}} и позволь {{other.dat}} снять с тебя одну вещь. После этого тридцать секунд стойте лицом друг к другу на расстоянии не больше ладони, не переходя к другому действию.',
     { actorClothing: 'partially-undressed', next: ['physical'] },
   ),
   native(
@@ -467,7 +467,7 @@ export const sexNativeCards: DirectorCard[] = [
     2,
     [4],
     ['sex', 'position'],
-    'Если проникновение уже идёт и текущая поза устраивает обоих, не меняйте её ещё три минуты. Добавляйте только изменения темпа.',
+    'Если вагинальное проникновение уже идёт, занимайтесь сексом в той же позе ещё три минуты. Позу не меняйте; менять можно только скорость движений.',
     {
       boundaries: ['penetration'],
       requiresPositions: ['missionary', 'doggy', 'rider', 'spoons', 'against-wall', 'on-top', 'lying', 'sitting'],
