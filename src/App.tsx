@@ -720,7 +720,7 @@ function App() {
   if (!settings || !directorState || !currentPlayer) return null
 
   const riskChooserName = pendingEvent?.partnerChoosesRisk
-    ? settings.players.find((_, index) => index !== currentPlayerIndex)?.name
+    ? settings.players[(currentPlayerIndex + 1) % settings.players.length]?.name
     : currentPlayer.name
   const minimumRisk: RiskLevel = pendingEvent?.id === 'double-stake' ? 2 : pendingEvent?.forcedMinimumRisk ?? 1
 
