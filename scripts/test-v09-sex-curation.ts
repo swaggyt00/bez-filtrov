@@ -8,6 +8,7 @@ const assert = {
 }
 
 import { cards } from '../src/data/cards'
+import { hydrateCardText } from '../src/deck'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
 import { createDirectorState, maybeAdvanceStage, pickDirectorCard } from '../src/v09/director'
 import { sexNativeCards } from '../src/v09/sex-native'
@@ -59,6 +60,43 @@ for (const card of legacy.filter((card) => card.sourceCardId?.startsWith('sex-ha
 assert.ok(sexNativeCards.length >= 40, 'native Sex deck must be substantial, not a token patch')
 assert.equal(new Set(sexNativeCards.map((card) => card.id)).size, sexNativeCards.length, 'native Sex ids must be unique')
 
+const players: Player[] = [
+  { name: 'Максим', gender: 'male', pairingPreference: 'female' },
+  { name: 'Рада', gender: 'female', pairingPreference: 'male' },
+]
+
+const nativeAmbiguity = [
+  /эта ветка/i,
+  /эта поза/i,
+  /этот жест/i,
+  /этот способ/i,
+  /такой способ/i,
+  /продолжай(?:те)?/i,
+  /останься вплотную/i,
+  /получающ(?:ий|ая|его|ей)/i,
+]
+for (const card of sexNativeCards) {
+  for (const [actorIndex, targetIndex] of [[0, 1], [1, 0]] as const) {
+    const rendered = hydrateCardText(card.text, players, actorIndex, targetIndex)
+    assert.ok(!/\{\{[^}]+\}\}/.test(rendered), `${card.id}: unresolved template after render: ${rendered}`)
+  }
+  if (card.type === 'truth') {
+    assert.ok(card.text.trim().endsWith('?'), `${card.id}: native Truth must be an explicit question`)
+    assert.ok(
+      /^(?:Если [^:]+:\s*)?(?:Что|Как|Какой|Какая|Какие|Какую|Какое|Когда|Где|Кого|Кому|Насколько|Кем|Чего)(?=\s|[?:])/i.test(card.text.trim()),
+      `${card.id}: native Truth must start as a question, not an instruction: ${card.text}`,
+    )
+  } else {
+    assert.ok(
+      nativeAmbiguity.every((pattern) => !pattern.test(card.text)),
+      `${card.id}: native Dare contains context-dependent wording: ${card.text}`,
+    )
+  }
+}
+
+console.log('✓ v0.9 native Sex cards are self-contained and render without hidden context')
+
+
 const expectedNativeBoundaries: BoundaryTag[] = [
   'manual', 'oral', 'penetration', 'spanking', 'bondage', 'dom-sub',
   'edging', 'anal', 'feet', 'roleplay',
@@ -70,10 +108,6 @@ for (const boundary of expectedNativeBoundaries) {
   )
 }
 
-const players: Player[] = [
-  { name: 'Максим', gender: 'male', pairingPreference: 'female' },
-  { name: 'Рада', gender: 'female', pairingPreference: 'male' },
-]
 
 function stateAt(stage: SessionStage, boundaries: BoundaryTag[], clothing: 'clothed' | 'underwear' = 'underwear') {
   const state = createDirectorState('sex', players, clothing, boundaries)

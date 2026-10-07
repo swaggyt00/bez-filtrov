@@ -308,7 +308,7 @@ export function maybeCreateCautionEvent(state: DirectorState, actorIndex: number
     id: 'partner-chooses-risk',
     family: 'control',
     title: 'ПЕРЕХВАТ',
-    description: 'В этот ход уровень риска выбирает партнёр.',
+    description: 'В этот ход риск за текущего игрока выбирает следующий игрок по кругу.',
     targetPlayerIndex: actorIndex,
     partnerChoosesRisk: true,
     remainingTurns: 1,

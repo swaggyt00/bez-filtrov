@@ -43,7 +43,7 @@ export function chooseEventForTurn(
       id: 'partner-chooses-risk',
       family: 'control',
       title: 'ПЕРЕХВАТ',
-      description: 'В этот ход уровень риска за игрока выбирает партнёр.',
+      description: 'В этот ход риск за текущего игрока выбирает следующий игрок по кругу.',
       targetPlayerIndex: actorIndex,
       partnerChoosesRisk: true,
       remainingTurns: 1,

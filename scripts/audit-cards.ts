@@ -50,6 +50,100 @@ const vagueReferents = [
   /(?<![а-яё])этот вариант(?![а-яё])/i,
   /(?<![а-яё])такое сейчас(?![а-яё])/i,
 ]
+
+// A v0.8 Truth/Dare pair is only an authoring convenience: Director may reveal the
+// Dare without ever showing its sibling Truth. Every Dare therefore has to be
+// executable from its own text. These checks reject deictic references whose
+// antecedent exists only in the paired Truth ("этот жест", "такое свидание", etc.).
+const contextualNounReferents: Array<[RegExp, RegExp]> = [
+  [/(?:этот|такой)\s+жест/i, /жест/i],
+  [/(?:этот|такой)\s+сигнал/i, /сигнал/i],
+  [/(?:этот|такой)\s+способ/i, /способ/i],
+  [/(?:этот|такой)\s+стиль/i, /стил/i],
+  [/(?:этот|такой)\s+образ/i, /образ/i],
+  [/(?:этот|такой)\s+ритуал/i, /ритуал/i],
+  [/(?:этот|такой)\s+навык/i, /навык/i],
+  [/(?:этот|такой)\s+провал/i, /провал/i],
+  [/(?:этот|такой)\s+подкат/i, /подкат/i],
+  [/(?:этот|такой)\s+флирт/i, /флирт/i],
+  [/(?:эту|такую)\s+привычку/i, /привыч/i],
+  [/(?:эту|такую)\s+черту/i, /черт/i],
+  [/(?:эту|такую)\s+деталь/i, /детал/i],
+  [/(?:эту|такую)\s+сторону/i, /сторон/i],
+  [/(?:эту|такую)\s+сцену/i, /сцен/i],
+  [/(?:этого|такого)\s+момента/i, /момент/i],
+  [/(?:этого|такого)\s+свидания/i, /свидан/i],
+  [/(?:этого|такого)\s+расставания/i, /расставан/i],
+  [/(?:этого|такого)\s+сообщения/i, /сообщен/i],
+  [/(?:этого|такого)\s+напитка/i, /напит/i],
+  [/(?:этого|такого)\s+решения/i, /решен/i],
+  [/(?:этого|такого)\s+поведения/i, /поведен/i],
+  [/(?:этот|такой)\s+красный\s+флаг/i, /красн\w*\s+флаг/i],
+  [/(?:этот|такой)\s+тост/i, /тост/i],
+  [/(?:этот|такой)\s+вкус/i, /вкус/i],
+  [/(?:этого|такого)\s+персонажа/i, /персонаж/i],
+  [/(?:этот|такой)\s+повод/i, /повод/i],
+  [/(?:этот|такой)\s+вход/i, /вход/i],
+  [/(?:эту|такую)\s+фразу/i, /фраз/i],
+  [/(?:эту|такую)\s+переписку/i, /переписк/i],
+  [/(?:эту|такую)\s+просьбу/i, /просьб/i],
+  [/(?:эту|такую)\s+позу/i, /поз/i],
+  [/(?:это|такое)\s+прикосновение/i, /прикос/i],
+  [/(?:этот|такой)\s+поцелуй/i, /поцел/i],
+  [/(?:это|такое)\s+действие/i, /действ/i],
+  [/(?:этого|такого)\s+дня/i, /день|дн/i],
+  [/(?:это|такое)\s+мини-свидание/i, /мини-свидан/i],
+  [/(?:этому|такому)\s+качеству/i, /качеств/i],
+  [/(?:этой|такой)\s+традиции/i, /традиц/i],
+  [/(?:этой|такой)\s+[^.!?]{0,40}сцены/i, /сцен/i],
+  [/(?:этот|такой)\s+взгляд/i, /взгляд/i],
+  [/(?:этой|такой)\s+[^.!?]{0,40}фантазии/i, /фантаз/i],
+  [/(?:этой|такой)\s+песни/i, /песн/i],
+  [/(?:этот|такой)\s+тип\s+поведения/i, /поведен/i],
+  [/(?:эту|такую)\s+встречу/i, /встреч/i],
+  [/(?:этот|такой)\s+(?:ночной\s+)?перекус/i, /перекус/i],
+  [/(?:этой|такой)\s+покупки/i, /покупк/i],
+  [/(?:этот|такой)\s+жанр/i, /жанр/i],
+  [/(?:этого|такого)\s+типажа/i, /типаж/i],
+  [/(?:этого|такого)\s+настроения/i, /настроен/i],
+  [/(?:этого|такого)\s+(?:старого\s+)?флирта/i, /флирт/i],
+  [/(?:этого|такого)\s+(?:ночного\s+)?поступка/i, /поступ/i],
+]
+
+function hasUnresolvedDeicticReference(text: string) {
+  for (const [referent, antecedent] of contextualNounReferents) {
+    const match = referent.exec(text)
+    if (!match || match.index === undefined) continue
+    const before = text.slice(0, match.index)
+    if (!antecedent.test(before)) return true
+  }
+
+  const selectedPerson = /выбран(?:ный|ного|ному|ным|ная|ную|ной|ное)\s+(?:человек|игрок)/i.exec(text)
+  if (selectedPerson?.index !== undefined) {
+    const before = text.slice(0, selectedPerson.index)
+    if (!/(?:выбер|выбира|кандидат|показыва)/i.test(before)) return true
+  }
+
+  return false
+}
+
+function hasUnresolvedDareContext(text: string) {
+  if (hasUnresolvedDeicticReference(text)) return true
+
+  if (/^(?:покажи|повтори|изобрази|сыграй|разыграй|разыграйте|напиши|набери|выполни|используй|используйте|собери|произнеси|найди|выбери)\s+(?:его|её|их|этот|эту|это|такой|такую|такое)(?:\s|[.,;:!?—-]|$)/i.test(text)) return true
+  if (/^(?:напиши|набери)\s+(?:её|его)\s+(?:безопасн|коротк)/i.test(text)) return true
+  if (/^выбери\s+(?:доступный|комфортный|более\s+\S+)\s+вариант/i.test(text)) return true
+  if (/^сыграйте\s+оба\s+варианта/i.test(text)) return true
+  if (/^выбери\s+одно\s+и\s+/i.test(text)) return true
+  if (/^выберите\s+один\s+элемент\s+и\s+/i.test(text)) return true
+  if (/^сделай\s+безопасную\s+короткую\s+версию\s+первого\s+шага/i.test(text)) return true
+  if (/^выполни\s+выбранное/i.test(text)) return true
+  if (/^покажи\s+просьбу\s+без\s+слов/i.test(text)) return true
+  if (/^покажи\s+(?:его|её)\s+структуру/i.test(text)) return true
+  if (/^выберите\s+этот\s+знак/i.test(text)) return true
+
+  return false
+}
 const dangerousAlcohol = /(залпом|несколько шотов|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
 const partyExplicitTopic = /(?:^|[^а-яё])(?:секс(?:а|е|ом|у)?|порно|мастурб\w*|оральн\w*|анальн\w*|бдсм|кинк\w*|оргазм\w*)(?![а-яё])/i
@@ -64,6 +158,8 @@ const speechOnlyDare = [
   /^скажи[^.!?]{0,120}(?:пример такого|своими словами)(?=\s|[.,;:!?—-]|$)/i,
 ]
 const speechVerbDare = /(?:скажи|расскажи|назови|объясни|признайся|ответь|опиши|перечисли|обсуди|поделись|вспомни|сформулируй|защити|сравни|оцени|попроси)(?=\s|[.,;:!?—-]|$)/i
+const truthInstructionLead = /^(?:вспомни|назови|расскажи|опиши|скажи|выбери|признайся|представь|реши|оцени|перечисли|поделись|объясни|сформулируй)(?=\s|[.,;:!?—-]|$)/i
+const truthEmbeddedInstruction = /[.!]\s*(?:вспомни|назови|расскажи|опиши|скажи|выбери|признайся|представь|реши|оцени|перечисли|поделись|объясни|сформулируй)(?=\s|[.,;:!?—-]|$)/i
 const concreteDareAction = /(?:встан|сяд|подой|станц|поцел|обним|массаж|сними|надень|поменя|возьми|открой|покажи|изобраз|сыграй|разыграй|сделай|держи|замри|двигай|пройди|положи|закрой|прикос|проведи|напиши|запиши|отправь|позвони|чокни|выпей|глоток|передай|нарисуй|спой|прочитай|повтори|поставь|перестав|наклони|поверни|шепни|целуй|ласкай|накорми|завяжи|обменя|прыг|присед|отжим|баланс|поймай|построй|трогай|ласк)/i
 const abstractPropDare = /(?:предмет(?:а|ы|ом|ов)?|символ|мини-макет|инсталляц|кино-постер|стоп-кадр|разложи|расставь|поставь[^.!?]{0,90}(?:как|в\s+зону)|визуальн\w*\s+нам[её]к)/i
 const vagueActionDare = /(?:выбери\s+(?:один\s+)?(?:элемент|вариант)|сыграйте\s+(?:обе|две)\s+схемы|без\s+сексуального\s+действия|без\s+выполнения|геометри\w*\s+положения)/i
@@ -190,6 +286,12 @@ for (const card of cards) {
   if (implicitCurrentPlayerGender.some((pattern) => pattern.test(stripGenderVariants(stripQuotedSpeech(card.text))))) fail(`${card.id}: неявный мужской род захардкожен для текущего игрока: ${card.text}`)
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
+  if (hasUnresolvedDeicticReference(card.text)) {
+    fail(`${card.id}: карточка зависит от скрытого указательного контекста: ${card.text}`)
+  }
+  if (card.type === 'dare' && hasUnresolvedDareContext(card.text)) {
+    fail(`${card.id}: Dare зависит от скрытого контекста соседней Truth-карты: ${card.text}`)
+  }
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
   if (genericSexExit.test(card.text) && !card.scene?.endCondition) fail(`${card.id}: карта выключает игру вместо ограниченного действия`)
   if (card.alcohol && dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
@@ -226,6 +328,8 @@ for (const card of cards) {
     fail(`${card.id}: в тексте осталась черновая гендерная форма через слэш: ${card.text}`)
   }
   if (card.type === 'truth' && !card.text.trim().endsWith('?')) fail(`${card.id}: Truth должен быть явным вопросом: ${card.text}`)
+  if (card.type === 'truth' && truthInstructionLead.test(card.text.trim())) fail(`${card.id}: Truth начинается как команда вместо вопроса: ${card.text}`)
+  if (card.type === 'truth' && truthEmbeddedInstruction.test(card.text)) fail(`${card.id}: Truth содержит скрытую вторую инструкцию: ${card.text}`)
   const textKey = normalize(card.text)
   const duplicate = texts.get(textKey)
   if (duplicate) fail(`точный дубль текста: ${duplicate} / ${card.id}`)
