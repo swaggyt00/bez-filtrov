@@ -1,25 +1,37 @@
 import type { DirectorCard, DirectorState, RiskLevel, TurnModifier } from './types'
 
 const allModifiers: TurnModifier[] = [
-  { id: 'blindfold', label: 'С закрытыми глазами', description: 'Физическая часть карты выполняется без визуального контроля.' },
-  { id: 'no-hands', label: 'Без рук', description: 'Выполни карту, не используя руки, если это физически возможно.' },
-  { id: 'silence', label: 'Без слов', description: 'Во время выполнения нельзя разговаривать.' },
-  { id: 'partner-controls', label: 'Партнёр задаёт темп', description: 'Темп и момент остановки выбирает партнёр.' },
-  { id: 'keep-position', label: 'Не меняйте положение', description: 'Выполняйте карту из текущего положения.' },
+  { id: 'blindfold', label: 'С закрытыми глазами', description: 'На время физической части карты закрой глаза.' },
+  { id: 'no-hands', label: 'Без рук', description: 'Во время выполнения карты не используй руки.' },
+  { id: 'silence', label: 'Без слов', description: 'Во время выполнения карты не разговаривай.' },
+  { id: 'partner-controls', label: 'Партнёр задаёт темп', description: 'Темп и момент остановки физического действия выбирает партнёр.' },
+  { id: 'keep-position', label: 'Не меняйте положение', description: 'Во время выполнения не меняйте текущее положение тела.' },
 ]
 
-function eligible(card: DirectorCard, state: DirectorState) {
+const needsVision = /(смотри|взгляд|глаз|прочитай|покажи|экран|галере|фото|заметк|карта|мимик|одежд|аксессуар)/i
+const needsHands = /(рук|ладон|пальц|запяст|держ|массаж|дроч|стимуляц|сними|надень|возьми|полож|прикосн|косн|обним|открой|напиш|набери|покажи|обмен|поправ|сожми|шл[её]п)/i
+const requiresMovement = /(встан|сяд|ляг|перейд|подой|отойд|шаг|танц|пройд|поверн|поз[ауеы]|положени|у стены|догги|миссион|наездниц|ложк|между ног|дистанц)/i
+const needsSpeech = /(скажи|шепни|назови|ответь|говори|произнес|вслух|команд|слово|спроси|объясни|расскаж|прочитай|тост)/i
+const alreadyControlsTempo = /(зада[её]т|управля|команд|ведущ|темп выбира|полностью управляет|направляет твою руку)/i
+
+export function eligibleTurnModifiers(card: DirectorCard, state: DirectorState) {
   const text = card.text.toLowerCase()
   const physical = card.type === 'dare' && card.chains.some((chain) =>
     ['physical', 'tease', 'kissing', 'control', 'position', 'oral', 'sex', 'fetish', 'dom-sub'].includes(chain),
   )
 
   return allModifiers.filter((modifier) => {
-    if (modifier.id === 'blindfold') return physical && !/(смотри|взгляд|глаз)/i.test(text)
-    if (modifier.id === 'no-hands') return physical && !/(рук|ладон|держ|массаж|дроч|пальц)/i.test(text)
-    if (modifier.id === 'silence') return card.type === 'dare' && !/(скажи|шепни|назови|ответь|говори)/i.test(text)
-    if (modifier.id === 'partner-controls') return state.scenario === 'sex' && state.sessionStage >= 1 && physical
-    if (modifier.id === 'keep-position') return Boolean(state.currentPosition) && physical
+    if (modifier.id === 'blindfold') return physical && !needsVision.test(text) && !requiresMovement.test(text)
+    if (modifier.id === 'no-hands') return physical && !needsHands.test(text)
+    if (modifier.id === 'silence') return card.type === 'dare' && !needsSpeech.test(text)
+    if (modifier.id === 'partner-controls') {
+      return state.scenario === 'sex'
+        && state.sessionStage >= 1
+        && physical
+        && !card.chains.some((chain) => chain === 'control' || chain === 'dom-sub')
+        && !alreadyControlsTempo.test(text)
+    }
+    if (modifier.id === 'keep-position') return Boolean(state.currentPosition) && physical && !requiresMovement.test(text)
     return false
   })
 }
@@ -37,7 +49,7 @@ export function pickTurnModifiers(
   forcedCount = 0,
   random: () => number = Math.random,
 ) {
-  const pool = eligible(card, state)
+  const pool = eligibleTurnModifiers(card, state)
   if (!pool.length) return []
 
   let count = forcedCount
