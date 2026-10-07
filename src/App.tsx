@@ -7,7 +7,7 @@ import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from
 import { adaptLegacyDeck } from './v09/legacy-adapter'
 import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from './v09/director'
 import { chooseEventForTurn } from './v09/events'
-import { pickTurnModifiers } from './v09/modifiers'
+import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
 import { buildBossSession } from './v09/bosses'
 import { sexNativeCards } from './v09/sex-native'
 import { clearV09Game, loadV09Game, loadV09Settings, saveV09Game, saveV09Settings } from './v09/storage'
@@ -417,11 +417,22 @@ function App() {
   function chooseRisk(risk: RiskLevel) {
     if (!settings || !directorState) return
 
-    const candidates = eligibleDirectorCards(pendingEvent)
+    let forcedModifierCount = pendingEvent?.modifierCount ?? 0
+    if (pendingEvent?.id === 'double-stake' && risk === 2) forcedModifierCount = 2
+    if (pendingEvent?.id === 'double-stake' && risk === 3) forcedModifierCount = 0
+
+    const baseCandidates = eligibleDirectorCards(pendingEvent)
+    const candidates = forcedModifierCount > 0
+      ? baseCandidates.filter((card) => eligibleTurnModifiers(card, directorState).length >= forcedModifierCount)
+      : baseCandidates
     const picked = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, risk)
 
     if (!picked) {
-      setNotice('Director не нашёл логичную карту для текущего состояния. Это нужно поправить в разметке.')
+      setNotice(
+        forcedModifierCount > 0
+          ? 'Director не нашёл карту с совместимыми условиями для этого риска. Это нужно поправить в разметке.'
+          : 'Director не нашёл логичную карту для текущего состояния. Это нужно поправить в разметке.',
+      )
       return
     }
 
@@ -440,10 +451,6 @@ function App() {
     const finalText = source
       ? renderCardText({ ...source, text: picked.card.text }, settings.players, currentPlayerIndex, targetIndex)
       : hydrateCardText(picked.card.text, settings.players, currentPlayerIndex, targetIndex)
-
-    let forcedModifierCount = pendingEvent?.modifierCount ?? 0
-    if (pendingEvent?.id === 'double-stake' && risk === 2) forcedModifierCount = 2
-    if (pendingEvent?.id === 'double-stake' && risk === 3) forcedModifierCount = 0
 
     setCurrentDirectorCard(picked.card)
     // Keep one source of truth for the revealed intensity.
