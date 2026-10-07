@@ -9,7 +9,8 @@ const assert = {
 
 import { buildBossSession } from '../src/v09/bosses'
 import { completeTurn, createDirectorState, maybeAdvanceStage, maybeCreateCautionEvent } from '../src/v09/director'
-import { pickTurnModifiers } from '../src/v09/modifiers'
+import { chooseEventForTurn } from '../src/v09/events'
+import { eligibleTurnModifiers, pickTurnModifiers } from '../src/v09/modifiers'
 import type { DirectorCard, DirectorState } from '../src/v09/types'
 import type { Player } from '../src/types'
 
@@ -67,5 +68,102 @@ const boss = buildBossSession(bossState)
 assert.equal(boss.family, 'oral')
 assert.equal(boss.phases.length, 3)
 assert.ok(boss.phases.every((phase) => phase.length > 20), 'boss phases must be real steps, not labels')
+
+// Modifiers must never contradict the action they are attached to.
+const positionedState = {
+  ...createDirectorState('sex', players, 'underwear', ['manual', 'oral', 'penetration']),
+  sessionStage: 3 as const,
+  currentPosition: 'sitting',
+}
+const modifierFixtures: Array<{ card: DirectorCard; forbidden: string }> = [
+  {
+    card: { ...physicalCard, id: 'needs-eyes', text: 'Смотри {{other.dat}} в глаза пятнадцать секунд.', chains: ['physical'] },
+    forbidden: 'blindfold',
+  },
+  {
+    card: { ...physicalCard, id: 'needs-hands', text: 'Положи ладонь на плечо {{other.gen}} на десять секунд.', chains: ['physical'] },
+    forbidden: 'no-hands',
+  },
+  {
+    card: { ...physicalCard, id: 'needs-movement', text: 'Встань и подойди к {{other.dat}} на один шаг.', chains: ['physical'] },
+    forbidden: 'keep-position',
+  },
+  {
+    card: { ...physicalCard, id: 'needs-speech', text: 'Скажи {{other.dat}} одну короткую фразу вслух.', chains: ['physical'] },
+    forbidden: 'silence',
+  },
+  {
+    card: { ...physicalCard, id: 'already-controlled', text: '{{other.nom}} задаёт темп поцелуя командами.', chains: ['control'] },
+    forbidden: 'partner-controls',
+  },
+]
+for (const fixture of modifierFixtures) {
+  const ids = eligibleTurnModifiers(fixture.card, positionedState).map((modifier) => modifier.id)
+  assert.ok(!ids.includes(fixture.forbidden), `${fixture.card.id}: contradictory modifier ${fixture.forbidden} is still eligible`)
+}
+
+const compatibleModifierCard: DirectorCard = {
+  ...physicalCard,
+  id: 'modifier-compatible',
+  text: 'Целуй {{other.acc}} в губы пятнадцать секунд.',
+  chains: ['kissing'],
+}
+assert.ok(
+  eligibleTurnModifiers(compatibleModifierCard, positionedState).length >= 2,
+  'a simple stationary physical card should support at least two compatible modifiers',
+)
+
+// Every Boss family must expose three explicit phases without the old hidden-context wording.
+const bossCases: Array<{ chain: DirectorState['chainFamily']; stage: DirectorState['sessionStage']; expected: string }> = [
+  { chain: null, stage: 2, expected: 'tease' },
+  { chain: 'undress', stage: 2, expected: 'undress' },
+  { chain: 'control', stage: 2, expected: 'control' },
+  { chain: 'manual', stage: 3, expected: 'manual' },
+  { chain: 'oral', stage: 3, expected: 'oral' },
+  { chain: 'edging', stage: 3, expected: 'edging' },
+  { chain: 'dom-sub', stage: 3, expected: 'dom-sub' },
+  { chain: 'fetish', stage: 3, expected: 'fetish' },
+  { chain: 'roleplay', stage: 3, expected: 'roleplay' },
+  { chain: null, stage: 4, expected: 'sex' },
+]
+const vagueBossWording = /(текущий ведущий|получающий|уже начатых ролей|в том же направлении|последнее действие из предыдущей карты|выбранной вами общей точки|продолжите из текущего положения)/i
+for (const item of bossCases) {
+  const stateForBoss: DirectorState = {
+    ...createDirectorState('sex', players, 'underwear', ['manual', 'oral', 'penetration', 'edging', 'dom-sub', 'roleplay']),
+    sessionStage: item.stage,
+    chainFamily: item.chain,
+    chainDepth: 4,
+    tension: 120,
+    turnsPlayed: 20,
+    currentPosition: item.stage === 4 ? 'missionary' : null,
+  }
+  const session = buildBossSession(stateForBoss)
+  assert.equal(session.family, item.expected, `wrong Boss family for ${String(item.chain)}/stage-${item.stage}`)
+  assert.equal(session.phases.length, 3, `${session.family}: Boss must have exactly three phases`)
+  for (const phase of session.phases) {
+    assert.ok(phase.length >= 45, `${session.family}: Boss phase is too vague/short: ${phase}`)
+    assert.ok(!vagueBossWording.test(phase), `${session.family}: Boss phase still relies on hidden context: ${phase}`)
+  }
+}
+
+// Event copy shown to the player must identify who controls the next risk.
+const eventState: DirectorState = {
+  ...createDirectorState('sex', players, 'underwear', ['manual']),
+  sessionStage: 3,
+  tension: 100,
+  turnsPlayed: 12,
+  lastEventTurn: -99,
+  currentPosition: 'sitting',
+}
+const sequence = (values: number[]) => {
+  let index = 0
+  return () => values[index++] ?? 0
+}
+const intercept = chooseEventForTurn(eventState, 0, sequence([0, 0, 0]))
+assert.equal(intercept?.id, 'partner-chooses-risk', 'event fixture must select risk interception')
+assert.ok(
+  Boolean(intercept?.description.includes('следующий игрок по кругу')),
+  'risk interception must explicitly identify the chooser rule',
+)
 
 console.log('✓ v0.9 events/modifiers/boss tests passed')
