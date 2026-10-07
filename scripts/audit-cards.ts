@@ -91,15 +91,44 @@ const contextualNounReferents: Array<[RegExp, RegExp]> = [
   [/(?:это|такое)\s+прикосновение/i, /прикос/i],
   [/(?:этот|такой)\s+поцелуй/i, /поцел/i],
   [/(?:это|такое)\s+действие/i, /действ/i],
+  [/(?:этого|такого)\s+дня/i, /день|дн/i],
+  [/(?:это|такое)\s+мини-свидание/i, /мини-свидан/i],
+  [/(?:этому|такому)\s+качеству/i, /качеств/i],
+  [/(?:этой|такой)\s+традиции/i, /традиц/i],
+  [/(?:этой|такой)\s+[^.!?]{0,40}сцены/i, /сцен/i],
+  [/(?:этот|такой)\s+взгляд/i, /взгляд/i],
+  [/(?:этой|такой)\s+[^.!?]{0,40}фантазии/i, /фантаз/i],
+  [/(?:этой|такой)\s+песни/i, /песн/i],
+  [/(?:этот|такой)\s+тип\s+поведения/i, /поведен/i],
+  [/(?:эту|такую)\s+встречу/i, /встреч/i],
+  [/(?:этот|такой)\s+(?:ночной\s+)?перекус/i, /перекус/i],
+  [/(?:этой|такой)\s+покупки/i, /покупк/i],
+  [/(?:этот|такой)\s+жанр/i, /жанр/i],
+  [/(?:этого|такого)\s+типажа/i, /типаж/i],
+  [/(?:этого|такого)\s+настроения/i, /настроен/i],
+  [/(?:этого|такого)\s+(?:старого\s+)?флирта/i, /флирт/i],
+  [/(?:этого|такого)\s+(?:ночного\s+)?поступка/i, /поступ/i],
 ]
 
-function hasUnresolvedDareContext(text: string) {
+function hasUnresolvedDeicticReference(text: string) {
   for (const [referent, antecedent] of contextualNounReferents) {
     const match = referent.exec(text)
     if (!match || match.index === undefined) continue
     const before = text.slice(0, match.index)
     if (!antecedent.test(before)) return true
   }
+
+  const selectedPerson = /выбран(?:ный|ного|ному|ным|ная|ную|ной|ное)\s+(?:человек|игрок)/i.exec(text)
+  if (selectedPerson?.index !== undefined) {
+    const before = text.slice(0, selectedPerson.index)
+    if (!/(?:выбер|выбира|кандидат|показыва)/i.test(before)) return true
+  }
+
+  return false
+}
+
+function hasUnresolvedDareContext(text: string) {
+  if (hasUnresolvedDeicticReference(text)) return true
 
   if (/^(?:покажи|повтори|изобрази|сыграй|разыграй|разыграйте|напиши|набери|выполни|используй|используйте|собери|произнеси|найди|выбери)\s+(?:его|её|их|этот|эту|это|такой|такую|такое)(?:\s|[.,;:!?—-]|$)/i.test(text)) return true
   if (/^(?:напиши|набери)\s+(?:её|его)\s+(?:безопасн|коротк)/i.test(text)) return true
@@ -257,6 +286,9 @@ for (const card of cards) {
   if (implicitCurrentPlayerGender.some((pattern) => pattern.test(stripGenderVariants(stripQuotedSpeech(card.text))))) fail(`${card.id}: неявный мужской род захардкожен для текущего игрока: ${card.text}`)
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
+  if (hasUnresolvedDeicticReference(card.text)) {
+    fail(`${card.id}: карточка зависит от скрытого указательного контекста: ${card.text}`)
+  }
   if (card.type === 'dare' && hasUnresolvedDareContext(card.text)) {
     fail(`${card.id}: Dare зависит от скрытого контекста соседней Truth-карты: ${card.text}`)
   }
