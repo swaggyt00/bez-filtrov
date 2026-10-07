@@ -27,12 +27,6 @@ function inferChain(card: GameCard): ChainFamily {
   return card.scenario === 'party' || card.scenario === 'afterdark' ? 'chaos' : 'conversation'
 }
 
-function idHash(id: string) {
-  let value = 0
-  for (const char of id) value = (value * 31 + char.charCodeAt(0)) >>> 0
-  return value
-}
-
 const LEGACY_THREE_FIRE_TRUTH_IDS = new Set([
   // Couple: emotionally costly disclosures, not ordinary preferences.
   'couple-hard-truth-001',
@@ -60,6 +54,62 @@ const LEGACY_THREE_FIRE_TRUTH_IDS = new Set([
   'afterdark-hard-truth-013',
 ])
 
+
+const LEGACY_THREE_FIRE_DARE_IDS = new Set([
+  // Couple: strongest stage-local physical/romantic actions.
+  'couple-light-dare-036',
+  'couple-light-dare-038',
+  'couple-light-dare-039',
+  'couple-light-dare-056',
+  'couple-hot-dare-016',
+  'couple-hot-dare-019',
+  'couple-hot-dare-030',
+  'couple-hot-dare-036',
+  'couple-hot-dare-041',
+  'couple-hard-dare-008',
+  'couple-hard-dare-026',
+  'couple-hard-dare-028',
+  'couple-hard-dare-036',
+  'couple-hard-dare-043',
+
+  // Party: public embarrassment, flirt or disclosure with real social stakes.
+  'party-light-dare-032',
+  'party-light-dare-042',
+  'party-light-dare-044',
+  'party-light-dare-047',
+  'party-hot-dare-019',
+  'party-hot-dare-021',
+  'party-hot-dare-023',
+  'party-hot-dare-024',
+  'party-hot-dare-046',
+  'party-hard-dare-006',
+  'party-hard-dare-010',
+  'party-hard-dare-019',
+  'party-hard-dare-023',
+  'party-hard-dare-037',
+  'party-hard-dare-039',
+
+  // Afterdark: clothing, public exposure, stronger flirt and close-contact play.
+  'afterdark-light-dare-030',
+  'afterdark-light-dare-032',
+  'afterdark-light-dare-035',
+  'afterdark-light-dare-036',
+  'afterdark-light-dare-045',
+  'afterdark-hot-dare-006',
+  'afterdark-hot-dare-007',
+  'afterdark-hot-dare-012',
+  'afterdark-hot-dare-017',
+  'afterdark-hot-dare-031',
+  'afterdark-hard-dare-001',
+  'afterdark-hard-dare-003',
+  'afterdark-hard-dare-008',
+  'afterdark-hard-dare-016',
+  'afterdark-hard-dare-020',
+  'afterdark-hard-dare-041',
+  'afterdark-hard-dare-042',
+  'afterdark-hard-dare-043',
+])
+
 function riskWithinLegacyBucket(card: GameCard): RiskLevel {
   const text = card.text.toLowerCase()
   let score = 1
@@ -85,10 +135,13 @@ function riskWithinLegacyBucket(card: GameCard): RiskLevel {
       : Math.min(2, score) as RiskLevel
   }
 
-  const hash = idHash(card.id)
-  if (score === 1 && hash % 7 === 0) score = 3
-  else if (score === 1 && hash % 3 === 0) score = 2
-  else if (score === 2 && hash % 9 === 0) score = 3
+  // Dare risk must also be intentional. The old id/hash lottery could promote a
+  // trivial coordination challenge to three fire. Non-Sex risk-3 Dares are now
+  // explicitly curated; Sex legacy risk is replaced later by the Sex theme profile.
+  if (card.scenario !== 'sex') {
+    if (LEGACY_THREE_FIRE_DARE_IDS.has(card.id)) return 3
+    return Math.min(2, score) as RiskLevel
+  }
 
   return Math.min(3, score) as RiskLevel
 }
