@@ -50,6 +50,58 @@ const vagueReferents = [
   /(?<![а-яё])этот вариант(?![а-яё])/i,
   /(?<![а-яё])такое сейчас(?![а-яё])/i,
 ]
+
+// A v0.8 Truth/Dare pair is only an authoring convenience: Director may reveal the
+// Dare without ever showing its sibling Truth. Every Dare therefore has to be
+// executable from its own text. These checks reject deictic references whose
+// antecedent exists only in the paired Truth ("этот жест", "такое свидание", etc.).
+const contextualNounReferents: Array<[RegExp, RegExp]> = [
+  [/(?:этот|такой)\s+жест/i, /жест/i],
+  [/(?:этот|такой)\s+сигнал/i, /сигнал/i],
+  [/(?:этот|такой)\s+способ/i, /способ/i],
+  [/(?:этот|такой)\s+стиль/i, /стил/i],
+  [/(?:этот|такой)\s+образ/i, /образ/i],
+  [/(?:этот|такой)\s+ритуал/i, /ритуал/i],
+  [/(?:этот|такой)\s+навык/i, /навык/i],
+  [/(?:этот|такой)\s+провал/i, /провал/i],
+  [/(?:этот|такой)\s+подкат/i, /подкат/i],
+  [/(?:этот|такой)\s+флирт/i, /флирт/i],
+  [/(?:эту|такую)\s+привычку/i, /привыч/i],
+  [/(?:эту|такую)\s+черту/i, /черт/i],
+  [/(?:эту|такую)\s+деталь/i, /детал/i],
+  [/(?:эту|такую)\s+сторону/i, /сторон/i],
+  [/(?:эту|такую)\s+сцену/i, /сцен/i],
+  [/(?:этого|такого)\s+момента/i, /момент/i],
+  [/(?:этого|такого)\s+свидания/i, /свидан/i],
+  [/(?:этого|такого)\s+расставания/i, /расставан/i],
+  [/(?:этого|такого)\s+сообщения/i, /сообщен/i],
+  [/(?:этого|такого)\s+напитка/i, /напит/i],
+  [/(?:этого|такого)\s+решения/i, /решен/i],
+  [/(?:этого|такого)\s+поведения/i, /поведен/i],
+]
+
+function hasUnresolvedDareContext(text: string) {
+  for (const [referent, antecedent] of contextualNounReferents) {
+    const match = referent.exec(text)
+    if (!match || match.index === undefined) continue
+    const before = text.slice(0, match.index)
+    if (!antecedent.test(before)) return true
+  }
+
+  if (/^(?:покажи|повтори|изобрази|сыграй|разыграй|напиши|набери|выполни|используй)\s+(?:его|её|их)(?:\s|[.,;:!?—-]|$)/i.test(text)) return true
+  if (/^(?:напиши|набери)\s+(?:её|его)\s+(?:безопасн|коротк)/i.test(text)) return true
+  if (/^выбери\s+(?:доступный|комфортный|более\s+\S+)\s+вариант/i.test(text)) return true
+  if (/^сыграйте\s+оба\s+варианта/i.test(text)) return true
+  if (/^выбери\s+одно\s+и\s+/i.test(text)) return true
+  if (/^выберите\s+один\s+элемент\s+и\s+/i.test(text)) return true
+  if (/^сделай\s+безопасную\s+короткую\s+версию\s+первого\s+шага/i.test(text)) return true
+  if (/^выполни\s+выбранное/i.test(text)) return true
+  if (/^покажи\s+просьбу\s+без\s+слов/i.test(text)) return true
+  if (/^покажи\s+(?:его|её)\s+структуру/i.test(text)) return true
+  if (/^выберите\s+этот\s+знак/i.test(text)) return true
+
+  return false
+}
 const dangerousAlcohol = /(залпом|несколько шотов|пей пока|выпей стакан|напейся|до дна|на скорость|пока не опьянеешь)/i
 const genericSexExit = /(занимайтесь сексом|перейдите к сексу|начните секс|если хотите,? продолжайте секс)/i
 const partyExplicitTopic = /(?:^|[^а-яё])(?:секс(?:а|е|ом|у)?|порно|мастурб\w*|оральн\w*|анальн\w*|бдсм|кинк\w*|оргазм\w*)(?![а-яё])/i
@@ -190,6 +242,9 @@ for (const card of cards) {
   if (implicitCurrentPlayerGender.some((pattern) => pattern.test(stripGenderVariants(stripQuotedSpeech(card.text))))) fail(`${card.id}: неявный мужской род захардкожен для текущего игрока: ${card.text}`)
   if (bannedEditorial.some((pattern) => pattern.test(card.text))) fail(`${card.id}: запрещённая ИИ/абстрактная формулировка: ${card.text}`)
   if (vagueReferents.some((pattern) => pattern.test(card.text))) fail(`${card.id}: потерян предмет вопроса/действия: ${card.text}`)
+  if (card.type === 'dare' && hasUnresolvedDareContext(card.text)) {
+    fail(`${card.id}: Dare зависит от скрытого контекста соседней Truth-карты: ${card.text}`)
+  }
   if (/\([+-]?а\)|\(-а\)|\(а\)/i.test(card.text)) fail(`${card.id}: гендерная скобка в тексте`)
   if (genericSexExit.test(card.text) && !card.scene?.endCondition) fail(`${card.id}: карта выключает игру вместо ограниченного действия`)
   if (card.alcohol && dangerousAlcohol.test(card.text)) fail(`${card.id}: опасная алкогольная формулировка`)
