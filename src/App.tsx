@@ -5,6 +5,7 @@ import { eligibleTargetIndices, hydrateCardText, renderCardText, validateScenari
 import { loadSettings as loadLegacySettings } from './storage'
 import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from './types'
 import { adaptLegacyDeck } from './v09/legacy-adapter'
+import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
 import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from './v09/director'
 import { chooseEventForTurn } from './v09/events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
@@ -163,6 +164,11 @@ function App() {
   const [boss, setBoss] = useState<BossSession | null>(null)
   const [bossPhaseIndex, setBossPhaseIndex] = useState(0)
   const [notice, setNotice] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiIntro, setAiIntro] = useState('')
+  const [aiWasUsed, setAiWasUsed] = useState(false)
+  const aiEpoch = useRef(0)
+  const aiBusyRef = useRef(false)
   const [preparedPlayers, setPreparedPlayers] = useState<Player[] | null>(null)
   const [boundaryStep, setBoundaryStep] = useState(0)
   const [boundaryDrafts, setBoundaryDrafts] = useState<Record<number, Record<BoundaryTag, BoundaryChoice>>>({})
@@ -190,6 +196,8 @@ function App() {
       pendingEvent,
       boss,
       bossPhaseIndex,
+      aiIntro,
+      aiWasUsed,
       updatedAt: Date.now(),
     })
   }, [
@@ -206,6 +214,8 @@ function App() {
     pendingEvent,
     boss,
     bossPhaseIndex,
+    aiIntro,
+    aiWasUsed,
   ])
 
   function sound(kind: 'tap' | 'reveal') {
@@ -276,7 +286,14 @@ function App() {
     return players
   }
 
+  function stopPendingAI() {
+    aiEpoch.current += 1
+    aiBusyRef.current = false
+    setAiBusy(false)
+  }
+
   function beginGame(players: Player[], mutuallyAllowedBoundaries: BoundaryTag[]) {
+    stopPendingAI()
     const nextSettings: V09GameSettings = {
       players,
       scenario,
@@ -301,6 +318,8 @@ function App() {
     setCurrentTargetIndex(null)
     setRenderedText('')
     setCurrentModifiers([])
+    setAiIntro('')
+    setAiWasUsed(false)
     setPendingEvent(null)
     setBoss(null)
     setBossPhaseIndex(0)
@@ -343,6 +362,7 @@ function App() {
   }
 
   function resumeGame() {
+    stopPendingAI()
     const saved = loadV09Game()
     if (!saved) return
     setSettings(saved.settings)
@@ -364,6 +384,8 @@ function App() {
     setCurrentTargetIndex(saved.currentTargetIndex)
     setRenderedText(saved.renderedText)
     setCurrentModifiers(saved.currentModifiers ?? [])
+    setAiIntro(saved.aiIntro ?? '')
+    setAiWasUsed(saved.aiWasUsed ?? false)
     setPendingEvent(saved.pendingEvent)
     setBoss(saved.boss)
     setBossPhaseIndex(saved.bossPhaseIndex ?? 0)
@@ -414,8 +436,8 @@ function App() {
     })
   }
 
-  function chooseRisk(risk: RiskLevel) {
-    if (!settings || !directorState) return
+  async function chooseRisk(risk: RiskLevel) {
+    if (!settings || !directorState || aiBusyRef.current) return
 
     let forcedModifierCount = pendingEvent?.modifierCount ?? 0
     if (pendingEvent?.id === 'double-stake' && risk === 2) forcedModifierCount = 2
@@ -425,9 +447,9 @@ function App() {
     const candidates = forcedModifierCount > 0
       ? baseCandidates.filter((card) => eligibleTurnModifiers(card, directorState).length >= forcedModifierCount)
       : baseCandidates
-    const picked = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, risk)
+    const fallback = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, risk)
 
-    if (!picked) {
+    if (!fallback) {
       setNotice(
         forcedModifierCount > 0
           ? 'Director не нашёл карту с совместимыми условиями для этого риска. Это нужно поправить в разметке.'
@@ -436,28 +458,41 @@ function App() {
       return
     }
 
-    const source = picked.card.sourceCardId ? sourceById.get(picked.card.sourceCardId) : null
-    if (picked.card.sourceCardId && !source) {
+    const epoch = ++aiEpoch.current
+    aiBusyRef.current = true
+    setAiBusy(true)
+    const shortlist = createAIDirectorShortlist(candidates, directorState, currentPlayerIndex, risk)
+    const aiChoice = await requestAIDirectorChoice(directorState, risk, shortlist)
+    if (epoch !== aiEpoch.current) return
+    aiBusyRef.current = false
+    setAiBusy(false)
+
+    // A remote model cannot introduce a new card or change intensity/boundaries.
+    // If the request times out, keep the old local Director behavior.
+    const card = aiChoice?.card ?? fallback.card
+    const source = card.sourceCardId ? sourceById.get(card.sourceCardId) : null
+    if (card.sourceCardId && !source) {
       setNotice('Не найден исходник карточки.')
       return
     }
 
     const targets = source
       ? eligibleTargetIndices(source, settings.players, currentPlayerIndex)
-      : picked.card.targetRequired === false
+      : card.targetRequired === false
         ? []
         : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
     const targetIndex = targets.length ? targets[Math.floor(Math.random() * targets.length)] : null
     const finalText = source
-      ? renderCardText({ ...source, text: picked.card.text }, settings.players, currentPlayerIndex, targetIndex)
-      : hydrateCardText(picked.card.text, settings.players, currentPlayerIndex, targetIndex)
+      ? renderCardText({ ...source, text: card.text }, settings.players, currentPlayerIndex, targetIndex)
+      : hydrateCardText(card.text, settings.players, currentPlayerIndex, targetIndex)
 
-    setCurrentDirectorCard(picked.card)
-    // Keep one source of truth for the revealed intensity.
-    setCurrentRisk(picked.card.risk)
+    setCurrentDirectorCard(card)
+    setCurrentRisk(card.risk)
     setCurrentTargetIndex(targetIndex)
     setRenderedText(finalText)
-    setCurrentModifiers(pickTurnModifiers(picked.card, directorState, picked.card.risk, forcedModifierCount))
+    setCurrentModifiers(pickTurnModifiers(card, directorState, card.risk, forcedModifierCount))
+    setAiIntro(aiChoice?.intro ?? '')
+    setAiWasUsed(Boolean(aiChoice))
     setPendingEvent(null)
     setView('card')
     setNotice('')
@@ -473,6 +508,8 @@ function App() {
     setCurrentTargetIndex(null)
     setRenderedText('')
     setCurrentModifiers([])
+    setAiIntro('')
+    setAiWasUsed(false)
     setPendingEvent(event)
     setBoss(null)
     setBossPhaseIndex(0)
@@ -539,6 +576,7 @@ function App() {
   }
 
   function backToSetup() {
+    stopPendingAI()
     if (settings) {
       setDraftPlayers(settings.players.map((player) => ({
         name: player.name,
@@ -552,6 +590,7 @@ function App() {
   }
 
   function newGameFromScratch() {
+    stopPendingAI()
     clearV09Game()
     setSettings(null)
     setDirectorState(null)
@@ -775,7 +814,7 @@ function App() {
                   type="button"
                   key={risk}
                   className={`risk-button risk-${risk}`}
-                  disabled={risk < minimumRisk}
+                  disabled={risk < minimumRisk || aiBusy}
                   onClick={() => chooseRisk(risk)}
                   aria-label={`Риск ${risk}`}
                 >
@@ -785,7 +824,9 @@ function App() {
                 </button>
               ))}
             </div>
-            <p className="risk-hint">Огонь определяет риск хода. Стадию сессии Director держит скрытой.</p>
+            <p className="risk-hint" role="status">{aiBusy
+              ? 'AI Director подбирает следующий ход…'
+              : 'Огонь определяет риск хода. Стадию сессии Director держит скрытой.'}</p>
           </section>
         )}
 
@@ -797,6 +838,7 @@ function App() {
               <span>{'🔥'.repeat(currentDirectorCard.risk)}</span>
             </div>
             {currentTarget && <div className="target-chip">с {currentTarget.name}</div>}
+            {aiWasUsed && aiIntro && <p className="ai-intro">✦ AI DIRECTOR · {aiIntro}</p>}
             <p className="card-text">{renderedText}</p>
             {currentModifiers.length > 0 && (
               <div className="modifier-stack">

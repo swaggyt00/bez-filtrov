@@ -1,5 +1,19 @@
 import { expect, test, type Page } from '@playwright/test'
 
+const AI_ROUTE = '**/game/director'
+
+// Existing game smoke tests must never depend on the external Groq uptime.
+// AI success, invalid IDs and network loss are separately exercised below.
+test.beforeEach(async ({ page }) => {
+  await page.route(AI_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ selectedId:'invalid-ai-card', intro:'Do not show this.' }),
+    })
+  })
+})
+
 async function enterSetup(page: Page) {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Мне есть 18' })).toBeVisible()
@@ -119,4 +133,61 @@ test('risk reveal persists the already rendered card across resume', async ({ pa
   await page.getByRole('button', { name: 'Мне есть 18' }).click()
   await page.locator('button.resume-card').click()
   await expect(page.locator('.card-text')).toHaveText(rendered)
+})
+
+
+test('AI Director selects only a shortlisted card and persists its narration across resume', async ({ page }) => {
+  await page.unroute(AI_ROUTE)
+  await page.route(AI_ROUTE, async (route) => {
+    const payload = route.request().postDataJSON()
+    expect(payload.version).toBe(1)
+    expect(payload.scenario).toBe('afterdark')
+    expect(payload.stage).toBe(0)
+    expect(payload.risk).toBe(1)
+    expect(payload.candidates.length).toBeGreaterThan(1)
+    expect(JSON.stringify(payload)).not.toContain('Игрок 1')
+    expect(JSON.stringify(payload)).not.toContain('Игрок 2')
+    expect(payload.candidates.every((item: {id:string}) => !('text' in item))).toBeTruthy()
+    const last = payload.candidates[payload.candidates.length - 1]
+    await route.fulfill({
+      status:200,contentType:'application/json',
+      body:JSON.stringify({selectedId:last.id,intro:'На этот раз игра приготовила кое-что интересное.'}),
+    })
+  })
+
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page, 'После полуночи')
+  await startScenario(page, 'После полуночи')
+  await page.getByRole('button', { name:'Риск 1' }).click()
+  await expect(page.locator('.ai-intro')).toContainText('На этот раз игра приготовила кое-что интересное.')
+  const cardText = await page.locator('.card-text').innerText()
+  const saved=await page.evaluate(() => JSON.parse(localStorage.getItem('bez-filtrov:game:v9') ?? 'null'))
+  expect(saved.aiWasUsed).toBe(true)
+  expect(saved.currentDirectorCardId).toBeTruthy()
+  expect(saved.aiIntro).toContain('На этот раз')
+
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.ai-intro')).toContainText('На этот раз')
+  await expect(page.locator('.card-text')).toHaveText(cardText)
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await expectRiskScreen(page)
+})
+
+test('a failed AI call still reveals a valid card without extra setup', async ({ page }) => {
+  await page.unroute(AI_ROUTE)
+  await page.route(AI_ROUTE, async (route) => route.abort('failed'))
+
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page, 'Пара')
+  await startScenario(page, 'Пара')
+  await page.getByRole('button', { name:'Риск 1' }).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await expect(page.locator('.ai-intro')).toHaveCount(0)
+  await expect(page.locator('.card-topline')).toContainText('🔥')
+  await page.getByRole('button', {name:/Выполнено/}).click()
+  await expectRiskScreen(page)
 })

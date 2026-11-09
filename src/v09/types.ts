@@ -199,5 +199,7 @@ export interface PersistedV09Game {
   pendingEvent: DirectorEvent | null
   boss: BossSession | null
   bossPhaseIndex: number
+  aiIntro?: string
+  aiWasUsed?: boolean
   updatedAt: number
 }
