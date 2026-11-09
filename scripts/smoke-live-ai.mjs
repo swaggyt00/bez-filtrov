@@ -4,9 +4,13 @@ const url = 'https://swaggyt00.github.io/bez-filtrov/'
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({viewport:{width:420,height:900}})
 const apiStatuses=[]
-page.on('response',response=>{
+page.on('request',request=>{
+  if(request.url().includes('/game/director'))console.log('AI REQUEST:',request.postData())
+})
+page.on('response',async response=>{
   if(response.url().includes('/game/director')){
     apiStatuses.push({status:response.status(),url:response.url()})
+    if(!response.ok())console.log('AI ERROR RESPONSE:',await response.text().catch(()=>'?'))
   }
 })
 page.on('console',msg=>{
@@ -28,7 +32,7 @@ try {
     await page.locator('.card-text').waitFor({state:'visible',timeout:12000})
     const text=await page.locator('.card-text').innerText()
     const status=await page.locator('.card-topline').innerText()
-    const intro=await page.locator('.ai-intro').first().textContent().catch(()=>null)
+    const intro=await page.locator('.ai-intro').count() ? await page.locator('.ai-intro').first().textContent() : null
     console.log('TURN:',JSON.stringify({risk,status,text,intro,apiStatuses}))
     if(!intro?.includes('AI DIRECTOR')){
       throw new Error('AI Director did not supply a live intro; observed API '+JSON.stringify(apiStatuses))
