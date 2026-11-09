@@ -78,7 +78,7 @@ export function validateAICondition(
   if (data.kind === 'performance' && !/^Во время выполнения[, ]/i.test(description)) return null
   // Never append a spoken line to an explicitly silent action.
   if (card.type === 'dare' && /(без слов|молча|не разговаривая)/i.test(card.text)
-    && /(?:скажи|произнеси|голосом|вслух|расскажи|назови)/i.test(description)) return null
+    && /(?:скажи|говори|произнеси|голосом|вслух|расскажи|назови)/i.test(description)) return null
   // A new condition cannot change the card's timing, risk, target or physical action.
   if (/(вместо (?:этого|основного)|замени|отмени|пропусти|дополнительно раздень|на одну минуту|на две минуты)/i.test(description)) return null
   return {kind: data.kind as AIModifierKind,label,description}
