@@ -76,7 +76,55 @@ try {
     throw new Error('Sex stage 0 jumped straight to direct sex')
   }
   if(apiStatuses.some(x=>x.status!==200))throw new Error('Live Groq route failed: '+JSON.stringify(apiStatuses))
-  console.log('PASS: real browser AI Director (Afterdark + Sex), card render, risks 1/2/3, save/resume, CORS and stage-0 guard.')
+  // Exercise the real creative condition generator in the deployed UI. The
+  // Director still makes a REAL Groq card choice; only its optional boolean
+  // is forced on for a reliable production regression test.
+  await page.getByRole('button',{name:'сброс'}).click()
+  await page.locator('.scenario-card').filter({hasText:'После полуночи'}).click()
+  await page.getByRole('button',{name:'Начать · После полуночи'}).click()
+  const modifierStatuses=[]
+  page.on('response',async response=>{
+    if(response.url().includes('/game/modifier')){
+      modifierStatuses.push({status:response.status()})
+      if(!response.ok()){
+        console.log('LIVE MODIFIER ERROR:',await response.text().catch(()=>'?'))
+      }
+    }
+  })
+  await page.route('**/game/director',async route=>{
+    const response=await route.fetch()
+    const body=await response.json()
+    if(!response.ok())throw new Error('Live Director unavailable during modifier test')
+    await route.fulfill({response,body:JSON.stringify({...body,addCondition:true})})
+  })
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await page.locator('.card-text').waitFor({state:'visible',timeout:18000})
+  const modifierBase=await page.locator('.card-text').innerText()
+  const modifierCount=await page.locator('.modifier-card').count()
+  const modifierName=modifierCount?await page.locator('.modifier-card strong').first().innerText():null
+  const modifierDescription=modifierCount?await page.locator('.modifier-card small').first().innerText():null
+  const modifierCaption=modifierCount?await page.locator('.modifier-card span').first().innerText():null
+  console.log('REAL AI MODIFIER:',JSON.stringify({
+    card:modifierBase,modifierCaption,modifierName,modifierDescription,modifierStatuses
+  }))
+  if(!modifierCaption?.includes('AI-УСЛОВИЕ')||!modifierDescription||modifierDescription.length<40){
+    throw new Error('Real AI condition was not shown; status '+JSON.stringify(modifierStatuses))
+  }
+  if(modifierStatuses.length!==1||modifierStatuses[0].status!==200){
+    throw new Error('Modifier did not come from the live Groq endpoint')
+  }
+  await page.waitForFunction(()=>{
+    const state=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return state?.currentModifiers?.[0]?.id?.startsWith('ai-')
+  })
+  await page.reload({waitUntil:'domcontentloaded'})
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  if((await page.locator('.card-text').innerText())!==modifierBase)throw new Error('AI modifier changed original card text')
+  if((await page.locator('.modifier-card strong').first().innerText())!==modifierName){
+    throw new Error('AI modifier did not survive reload')
+  }
+  console.log('PASS: real browser AI Director + true Groq-generated modifier, all risks, save/resume, CORS and stage guard.')
 }catch(error){
   console.error('FAIL:',error)
   try{await page.screenshot({path:'live-ai-failure.png',fullPage:true})}catch{}
