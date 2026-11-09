@@ -85,6 +85,7 @@ try {
       if(!response.ok())console.log('CREATIVE AI REJECTED:',await response.text().catch(()=>'?'))
     }
   })
+  let directorRateLimited=false
   await page.route('**/game/director',async route=>{
     const request=route.request().postDataJSON()
     const performanceCardId='v09:afterdark-light-dare-002'
@@ -92,8 +93,13 @@ try {
       throw new Error('Known performance challenge is no longer in the allowed shortlist')
     }
     const response=await route.fetch()
+    if(response.status()===429){
+      directorRateLimited=true
+      await route.fulfill({response})
+      return
+    }
+    if(!response.ok())throw Error('Live Director unavailable: '+response.status())
     const body=await response.json()
-    if(!response.ok())throw Error('Live Director unavailable')
     await route.fulfill({response,body:JSON.stringify({...body,selectedId:performanceCardId,addCondition:true})})
   })
 
@@ -116,6 +122,12 @@ try {
       label:modifiers?await page.locator('.modifier-card strong').first().innerText():null,
       description:modifiers?await page.locator('.modifier-card small').first().innerText():null,
     }))
+    if(directorRateLimited){
+      if(modifiers!==0)throw Error('Director 429 incorrectly added a modifier')
+      upstreamLimited=true
+      console.log('PARTIAL: Director request rate-limited by Groq; base card and fallback verified.')
+      break
+    }
     if(status.length!==1)throw Error('Expected one creative-model call, got '+JSON.stringify(status))
     if(status[0]===422){
       if(modifiers!==0)throw Error('Rejected AI text was replaced by an unwanted canned condition')
