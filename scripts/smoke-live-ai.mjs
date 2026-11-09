@@ -117,7 +117,7 @@ try {
   if(!modifierCaption?.includes('AI-УСЛОВИЕ')||!modifierDescription||modifierDescription.length<40){
     throw new Error('Real AI condition was not shown; status '+JSON.stringify(modifierStatuses))
   }
-  if(!/(с первой попытки|без пауз|пять секунд)/i.test(modifierDescription)){
+  if(!/(с первой попытки|без пауз|пять секунд|без использования рук|без слов|закрытыми глазами|сохраняя текущее положение|две конкретные детали|одну конкретную причину|в течение десяти секунд)/i.test(modifierDescription)){
     throw new Error('AI condition did not make the original performance harder: '+modifierDescription)
   }
   if(/после выполнения|вздох|бров|шепн|театральн.*жест/i.test(modifierDescription)){
