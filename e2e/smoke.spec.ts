@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test'
-import { DIFFICULTY_RULES } from '../src/v09/ai-modifier'
 
 const AI_ROUTE = '**/game/director'
 
@@ -227,16 +226,17 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
     const payload=route.request().postDataJSON()
     expect(payload.cardType).toBe('dare')
     expect(payload.scenario).toBe('afterdark')
-    expect(payload.version).toBe(2)
-    expect(payload.allowedKinds).toContain('dare-one-take')
-    expect(payload.allowedKinds).not.toContain('reaction')
+    expect(payload.version).toBe(3)
+    expect(payload.allowedAxes).toContain('sequence')
+    expect(payload.allowedAxes).not.toContain('reaction')
     expect(payload.cardText.length).toBeGreaterThan(20)
     expect(JSON.stringify(payload)).not.toContain('Игрок 1')
     expect(JSON.stringify(payload)).not.toContain('Игрок 2')
     await route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({
-        kind:'dare-one-take',
-        ...DIFFICULTY_RULES['dare-one-take'],
+        axis:'sequence',
+        label:'ТРИ НОВЫХ АРГУМЕНТА',
+        description:'Во время рекламы каждые пять секунд называй новое преимущество перекуса и ни разу не повторяй прилагательные.',
       }),
     })
   })
@@ -248,21 +248,45 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
   await page.getByRole('button',{name:'Риск 2'}).click()
   await expect(page.locator('.modifier-card')).toHaveCount(1)
   await expect(page.locator('.modifier-card span')).toContainText('AI-УСЛОВИЕ')
-  await expect(page.locator('.modifier-card strong')).toHaveText('ТОЛЬКО ОДИН ДУБЛЬ')
+  await expect(page.locator('.modifier-card strong')).toHaveText('ТРИ НОВЫХ АРГУМЕНТА')
   const cardText=await page.locator('.card-text').innerText()
   await page.waitForFunction(()=>{
     const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null')
-    return saved?.currentModifiers?.[0]?.label==='ТОЛЬКО ОДИН ДУБЛЬ'
+    return saved?.currentModifiers?.[0]?.label==='ТРИ НОВЫХ АРГУМЕНТА'
   })
   await page.reload()
   await page.getByRole('button',{name:'Мне есть 18'}).click()
   await page.locator('button.resume-card').click()
   await expect(page.locator('.card-text')).toHaveText(cardText)
-  await expect(page.locator('.modifier-card strong')).toHaveText('ТОЛЬКО ОДИН ДУБЛЬ')
+  await expect(page.locator('.modifier-card strong')).toHaveText('ТРИ НОВЫХ АРГУМЕНТА')
   await page.getByRole('button',{name:/Выполнено/}).click()
   await page.getByRole('button',{name:'Риск 3'}).click()
   await expect(page.locator('.card-text')).not.toBeEmpty()
   await expect(page.locator('.modifier-card')).toHaveCount(0)
   expect(directorCalls).toBe(2)
   expect(modifierCalls).toBe(1)
+})
+
+
+test('rejected AI creativity produces NO canned or decorative condition', async ({page}) => {
+  await page.unroute(AI_ROUTE)
+  await page.route(AI_ROUTE,async route=>{
+    const request=route.request().postDataJSON()
+    const selected=request.candidates.find((item:{id:string})=>item.id==='v09:afterdark-light-dare-002')
+    expect(selected).toBeTruthy()
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({selectedId:selected.id,intro:'Сложнее, но по делу.',addCondition:true})})
+  })
+  await page.route('**/game/modifier',async route=>{
+    await route.fulfill({status:422,contentType:'application/json',
+      body:JSON.stringify({error:'Не прошло проверку реальной сложности.'})})
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await expect(page.locator('.modifier-card')).toHaveCount(0)
+  await expect(page.locator('.ai-intro')).toBeVisible()
 })
