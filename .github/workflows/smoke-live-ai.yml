@@ -1,0 +1,32 @@
+name: Live production AI Director smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/smoke-live-ai.mjs"
+      - ".github/workflows/smoke-live-ai.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: Exercise real AI Director on live GitHub Pages
+        run: node scripts/smoke-live-ai.mjs
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-ai-failure
+          path: live-ai-failure.png
+          if-no-files-found: ignore
