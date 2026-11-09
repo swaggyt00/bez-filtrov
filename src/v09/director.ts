@@ -228,6 +228,7 @@ export function completeTurn(
   targetIndex: number | null,
   risk: RiskLevel,
   skipped = false,
+  modifierLabels: string[] = [],
 ) {
   const players = state.players.map((player, index) => {
     if (index !== actorIndex) return { ...player }
@@ -253,6 +254,8 @@ export function completeTurn(
     targetIndex,
     chains: card.chains,
     skipped,
+    modifierCount: skipped ? 0 : modifierLabels.length,
+    modifierLabels: skipped ? [] : modifierLabels.slice(0, 2).map((label) => label.slice(0, 50)),
   }
 
   let next: DirectorState = {

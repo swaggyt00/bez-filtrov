@@ -191,3 +191,73 @@ test('a failed AI call still reveals a valid card without extra setup', async ({
   await page.getByRole('button', {name:/Выполнено/}).click()
   await expectRiskScreen(page)
 })
+
+
+test('AI writes a card-specific modifier, saves it and pauses twists on the next turn', async ({page}) => {
+  await page.unroute(AI_ROUTE)
+  let directorCalls=0
+  let modifierCalls=0
+  await page.route(AI_ROUTE,async route=>{
+    directorCalls++
+    const payload=route.request().postDataJSON()
+    expect(payload.scenario).toBe('afterdark')
+    expect(payload.stage).toBe(0)
+    if(directorCalls===1){
+      expect(payload.risk).toBe(2)
+      expect(payload.allowCondition).toBe(true)
+    }else{
+      expect(payload.risk).toBe(3)
+      expect(payload.allowCondition).toBe(false)
+      expect(payload.recent.some((entry:{modifierCount?:number}) => entry.modifierCount===1)).toBe(true)
+    }
+    const selected=payload.candidates.find((candidate:{type:string})=>candidate.type==='dare')
+    expect(selected).toBeTruthy()
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({
+        selectedId:selected.id,intro:'Попробуем новый поворот игры.',
+        addCondition:true,
+      }),
+    })
+  })
+  await page.route('**/game/modifier',async route=>{
+    modifierCalls++
+    const payload=route.request().postDataJSON()
+    expect(payload.cardType).toBe('dare')
+    expect(payload.scenario).toBe('afterdark')
+    expect(payload.allowedKinds).toContain('reaction')
+    expect(payload.cardText.length).toBeGreaterThan(20)
+    expect(JSON.stringify(payload)).not.toContain('Игрок 1')
+    expect(JSON.stringify(payload)).not.toContain('Игрок 2')
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({
+        kind:'reaction',label:'ЛИЦО НЕ ВРЁТ',
+        description:'После выполнения задержи взгляд на пять секунд и покажи мимикой, насколько неожиданным оказался этот ход.',
+      }),
+    })
+  })
+
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await expect(page.locator('.modifier-card')).toHaveCount(1)
+  await expect(page.locator('.modifier-card span')).toContainText('AI-УСЛОВИЕ')
+  await expect(page.locator('.modifier-card strong')).toHaveText('ЛИЦО НЕ ВРЁТ')
+  const cardText=await page.locator('.card-text').innerText()
+  await page.waitForFunction(()=>{
+    const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null')
+    return saved?.currentModifiers?.[0]?.label==='ЛИЦО НЕ ВРЁТ'
+  })
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.card-text')).toHaveText(cardText)
+  await expect(page.locator('.modifier-card strong')).toHaveText('ЛИЦО НЕ ВРЁТ')
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await page.getByRole('button',{name:'Риск 3'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await expect(page.locator('.modifier-card')).toHaveCount(0)
+  expect(directorCalls).toBe(2)
+  expect(modifierCalls).toBe(1)
+})

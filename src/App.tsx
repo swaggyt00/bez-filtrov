@@ -6,6 +6,7 @@ import { loadSettings as loadLegacySettings } from './storage'
 import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from './types'
 import { adaptLegacyDeck } from './v09/legacy-adapter'
 import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
+import { requestAIModifier } from './v09/ai-modifier'
 import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from './v09/director'
 import { chooseEventForTurn } from './v09/events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
@@ -462,10 +463,10 @@ function App() {
     aiBusyRef.current = true
     setAiBusy(true)
     const shortlist = createAIDirectorShortlist(candidates, directorState, currentPlayerIndex, risk)
-    const aiChoice = await requestAIDirectorChoice(directorState, risk, shortlist)
+    const aiChoice = await requestAIDirectorChoice(
+      directorState, risk, shortlist, { forceCondition: forcedModifierCount > 0 },
+    )
     if (epoch !== aiEpoch.current) return
-    aiBusyRef.current = false
-    setAiBusy(false)
 
     // A remote model cannot introduce a new card or change intensity/boundaries.
     // If the request times out, keep the old local Director behavior.
@@ -486,11 +487,33 @@ function App() {
       ? renderCardText({ ...source, text: card.text }, settings.players, currentPlayerIndex, targetIndex)
       : hydrateCardText(card.text, settings.players, currentPlayerIndex, targetIndex)
 
+    // A successful AI choice owns the rhythm: most turns have no modifier.
+    // When it asks for a twist, the second model call writes an original,
+    // card-specific condition. Invalid/offline output falls back to the
+    // legacy conditions without ever changing the base card.
+    const fallbackModifiers = pickTurnModifiers(card, directorState, card.risk, forcedModifierCount)
+    let modifiers = aiChoice ? [] as TurnModifier[] : fallbackModifiers
+    if (aiChoice && (aiChoice.addCondition || forcedModifierCount > 0)) {
+      const custom = await requestAIModifier(card, directorState)
+      if (epoch !== aiEpoch.current) return
+      if (custom) {
+        modifiers = [custom]
+        if (forcedModifierCount > 1) {
+          const additional = fallbackModifiers.find((item) => item.id !== custom.id)
+          if (additional) modifiers.push(additional)
+        }
+      } else {
+        modifiers = fallbackModifiers
+      }
+    }
+
+    aiBusyRef.current = false
+    setAiBusy(false)
     setCurrentDirectorCard(card)
     setCurrentRisk(card.risk)
     setCurrentTargetIndex(targetIndex)
     setRenderedText(finalText)
-    setCurrentModifiers(pickTurnModifiers(card, directorState, card.risk, forcedModifierCount))
+    setCurrentModifiers(modifiers)
     setAiIntro(aiChoice?.intro ?? '')
     setAiWasUsed(Boolean(aiChoice))
     setPendingEvent(null)
@@ -528,6 +551,7 @@ function App() {
       currentTargetIndex,
       resolvedRisk,
       skipped,
+      currentModifiers.map((item) => item.label),
     )
 
     if (!skipped && bossIsReady(nextDirector) && Math.random() < 0.5) {
@@ -825,7 +849,7 @@ function App() {
               ))}
             </div>
             <p className="risk-hint" role="status">{aiBusy
-              ? 'AI Director подбирает следующий ход…'
+              ? 'AI Director готовит следующий ход и неожиданный поворот…'
               : 'Огонь определяет риск хода. Стадию сессии Director держит скрытой.'}</p>
           </section>
         )}
@@ -844,7 +868,7 @@ function App() {
               <div className="modifier-stack">
                 {currentModifiers.map((modifier) => (
                   <div className="modifier-card" key={modifier.id}>
-                    <span>УСЛОВИЕ</span>
+                    <span>{modifier.id.startsWith('ai-') ? '✦ AI-УСЛОВИЕ' : 'УСЛОВИЕ'}</span>
                     <strong>{modifier.label}</strong>
                     <small>{modifier.description}</small>
                   </div>
