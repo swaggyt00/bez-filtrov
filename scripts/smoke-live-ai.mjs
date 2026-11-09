@@ -92,10 +92,17 @@ try {
     }
   })
   await page.route('**/game/director',async route=>{
+    const request=route.request().postDataJSON()
+    const performanceCardId='v09:afterdark-light-dare-002'
+    if(!request.candidates.some((item)=>item.id===performanceCardId)){
+      throw new Error('Known performance challenge is no longer in the allowed shortlist')
+    }
     const response=await route.fetch()
     const body=await response.json()
     if(!response.ok())throw new Error('Live Director unavailable during modifier test')
-    await route.fulfill({response,body:JSON.stringify({...body,addCondition:true})})
+    // Keep the real server request, but make this QA case deterministic so
+    // it tests actual difficulty rather than an ineligible random challenge.
+    await route.fulfill({response,body:JSON.stringify({...body,selectedId:performanceCardId,addCondition:true})})
   })
   await page.getByRole('button',{name:'Риск 2'}).click()
   await page.locator('.card-text').waitFor({state:'visible',timeout:18000})
@@ -109,6 +116,12 @@ try {
   }))
   if(!modifierCaption?.includes('AI-УСЛОВИЕ')||!modifierDescription||modifierDescription.length<40){
     throw new Error('Real AI condition was not shown; status '+JSON.stringify(modifierStatuses))
+  }
+  if(!/(с первой попытки|без пауз|пять секунд)/i.test(modifierDescription)){
+    throw new Error('AI condition did not make the original performance harder: '+modifierDescription)
+  }
+  if(/после выполнения|вздох|бров|шепн|театральн.*жест/i.test(modifierDescription)){
+    throw new Error('Decorative AI condition leaked back to production: '+modifierDescription)
   }
   if(modifierStatuses.length!==1||modifierStatuses[0].status!==200){
     throw new Error('Modifier did not come from the live Groq endpoint')
@@ -124,7 +137,7 @@ try {
   if((await page.locator('.modifier-card strong').first().innerText())!==modifierName){
     throw new Error('AI modifier did not survive reload')
   }
-  console.log('PASS: real browser AI Director + true Groq-generated modifier, all risks, save/resume, CORS and stage guard.')
+  console.log('PASS: real browser AI Director + Groq-chosen difficulty modifier, all risks, save/resume, CORS and stage guard.')
 }catch(error){
   console.error('FAIL:',error)
   try{await page.screenshot({path:'live-ai-failure.png',fullPage:true})}catch{}
