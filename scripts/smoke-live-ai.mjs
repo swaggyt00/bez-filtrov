@@ -54,7 +54,29 @@ try {
   if(apiStatuses.length<2||apiStatuses.some(x=>x.status!==200)){
     throw new Error('Live Groq route did not return 200 each turn '+JSON.stringify(apiStatuses))
   }
-  console.log('PASS: real browser AI selection, card render, 2 turns, save/resume, CORS all passed.')
+  // Confirm the actual Sex flow uses AI without skipping Stage 0 just because
+  // the player chooses three fires on the first turn.
+  await page.getByRole('button',{name:'сброс'}).click()
+  await page.locator('.scenario-card').filter({hasText:'Секс'}).click()
+  await page.getByRole('button',{name:'Начать · Секс'}).click()
+  await page.getByRole('button',{name:'Сохранить и передать'}).click()
+  await page.getByRole('button',{name:/Я Игрок 2/}).click()
+  await page.getByRole('button',{name:'Сохранить и начать'}).click()
+  await page.getByRole('button',{name:'Риск 3'}).click()
+  await page.locator('.card-text').waitFor({state:'visible',timeout:12000})
+  const sexText=await page.locator('.card-text').innerText()
+  const sexStatus=await page.locator('.card-topline').innerText()
+  const sexIntro=await page.locator('.ai-intro').first().textContent()
+  const sexSaved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  console.log('SEX STAGE-0 RISK-3:',JSON.stringify({sexStatus,sexText,sexIntro,stage:sexSaved?.director?.sessionStage,apiStatuses}))
+  if(!sexIntro?.includes('AI DIRECTOR'))throw new Error('Sex mode did not get real AI')
+  if(!sexStatus.includes('🔥🔥🔥'))throw new Error('Sex risk 3 was mislabeled')
+  if(sexSaved?.director?.sessionStage!==0)throw new Error('Sex stage jumped during risk selection')
+  if(/(?:проникновени|кунилингус|минет|занимайтесь сексом)/i.test(sexText)){
+    throw new Error('Sex stage 0 jumped straight to direct sex')
+  }
+  if(apiStatuses.some(x=>x.status!==200))throw new Error('Live Groq route failed: '+JSON.stringify(apiStatuses))
+  console.log('PASS: real browser AI Director (Afterdark + Sex), card render, risks 1/2/3, save/resume, CORS and stage-0 guard.')
 }catch(error){
   console.error('FAIL:',error)
   try{await page.screenshot({path:'live-ai-failure.png',fullPage:true})}catch{}
