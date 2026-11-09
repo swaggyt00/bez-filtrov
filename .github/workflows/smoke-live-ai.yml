@@ -1,10 +1,9 @@
 name: Live production AI Director smoke
 on:
-  push:
+  workflow_run:
+    workflows: ["Deploy to GitHub Pages"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "scripts/smoke-live-ai.mjs"
-      - ".github/workflows/smoke-live-ai.yml"
   workflow_dispatch:
 
 permissions:
@@ -12,6 +11,7 @@ permissions:
 
 jobs:
   browser-production:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
