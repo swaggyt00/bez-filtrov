@@ -79,6 +79,8 @@ export interface DirectorHistoryEntry {
   targetIndex: number | null
   chains: ChainFamily[]
   skipped: boolean
+  modifierCount?: number
+  modifierLabels?: string[]
 }
 
 export interface DirectorState {
