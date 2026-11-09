@@ -384,7 +384,11 @@ function App() {
     setCurrentRisk(resumedCard ? resumedCard.risk : saved.currentRisk)
     setCurrentTargetIndex(saved.currentTargetIndex)
     setRenderedText(saved.renderedText)
-    setCurrentModifiers(saved.currentModifiers ?? [])
+    // Do not resurrect obsolete v1 "sigh / eyebrows / whisper" extras
+    // when someone resumes a game saved before the difficulty redesign.
+    setCurrentModifiers((saved.currentModifiers ?? []).filter((modifier) =>
+      !['ai-reaction', 'ai-performance', 'ai-followup'].includes(modifier.id),
+    ))
     setAiIntro(saved.aiIntro ?? '')
     setAiWasUsed(saved.aiWasUsed ?? false)
     setPendingEvent(saved.pendingEvent)
@@ -499,7 +503,15 @@ function App() {
       if (custom) {
         modifiers = [custom]
         if (forcedModifierCount > 1) {
-          const additional = fallbackModifiers.find((item) => item.id !== custom.id)
+          const equivalentLegacyId: Record<string, string> = {
+            'ai-dare-silence': 'silence',
+            'ai-dare-no-hands': 'no-hands',
+            'ai-dare-eyes-closed': 'blindfold',
+            'ai-dare-keep-position': 'keep-position',
+          }
+          const additional = fallbackModifiers.find((item) =>
+            item.id !== equivalentLegacyId[custom.id],
+          )
           if (additional) modifiers.push(additional)
         }
       } else {
