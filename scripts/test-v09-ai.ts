@@ -11,7 +11,7 @@ import {
   requestAIDirectorChoice,
 } from '../src/v09/ai-director'
 import { createDirectorState, completeTurn } from '../src/v09/director'
-import { buildAIModifierRequest, DIFFICULTY_RULES, modifierKindsForCard, requestAIModifier, validateAICondition } from '../src/v09/ai-modifier'
+import { buildAIModifierRequest, modifierAxesForCard, requestAIModifier, validateAICondition } from '../src/v09/ai-modifier'
 import type { DirectorCard } from '../src/v09/types'
 import type { Player } from '../src/types'
 
@@ -104,81 +104,83 @@ console.log('✓ AI Director shortlist, ID validation, privacy and offline fallb
 
 
 const truthCard: DirectorCard = {
-  ...base,type:'truth',text:'Что ты предпочёл бы скрыть от окружающих и почему?',
+  ...base,type:'truth',text:'Какой момент ты хотел бы изменить и почему?',
 }
-const request=buildAIModifierRequest(truthCard,afterCondition)
-assert.equal(request.version,2)
-assert.equal(request.scenario,'sex')
-assert.ok(request.allowedKinds.includes('truth-details'))
-assert.ok(request.allowedKinds.includes('truth-fast'))
-assert.ok(!request.allowedKinds.includes('truth-reason'))
-assert.ok(!JSON.stringify(request).includes('Максим'))
-assert.ok(!JSON.stringify(request).includes('Рада'))
-assert.ok(request.recentLabels.includes('НЕОЖИДАННАЯ ПАУЗА'))
-
-const truthCondition={kind:'truth-details',...DIFFICULTY_RULES['truth-details']}
+const truthReq=buildAIModifierRequest(truthCard,afterCondition)
+assert.equal(truthReq.version,3)
+assert.equal(truthReq.scenario,'sex')
+assert.ok(truthReq.allowedAxes.includes('specificity'))
+assert.ok(truthReq.allowedAxes.includes('reasoning'))
+assert.ok(!JSON.stringify(truthReq).includes('Максим'))
+assert.ok(!JSON.stringify(truthReq).includes('Рада'))
+assert.ok(truthReq.recentLabels.includes('НЕОЖИДАННАЯ ПАУЗА'))
+const truthCondition={
+  axis:'reasoning',label:'ДВЕ СТОРОНЫ ВОПРОСА',
+  description:'В ответе назови две разные причины своего решения и объясни, почему одна из них была важнее другой.',
+}
 assert.ok(validateAICondition(truthCard,afterCondition,truthCondition))
-const validModifierFetch = (async (_url:RequestInfo | URL,init?:RequestInit) => {
-  const req = JSON.parse(String(init?.body))
-  assert.equal(req.version,2)
+const truthMock=(async (_url:RequestInfo | URL,init?:RequestInit)=>{
+  const req=JSON.parse(String(init?.body))
+  assert.equal(req.version,3)
   assert.ok(!JSON.stringify(req).includes('Рада'))
-  assert.ok(req.allowedKinds.includes('truth-details'))
   return Response.json(truthCondition)
 }) as typeof fetch
-const dynamic=await requestAIModifier(truthCard,afterCondition,{fetcher:validModifierFetch})
-assert.equal(dynamic?.id,'ai-truth-details')
-assert.equal(dynamic?.label,'ДВЕ КОНКРЕТНЫЕ ДЕТАЛИ')
-assert.ok(dynamic?.description.includes('две конкретные детали'))
+const dynamicTruth=await requestAIModifier(truthCard,afterCondition,{fetcher:truthMock})
+assert.equal(dynamicTruth?.id,'ai-original-reasoning')
+assert.equal(dynamicTruth?.description,truthCondition.description)
 
-// The old eyebrow / sigh / whispered line is not a difficulty mechanic.
-const cringy={kind:'reaction',label:'ТИХИЙ ВЗДОХ',
-  description:'После выполнения приподними брови, вздохни и скажи короткую фразу.'}
-assert.equal(validateAICondition(truthCard,afterCondition,cringy),null)
-assert.equal(validateAICondition(truthCard,afterCondition,{
-  ...truthCondition,description:'После ответа удивлённо подними брови и скажи вот так.',
-}),null)
-
+// AI can WRITE an original condition for the actual card; it must not
+// merely return one of ten preset mechanics.
 const partyState=createDirectorState('party',players,'clothed',[])
 const advert:DirectorCard={...base,scenario:'party',type:'dare',
   chains:['social'],text:'Пятнадцать секунд рекламируй ночной перекус как люксовый продукт, используя голос и мимику.'}
-const advertKinds=modifierKindsForCard(advert,partyState)
-assert.ok(advertKinds.includes('dare-one-take'))
-assert.ok(advertKinds.includes('dare-quick-start'))
-assert.ok(advertKinds.includes('dare-no-pause'))
-assert.ok(!advertKinds.includes('dare-silence'),'AI cannot require silence when advertising requires speech')
-const chosenDifficulty={kind:'dare-one-take',...DIFFICULTY_RULES['dare-one-take']}
-assert.ok(validateAICondition(advert,partyState,chosenDifficulty))
+const advertAxes=modifierAxesForCard(advert)
+assert.ok(advertAxes.includes('sequence'))
+assert.ok(advertAxes.includes('precision'))
+const original={
+  axis:'sequence',label:'ТРИ НОВЫХ АРГУМЕНТА',
+  description:'Во время рекламы каждые пять секунд называй новое преимущество перекуса и ни разу не повторяй прилагательные.',
+}
+assert.ok(validateAICondition(advert,partyState,original))
+const mockOriginal=(async (_url:RequestInfo | URL,init?:RequestInit)=>{
+  const req=JSON.parse(String(init?.body))
+  assert.equal(req.version,3)
+  assert.ok(req.cardText.includes('рекламируй ночной перекус'))
+  return Response.json(original)
+}) as typeof fetch
+const dynamic=await requestAIModifier(advert,partyState,{fetcher:mockOriginal})
+assert.equal(dynamic?.id,'ai-original-sequence')
+assert.equal(dynamic?.label,original.label)
+assert.equal(dynamic?.description,original.description)
+
+const afterOriginal=completeTurn(partyState,advert,0,1,2,false,[original.label])
+const nextReq=buildAIModifierRequest(advert,afterOriginal)
+assert.ok(nextReq.recentLabels.includes(original.label))
+assert.equal(validateAICondition(advert,afterOriginal,original),null,'do not repeat the same AI condition')
+
+// Regressions: decorative additions, recycled titles, forbidden actions,
+// and contradictory silence in an ad are rejected.
 assert.equal(validateAICondition(advert,partyState,{
-  ...chosenDifficulty,description:'После выполнения слегка подними брови.',
+  axis:'sequence',label:'ТИХИЙ ВЗДОХ',
+  description:'После выполнения слегка приподними брови и шёпотом скажи «Вот так», глядя на друзей.',
 }),null)
 assert.equal(validateAICondition(advert,partyState,{
-  ...chosenDifficulty,kind:'dare-eyes-closed',
+  ...original,label:'ТОЛЬКО ОДИН ДУБЛЬ',
 }),null)
-
-const mockDare=(async ()=>Response.json(chosenDifficulty)) as typeof fetch
-assert.equal((await requestAIModifier(advert,partyState,{fetcher:mockDare}))?.id,'ai-dare-one-take')
-const afterDare=completeTurn(partyState,advert,0,1,2,false,['ТОЛЬКО ОДИН ДУБЛЬ'])
-const nextRequest=buildAIModifierRequest(advert,afterDare)
-assert.ok(!nextRequest.allowedKinds.includes('dare-one-take'),'do not repeat difficulty from previous turn')
-assert.equal(validateAICondition(advert,afterDare,chosenDifficulty),null)
-
-const pausedCard:DirectorCard={...advert,text:'Покажи сцену, затем сделай паузу и подожди реакции остальных.'}
-assert.ok(!modifierKindsForCard(pausedCard,partyState).includes('dare-no-pause'))
-const silentCard:DirectorCard={...advert,text:'Молча изобрази случайную сцену без слов.'}
-assert.ok(modifierKindsForCard(silentCard,partyState).includes('dare-one-take'))
-assert.equal(modifierKindsForCard(silentCard,partyState).includes('dare-no-pause'),true)
+assert.equal(validateAICondition(advert,partyState,{
+  ...original,description:'Во время рекламы поцелуй партнёра и обязательно сними одежду на минуту.',
+}),null)
+assert.equal(validateAICondition(advert,partyState,{
+  ...original,description:'Во время рекламы не говори ни одного слова и только смотри на гостей.',
+}),null)
 
 const sexDare:DirectorCard={...base,scenario:'sex',type:'dare',
-  text:'Пять секунд смотри на партнёра, не меняя положения.'}
-const sexKinds=modifierKindsForCard(sexDare,state)
-assert.ok(!sexKinds.includes('dare-one-take'))
-assert.ok(!sexKinds.includes('dare-quick-start'))
-assert.ok(!sexKinds.includes('dare-silence'))
-assert.ok(!sexKinds.includes('dare-eyes-closed'))
+  text:'Поцелуй партнёра в шею на несколько секунд.'}
+assert.equal(modifierAxesForCard(sexDare).length,0,'no generated restrictions on intimate physical contact')
+const forbiddenResponse=(async()=>Response.json({axis:'reaction',label:'ТИХИЙ ВЗДОХ',
+  description:'После выполнения молча приподними брови и произнеси загадочную фразу.'})) as typeof fetch
+assert.equal(await requestAIModifier(advert,partyState,{fetcher:forbiddenResponse}),null)
+const offline=(async()=>{throw Error('offline')}) as typeof fetch
+assert.equal(await requestAIModifier(advert,partyState,{fetcher:offline}),null)
 
-const badDynamicFetch=(async()=>Response.json(cringy)) as typeof fetch
-assert.equal(await requestAIModifier(advert,partyState,{fetcher:badDynamicFetch}),null)
-const offlineDynamicFetch=(async()=>{throw Error('offline')}) as typeof fetch
-assert.equal(await requestAIModifier(advert,partyState,{fetcher:offlineDynamicFetch}),null)
-
-console.log('✓ AI difficulty: strict mechanics, no post-action cringe, privacy, contradictions and cooldown passed')
+console.log('✓ AI original difficulty: free text, privacy, creativity, no cringe, compatibility, duplicates and fallback passed')
