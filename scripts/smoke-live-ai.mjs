@@ -76,19 +76,13 @@ try {
     throw new Error('Sex stage 0 jumped straight to direct sex')
   }
   if(apiStatuses.some(x=>x.status!==200))throw new Error('Live Groq route failed: '+JSON.stringify(apiStatuses))
-  // Exercise the real creative condition generator in the deployed UI. The
-  // Director still makes a REAL Groq card choice; only its optional boolean
-  // is forced on for a reliable production regression test.
-  await page.getByRole('button',{name:'сброс'}).click()
-  await page.locator('.scenario-card').filter({hasText:'После полуночи'}).click()
-  await page.getByRole('button',{name:'Начать · После полуночи'}).click()
+  // Production test: AI WRITES a unique constraint and a separate AI judge
+  // approves it. Rejection is valid behavior and must not insert canned text.
   const modifierStatuses=[]
   page.on('response',async response=>{
     if(response.url().includes('/game/modifier')){
       modifierStatuses.push({status:response.status()})
-      if(!response.ok()){
-        console.log('LIVE MODIFIER ERROR:',await response.text().catch(()=>'?'))
-      }
+      if(!response.ok())console.log('CREATIVE AI REJECTED:',await response.text().catch(()=>'?'))
     }
   })
   await page.route('**/game/director',async route=>{
@@ -99,45 +93,56 @@ try {
     }
     const response=await route.fetch()
     const body=await response.json()
-    if(!response.ok())throw new Error('Live Director unavailable during modifier test')
-    // Keep the real server request, but make this QA case deterministic so
-    // it tests actual difficulty rather than an ineligible random challenge.
+    if(!response.ok())throw Error('Live Director unavailable')
     await route.fulfill({response,body:JSON.stringify({...body,selectedId:performanceCardId,addCondition:true})})
   })
-  await page.getByRole('button',{name:'Риск 2'}).click()
-  await page.locator('.card-text').waitFor({state:'visible',timeout:18000})
-  const modifierBase=await page.locator('.card-text').innerText()
-  const modifierCount=await page.locator('.modifier-card').count()
-  const modifierName=modifierCount?await page.locator('.modifier-card strong').first().innerText():null
-  const modifierDescription=modifierCount?await page.locator('.modifier-card small').first().innerText():null
-  const modifierCaption=modifierCount?await page.locator('.modifier-card span').first().innerText():null
-  console.log('REAL AI MODIFIER:',JSON.stringify({
-    card:modifierBase,modifierCaption,modifierName,modifierDescription,modifierStatuses
-  }))
-  if(!modifierCaption?.includes('AI-УСЛОВИЕ')||!modifierDescription||modifierDescription.length<40){
-    throw new Error('Real AI condition was not shown; status '+JSON.stringify(modifierStatuses))
+
+  const bannedPresetNames=new Set(['ТОЛЬКО ОДИН ДУБЛЬ','БЕЗ ПАУЗ','ПЯТЬ СЕКУНД НА СТАРТ',
+    'РУКИ НЕ ПОМОГАЮТ','НИ ОДНОГО СЛОВА','ВСЛЕПУЮ','ДВЕ КОНКРЕТНЫЕ ДЕТАЛИ'])
+  let verified=false
+  for(let attempt=1;attempt<=3;attempt++){
+    await page.getByRole('button',{name:'сброс'}).click()
+    await page.locator('.scenario-card').filter({hasText:'После полуночи'}).click()
+    await page.getByRole('button',{name:'Начать · После полуночи'}).click()
+    const startAt=modifierStatuses.length
+    await page.getByRole('button',{name:'Риск 2'}).click()
+    await page.locator('.card-text').waitFor({state:'visible',timeout:20000})
+    const text=await page.locator('.card-text').innerText()
+    const modifiers=await page.locator('.modifier-card').count()
+    const status=modifierStatuses.slice(startAt).map(x=>x.status)
+    console.log('LIVE ORIGINAL AI TRY:',JSON.stringify({
+      attempt,text,status,
+      label:modifiers?await page.locator('.modifier-card strong').first().innerText():null,
+      description:modifiers?await page.locator('.modifier-card small').first().innerText():null,
+    }))
+    if(status.length!==1)throw Error('Expected one creative-model call, got '+JSON.stringify(status))
+    if(status[0]===422){
+      if(modifiers!==0)throw Error('Rejected AI text was replaced by an unwanted canned condition')
+      continue
+    }
+    if(status[0]!==200||modifiers!==1)throw Error('Creative AI did not produce a valid condition: '+JSON.stringify(status))
+    const label=await page.locator('.modifier-card strong').first().innerText()
+    const description=await page.locator('.modifier-card small').first().innerText()
+    const caption=await page.locator('.modifier-card span').first().innerText()
+    if(!caption.includes('AI-УСЛОВИЕ')||bannedPresetNames.has(label.toUpperCase())
+      ||description.length<55||/после выполнения|вздохни|подними бров|подмигни/i.test(description)){
+      throw Error('Not an original, meaningful condition: '+JSON.stringify({label,description}))
+    }
+    const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+    if(!stored?.currentModifiers?.[0]?.id?.startsWith('ai-original-')){
+      throw Error('Client did not store independently verified original AI modifier')
+    }
+    await page.reload({waitUntil:'domcontentloaded'})
+    await page.getByRole('button',{name:'Мне есть 18'}).click()
+    await page.locator('button.resume-card').click()
+    if((await page.locator('.card-text').innerText())!==text)throw Error('Resume changed base challenge')
+    if((await page.locator('.modifier-card strong').first().innerText())!==label)throw Error('Resume lost original AI modifier')
+    verified=true
+    break
   }
-  if(!/(с первой попытки|без пауз|пять секунд|без использования рук|без слов|закрытыми глазами|сохраняя текущее положение|две конкретные детали|одну конкретную причину|в течение десяти секунд)/i.test(modifierDescription)){
-    throw new Error('AI condition did not make the original performance harder: '+modifierDescription)
-  }
-  if(/после выполнения|вздох|бров|шепн|театральн.*жест/i.test(modifierDescription)){
-    throw new Error('Decorative AI condition leaked back to production: '+modifierDescription)
-  }
-  if(modifierStatuses.length!==1||modifierStatuses[0].status!==200){
-    throw new Error('Modifier did not come from the live Groq endpoint')
-  }
-  await page.waitForFunction(()=>{
-    const state=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
-    return state?.currentModifiers?.[0]?.id?.startsWith('ai-')
-  })
-  await page.reload({waitUntil:'domcontentloaded'})
-  await page.getByRole('button',{name:'Мне есть 18'}).click()
-  await page.locator('button.resume-card').click()
-  if((await page.locator('.card-text').innerText())!==modifierBase)throw new Error('AI modifier changed original card text')
-  if((await page.locator('.modifier-card strong').first().innerText())!==modifierName){
-    throw new Error('AI modifier did not survive reload')
-  }
-  console.log('PASS: real browser AI Director + Groq-chosen difficulty modifier, all risks, save/resume, CORS and stage guard.')
+  if(!verified)throw Error('Three creative attempts were all rejected; no original modifier was observed.')
+  console.log('PASS: live original AI generation + independent review, no canned fallback, risk, CORS and save/resume.')
+
 }catch(error){
   console.error('FAIL:',error)
   try{await page.screenshot({path:'live-ai-failure.png',fullPage:true})}catch{}
