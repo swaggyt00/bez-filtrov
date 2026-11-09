@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { DIFFICULTY_RULES } from '../src/v09/ai-modifier'
 
 const AI_ROUTE = '**/game/director'
 
@@ -210,7 +211,9 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
       expect(payload.allowCondition).toBe(false)
       expect(payload.recent.some((entry:{modifierCount?:number}) => entry.modifierCount===1)).toBe(true)
     }
-    const selected=payload.candidates.find((candidate:{type:string})=>candidate.type==='dare')
+    const selected=directorCalls===1
+      ? payload.candidates.find((candidate:{id:string})=>candidate.id==='v09:afterdark-light-dare-002')
+      : payload.candidates[0]
     expect(selected).toBeTruthy()
     await route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({
@@ -224,14 +227,16 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
     const payload=route.request().postDataJSON()
     expect(payload.cardType).toBe('dare')
     expect(payload.scenario).toBe('afterdark')
-    expect(payload.allowedKinds).toContain('reaction')
+    expect(payload.version).toBe(2)
+    expect(payload.allowedKinds).toContain('dare-one-take')
+    expect(payload.allowedKinds).not.toContain('reaction')
     expect(payload.cardText.length).toBeGreaterThan(20)
     expect(JSON.stringify(payload)).not.toContain('Игрок 1')
     expect(JSON.stringify(payload)).not.toContain('Игрок 2')
     await route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({
-        kind:'reaction',label:'ЛИЦО НЕ ВРЁТ',
-        description:'После выполнения задержи взгляд на пять секунд и покажи мимикой, насколько неожиданным оказался этот ход.',
+        kind:'dare-one-take',
+        ...DIFFICULTY_RULES['dare-one-take'],
       }),
     })
   })
@@ -243,17 +248,17 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
   await page.getByRole('button',{name:'Риск 2'}).click()
   await expect(page.locator('.modifier-card')).toHaveCount(1)
   await expect(page.locator('.modifier-card span')).toContainText('AI-УСЛОВИЕ')
-  await expect(page.locator('.modifier-card strong')).toHaveText('ЛИЦО НЕ ВРЁТ')
+  await expect(page.locator('.modifier-card strong')).toHaveText('ТОЛЬКО ОДИН ДУБЛЬ')
   const cardText=await page.locator('.card-text').innerText()
   await page.waitForFunction(()=>{
     const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null')
-    return saved?.currentModifiers?.[0]?.label==='ЛИЦО НЕ ВРЁТ'
+    return saved?.currentModifiers?.[0]?.label==='ТОЛЬКО ОДИН ДУБЛЬ'
   })
   await page.reload()
   await page.getByRole('button',{name:'Мне есть 18'}).click()
   await page.locator('button.resume-card').click()
   await expect(page.locator('.card-text')).toHaveText(cardText)
-  await expect(page.locator('.modifier-card strong')).toHaveText('ЛИЦО НЕ ВРЁТ')
+  await expect(page.locator('.modifier-card strong')).toHaveText('ТОЛЬКО ОДИН ДУБЛЬ')
   await page.getByRole('button',{name:/Выполнено/}).click()
   await page.getByRole('button',{name:'Риск 3'}).click()
   await expect(page.locator('.card-text')).not.toBeEmpty()
