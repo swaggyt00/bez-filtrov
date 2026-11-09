@@ -384,10 +384,10 @@ function App() {
     setCurrentRisk(resumedCard ? resumedCard.risk : saved.currentRisk)
     setCurrentTargetIndex(saved.currentTargetIndex)
     setRenderedText(saved.renderedText)
-    // Do not resurrect obsolete v1 "sigh / eyebrows / whisper" extras
-    // when someone resumes a game saved before the difficulty redesign.
+    // Old prewritten v2 or decorative v1 AI extras do not survive a resume.
+    // Only the new, reviewed original AI instructions are retained.
     setCurrentModifiers((saved.currentModifiers ?? []).filter((modifier) =>
-      !['ai-reaction', 'ai-performance', 'ai-followup'].includes(modifier.id),
+      !modifier.id.startsWith('ai-') || modifier.id.startsWith('ai-original-'),
     ))
     setAiIntro(saved.aiIntro ?? '')
     setAiWasUsed(saved.aiWasUsed ?? false)
@@ -491,12 +491,11 @@ function App() {
       ? renderCardText({ ...source, text: card.text }, settings.players, currentPlayerIndex, targetIndex)
       : hydrateCardText(card.text, settings.players, currentPlayerIndex, targetIndex)
 
-    // A successful AI choice owns the rhythm: most turns have no modifier.
-    // When it asks for a twist, the second model call writes an original,
-    // card-specific condition. Invalid/offline output falls back to the
-    // legacy conditions without ever changing the base card.
+    // A valid extra must be a newly authored, verified difficulty rule.
+    // No arbitrary canned modifier is substituted when AI creativity fails.
+    // Only explicitly forced legacy Events retain their compatibility fallback.
     const fallbackModifiers = pickTurnModifiers(card, directorState, card.risk, forcedModifierCount)
-    let modifiers = aiChoice ? [] as TurnModifier[] : fallbackModifiers
+    let modifiers: TurnModifier[] = forcedModifierCount > 0 && !aiChoice ? fallbackModifiers : []
     if (aiChoice && (aiChoice.addCondition || forcedModifierCount > 0)) {
       const custom = await requestAIModifier(card, directorState)
       if (epoch !== aiEpoch.current) return
@@ -515,7 +514,7 @@ function App() {
           if (additional) modifiers.push(additional)
         }
       } else {
-        modifiers = fallbackModifiers
+        modifiers = forcedModifierCount > 0 ? fallbackModifiers : []
       }
     }
 
