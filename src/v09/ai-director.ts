@@ -150,7 +150,11 @@ export async function requestAIDirectorChoice(
     const selected = shortlist.find((entry) => entry.card.id === body.selectedId)
     if (!selected) return null
     // Defend even if someone changes shortlist construction in the future.
-    if (!cardIsEligible(selected.card, state, 0, null, risk) && selected.card.scenario !== state.scenario) return null
+    if (
+      selected.card.risk !== risk
+      || selected.card.scenario !== state.scenario
+      || !selected.card.stages.includes(state.sessionStage)
+    ) return null
     const intro = typeof body.intro === 'string'
       ? body.intro.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
       : ''
