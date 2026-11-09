@@ -16,6 +16,7 @@ const REQUEST_TIMEOUT_MS = 3200
 export interface AIDirectorChoice {
   card: DirectorCard
   intro: string
+  addCondition: boolean
 }
 
 export interface AIDirectorCandidate {
@@ -38,7 +39,10 @@ export interface AIDirectorRequest {
     risk: RiskLevel
     chains: ChainFamily[]
     skipped: boolean
+    modifierCount: number
   }>
+  allowCondition: boolean
+  forceCondition: boolean
   candidates: AIDirectorCandidate[]
 }
 
@@ -93,7 +97,10 @@ export function buildAIDirectorRequest(
   state: DirectorState,
   risk: RiskLevel,
   shortlist: DirectorPick[],
+  forceCondition = false,
 ): AIDirectorRequest {
+  const recentlyHadCondition = state.history.slice(-2).some((entry) => (entry.modifierCount ?? 0) > 0)
+  const allowCondition = forceCondition || (risk >= 2 && !recentlyHadCondition)
   return {
     version: 1,
     scenario: state.scenario,
@@ -107,7 +114,10 @@ export function buildAIDirectorRequest(
       risk: entry.risk,
       chains: entry.chains.slice(0, 3),
       skipped: entry.skipped,
+      modifierCount: Math.max(0, Math.min(2, entry.modifierCount ?? 0)),
     })),
+    allowCondition,
+    forceCondition,
     candidates: shortlist.slice(0, 16).map((entry) => ({
       id: entry.card.id,
       type: entry.card.type,
@@ -130,6 +140,7 @@ export async function requestAIDirectorChoice(
     fetcher?: typeof fetch
     timeoutMs?: number
     endpoint?: string
+    forceCondition?: boolean
   } = {},
 ): Promise<AIDirectorChoice | null> {
   if (shortlist.length < 2) return null
@@ -139,13 +150,13 @@ export async function requestAIDirectorChoice(
     const response = await (options.fetcher ?? fetch)(options.endpoint ?? AI_DIRECTOR_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildAIDirectorRequest(state, risk, shortlist)),
+      body: JSON.stringify(buildAIDirectorRequest(state, risk, shortlist, options.forceCondition)),
       signal: controller.signal,
     })
     if (!response.ok) return null
     const data: unknown = await response.json()
     if (!data || typeof data !== 'object') return null
-    const body = data as { selectedId?: unknown; intro?: unknown }
+    const body = data as { selectedId?: unknown; intro?: unknown; addCondition?: unknown }
     if (typeof body.selectedId !== 'string') return null
     const selected = shortlist.find((entry) => entry.card.id === body.selectedId)
     if (!selected) return null
@@ -158,7 +169,13 @@ export async function requestAIDirectorChoice(
     const intro = typeof body.intro === 'string'
       ? body.intro.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
       : ''
-    return { card: selected.card, intro }
+    const conditionAllowed = options.forceCondition || (risk >= 2
+      && !state.history.slice(-2).some((entry) => (entry.modifierCount ?? 0) > 0))
+    return {
+      card: selected.card,
+      intro,
+      addCondition: conditionAllowed && body.addCondition === true,
+    }
   } catch {
     return null
   } finally {
