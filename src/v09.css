@@ -326,3 +326,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* AI narration is optional: the original challenge text is never modified. */
+.game-v09 .ai-intro {
+  color: #f1aec6;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  letter-spacing: 0.015em;
+  margin: 0 0 0.75rem;
+  opacity: 0.92;
+}
+.game-v09 .risk-button:disabled {
+  opacity: 0.48;
+  cursor: wait;
+}
