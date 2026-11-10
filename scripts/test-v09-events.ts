@@ -8,7 +8,7 @@ const assert = {
 }
 
 import { buildBossSession } from '../src/v09/bosses'
-import { completeTurn, createDirectorState, maybeAdvanceStage, maybeCreateCautionEvent } from '../src/v09/director'
+import { completeTurn, createDirectorState, maybeCreateCautionEvent } from '../src/v09/director'
 import { chooseEventForTurn } from '../src/v09/events'
 import { eligibleTurnModifiers, pickTurnModifiers } from '../src/v09/modifiers'
 import type { DirectorCard, DirectorState } from '../src/v09/types'
@@ -37,13 +37,13 @@ let state = createDirectorState('sex', players, 'clothed', [])
 state = { ...state, sessionStage: 2, tension: 100, turnsPlayed: 20 }
 state = completeTurn(state, stageCard, 0, 1, 2)
 state = completeTurn(state, stageCard, 1, 0, 2)
-assert.equal(maybeAdvanceStage(state).sessionStage, 2, 'Sex must not enter direct-contact stages without an allowed sexual boundary')
+assert.equal(state.sessionStage, 2, 'Sex must not enter direct-contact stages without an allowed sexual boundary')
 
 state = createDirectorState('sex', players, 'underwear', ['manual'])
 state = { ...state, sessionStage: 2, tension: 100, turnsPlayed: 20 }
 state = completeTurn(state, stageCard, 0, 1, 2)
 state = completeTurn(state, stageCard, 1, 0, 2)
-assert.equal(maybeAdvanceStage(state).sessionStage, 3, 'allowed direct sexual boundary plus completed turns should unlock stage 3')
+assert.equal(state.sessionStage, 3, 'allowed direct sexual boundary plus completed turns should unlock stage 3')
 
 let cautious = createDirectorState('sex', players, 'clothed', [])
 for (let i = 0; i < 3; i += 1) cautious = completeTurn(cautious, safeCard, 0, 1, 1, false)
