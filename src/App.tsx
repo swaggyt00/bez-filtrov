@@ -11,7 +11,8 @@ import { bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDir
 import { maybeCreateCautionEvent } from './v09/director'
 import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
-import { buildBossSession } from './v09/bosses'
+import { buildBossSession, settleBoss } from './v09/bosses'
+import { requestAIBoss } from './v09/ai-boss'
 import { getActiveStoryBeat } from './v09/story'
 import { abandonUnavailableChain, beginChainSession, chainCaption, getActiveChainBeat, preferredChainTarget } from './v09/chains'
 import { sexNativeCards } from './v09/sex-native'
@@ -167,6 +168,8 @@ function App() {
   const [pendingEvent, setPendingEvent] = useState<DirectorEvent | null>(null)
   const [boss, setBoss] = useState<BossSession | null>(null)
   const [bossPhaseIndex, setBossPhaseIndex] = useState(0)
+  const [bossBusy, setBossBusy] = useState(false)
+  const bossEpoch = useRef(0)
   const [notice, setNotice] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
   const [aiEventBusy, setAiEventBusy] = useState(false)
@@ -294,6 +297,8 @@ function App() {
 
   function stopPendingAI() {
     aiEpoch.current += 1
+    bossEpoch.current += 1
+    setBossBusy(false)
     aiEventAbort.current?.abort()
     aiEventAbort.current = null
     aiBusyRef.current = false
@@ -635,6 +640,27 @@ function App() {
     // Failure or invalid AI mechanics: simply continue with the normal turn.
   }
 
+  async function beginBoss(nextDirector:DirectorState) {
+    // The existing safe local finale is retained as a fail-open fallback.
+    // Never change a phase after users have started the Boss.
+    const epoch=++bossEpoch.current
+    setDirectorState({ ...nextDirector, scenePlan:null, chainSession:null })
+    setBoss(buildBossSession(nextDirector))
+    setBossPhaseIndex(0)
+    setBossBusy(true)
+    setCurrentDirectorCard(null)
+    setCurrentRisk(null)
+    setCurrentTargetIndex(null)
+    setRenderedText('')
+    setCurrentModifiers([])
+    setView('boss')
+    sound('reveal')
+    const generated=await requestAIBoss(nextDirector,{timeoutMs:8500})
+    if(epoch!==bossEpoch.current)return
+    if(generated)setBoss(generated)
+    setBossBusy(false)
+  }
+
   function completeCurrent(skipped: boolean) {
     if (!settings || !directorState || !currentDirectorCard) return
     const base = tickEffects(directorState)
@@ -651,16 +677,7 @@ function App() {
 
     if (!skipped && bossIsReady(nextDirector)
         && !getActiveStoryBeat(nextDirector) && Math.random() < 0.5) {
-      setDirectorState({ ...nextDirector, scenePlan: null, chainSession: null })
-      setBoss(buildBossSession(nextDirector))
-      setBossPhaseIndex(0)
-      setCurrentDirectorCard(null)
-      setCurrentRisk(null)
-      setCurrentTargetIndex(null)
-      setRenderedText('')
-      setCurrentModifiers([])
-      setView('boss')
-      sound('reveal')
+      void beginBoss(nextDirector)
       return
     }
 
@@ -684,25 +701,25 @@ function App() {
     sound('tap')
   }
 
+  function finishBoss(skipped:boolean) {
+    if(!boss||!settings||!directorState)return
+    bossEpoch.current += 1
+    setBossBusy(false)
+    const nextDirector=settleBoss(directorState,boss,skipped)
+    const nextPlayer=(currentPlayerIndex+1)%settings.players.length
+    void prepareNextTurn(nextDirector,nextPlayer)
+    sound('tap')
+  }
+
   function nextBossPhase() {
-    if (!boss || !settings || !directorState) return
+    if (!boss || !settings || !directorState || bossBusy) return
     if (bossPhaseIndex < boss.phases.length - 1) {
       setBossPhaseIndex((index) => index + 1)
       sound('reveal')
       return
     }
 
-    const resetDirector: DirectorState = {
-      ...directorState,
-      lastBossTurn: directorState.turnsPlayed,
-      scenePlan: null,
-      chainSession: null,
-      tension: Math.max(8, directorState.tension - 28),
-      chainDepth: 0,
-    }
-    const nextPlayer = (currentPlayerIndex + 1) % settings.players.length
-    prepareNextTurn(resetDirector, nextPlayer)
-    sound('tap')
+    finishBoss(false)
   }
 
   function backToSetup() {
@@ -1006,13 +1023,32 @@ function App() {
 
         {view === 'boss' && boss && (
           <section className="boss-card">
-            <div className="boss-kicker">🔥 БЕЗ ФИЛЬТРОВ 🔥</div>
-            <h2>{boss.title}</h2>
-            <div className="boss-progress">{bossPhaseIndex + 1} / {boss.phases.length}</div>
-            <p>{boss.phases[bossPhaseIndex]}</p>
-            <button type="button" className="primary-button" onClick={nextBossPhase}>
-              {bossPhaseIndex < boss.phases.length - 1 ? 'Следующая фаза' : 'Завершить'}
-            </button>
+            {bossBusy ? (
+              <>
+                <div className="boss-kicker">✦ AI BOSS EVENT</div>
+                <h2>Кульминация партии</h2>
+                <p>Director связывает уже сыгранные ходы в финальное событие…</p>
+                <button type="button" className="primary-button" onClick={() => {
+                  bossEpoch.current += 1
+                  setBossBusy(false)
+                }}>Начать без ожидания</button>
+              </>
+            ) : (
+              <>
+                <div className="boss-kicker">{boss.aiGenerated ? '✦ AI BOSS EVENT' : '🔥 БЕЗ ФИЛЬТРОВ 🔥'}</div>
+                <h2>{boss.title}</h2>
+                <div className="boss-progress">{bossPhaseIndex + 1} / {boss.phases.length}</div>
+                {boss.phaseCaptions?.[bossPhaseIndex] && settings?.scenario!=='sex'
+                  && <small className="boss-caption">{boss.phaseCaptions[bossPhaseIndex]}</small>}
+                <p>{boss.phases[bossPhaseIndex]}</p>
+                <button type="button" className="primary-button" onClick={nextBossPhase}>
+                  {bossPhaseIndex < boss.phases.length - 1 ? 'Следующая фаза' : 'Завершить'}
+                </button>
+                <div className="secondary-actions one-action">
+                  <button type="button" onClick={() => finishBoss(true)}>Пропустить кульминацию</button>
+                </div>
+              </>
+            )}
           </section>
         )}
 
