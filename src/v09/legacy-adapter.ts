@@ -27,70 +27,32 @@ function inferChain(card: GameCard): ChainFamily {
   return card.scenario === 'party' || card.scenario === 'afterdark' ? 'chaos' : 'conversation'
 }
 
-function idHash(id: string) {
-  let value = 0
-  for (const char of id) value = (value * 31 + char.charCodeAt(0)) >>> 0
-  return value
-}
-
-const LEGACY_THREE_FIRE_TRUTH_IDS = new Set([
-  // Couple: emotionally costly disclosures, not ordinary preferences.
-  'couple-hard-truth-001',
-  'couple-hard-truth-003',
-  'couple-hard-truth-004',
-  'couple-hard-truth-005',
-  'couple-hard-truth-014',
-  'couple-hard-truth-015',
-  'couple-hard-truth-016',
-  'couple-hard-truth-018',
-
-  // Party: admissions that expose real secrets, jealousy or regretted behaviour.
-  'party-hard-truth-006',
-  'party-hard-truth-008',
-  'party-hard-truth-016',
-  'party-hard-truth-019',
-
-  // Afterdark: concrete embarrassing/regretted night stories.
-  'afterdark-hard-truth-001',
-  'afterdark-hard-truth-002',
-  'afterdark-hard-truth-003',
-  'afterdark-hard-truth-004',
-  'afterdark-hard-truth-008',
-  'afterdark-hard-truth-010',
-  'afterdark-hard-truth-013',
-])
-
+/**
+ * Legacy card heat was authored for a different game flow; it does not
+ * certify the actual three-fire difficulty of an individual card.
+ * High-risk social cards now live in an explicit, reviewed three-fire pool.
+ * No ID hashes or arbitrary ordinal-based risk promotions are permitted.
+ */
 function riskWithinLegacyBucket(card: GameCard): RiskLevel {
   const text = card.text.toLowerCase()
-  let score = 1
+  let score: RiskLevel = 1
 
   if (card.type === 'truth' && ['conflict', 'desire', 'experience'].includes(card.purpose ?? '')) score = 2
-  if (['control', 'roleplay', 'position', 'clothing', 'embarrassment'].includes(card.mechanic)) score = Math.max(score, 2)
-  if (card.type === 'dare' && ['physical', 'control', 'sexual-scene', 'clothing', 'embarrassment'].includes(card.interaction ?? '')) score = Math.max(score, 2)
+  if (['control', 'roleplay', 'position', 'clothing', 'embarrassment'].includes(card.mechanic)) score = 2
+  if (card.type === 'dare' && ['physical', 'control', 'sexual-scene', 'clothing', 'embarrassment'].includes(card.interaction ?? '')) score = 2
 
-  if (
+  // Explicit sexual legacy cards are independently curated by sex-curation.ts,
+  // and can still reach 3 fires when that curator approves them.
+  if (card.scenario === 'sex' && (
     card.sexualAction
     || /пенис|вульв|вагин|клитор|минет|кунилинг|проникнов|трах|69|догги|наездниц|миссионер|раздень|сними бель|голышом/.test(text)
-  ) score = 3
+  )) score = 3
 
-  // A Truth's risk must come from its content, never from its id/hash. The old
-  // lottery could turn a generic preference question into a three-fire reveal.
-  // Keep legacy heat as a hard ceiling for questions; only semantically explicit
-  // Hard truths may reach risk 3 before scenario-specific curation is applied.
-  if (card.type === 'truth') {
-    if (card.heat === 'light') return 1
-    if (card.heat === 'hot') return Math.min(2, score) as RiskLevel
-    return LEGACY_THREE_FIRE_TRUTH_IDS.has(card.id)
-      ? 3
-      : Math.min(2, score) as RiskLevel
-  }
-
-  const hash = idHash(card.id)
-  if (score === 1 && hash % 7 === 0) score = 3
-  else if (score === 1 && hash % 3 === 0) score = 2
-  else if (score === 2 && hash % 9 === 0) score = 3
-
-  return Math.min(3, score) as RiskLevel
+  if (card.type === 'truth' && card.heat === 'light') return 1
+  if (card.type === 'truth' && card.heat === 'hot') return Math.min(2,score) as RiskLevel
+  // No legacy social/romantic card can claim 3🔥 without explicit curation.
+  if (card.scenario !== 'sex') return Math.min(2,score) as RiskLevel
+  return score
 }
 
 function inferBoundaries(card: GameCard): BoundaryTag[] {
