@@ -72,6 +72,11 @@ export function createDirectorScenePlan(
   // its development and payoff. Otherwise it is just three unrelated cards.
   const openingThemes=new Set([...card.chains,...(card.nextHooks??[])])
   if (!openingThemes.has(validated[0].chain) || !openingThemes.has(validated[2].chain)) return null
+  // In social modes a "twist" must genuinely contrast the opening theme
+  // whenever the safe shortlist offers another theme.
+  if (state.scenario !== 'sex'
+      && [...allowed].some(chain=>!card.chains.includes(chain))
+      && card.chains.includes(validated[1].chain)) return null
   return { originTurn:state.turnsPlayed, openerCardId:card.id, beats:validated }
 }
 
