@@ -2,6 +2,7 @@ import type { Scenario } from '../types'
 import { cardIsEligible, scoreCard } from './director'
 import { planDirectorPacing } from './pacing'
 import { createDirectorScenePlan, getActiveStoryBeat } from './story'
+import { getActiveChainBeat, validateChainDraft } from './chains'
 import type { ActiveStoryBeat } from './story'
 import type { DirectorPacingPlan } from './pacing'
 import type {
@@ -10,6 +11,7 @@ import type {
   DirectorPick,
   DirectorState,
   DirectorScenePlan,
+  ChainDraft,
   RiskLevel,
 } from './types'
 
@@ -24,6 +26,7 @@ export interface AIDirectorChoice {
   intro: string
   addCondition: boolean
   scenePlan: DirectorScenePlan | null
+  chainDraft: ChainDraft | null
 }
 
 export interface AIDirectorCandidate {
@@ -53,6 +56,14 @@ export interface AIDirectorRequest {
   players: Array<{ index: number; lastRisks: RiskLevel[]; skippedRecent: number; targetedRecent: number }>
   pacing: DirectorPacingPlan
   activeScene: ActiveStoryBeat | null
+  activeChain: {
+    beatIndex: number
+    openerActorIndex: number
+    openerTargetIndex: number | null
+    normalTarget: string
+    boldTarget: string
+  } | null
+  chainOutcomes: Array<{result:string; openingChain:ChainFamily}>
   events: Array<{ turn: number; title: string; mechanics: string[]; accepted: boolean }>
   allowCondition: boolean
   forceCondition: boolean
@@ -135,6 +146,20 @@ export function buildAIDirectorRequest(
     actorIndex,
     pacing,
     activeScene: getActiveStoryBeat(state),
+    activeChain: (() => {
+      const beat = getActiveChainBeat(state)
+      const chain = state.chainSession
+      return beat && chain ? {
+        beatIndex: beat.index,
+        openerActorIndex: chain.openerActorIndex,
+        openerTargetIndex: chain.openerTargetIndex,
+        normalTarget: beat.normalTarget,
+        boldTarget: beat.boldTarget,
+      } : null
+    })(),
+    chainOutcomes: (state.chainHistory ?? []).slice(-5).map(item => ({
+      result: item.result, openingChain: item.openingChain,
+    })),
     players: state.players.map((player, index) => ({
       index,
       lastRisks: player.riskHistory.slice(-5),
@@ -187,7 +212,7 @@ export async function requestAIDirectorChoice(
     if (!response.ok) return null
     const data: unknown = await response.json()
     if (!data || typeof data !== 'object') return null
-    const body = data as { selectedId?: unknown; intro?: unknown; addCondition?: unknown; scenePlan?: unknown }
+    const body = data as { selectedId?: unknown; intro?: unknown; addCondition?: unknown; scenePlan?: unknown; chainPlan?: unknown }
     if (typeof body.selectedId !== 'string') return null
     const selected = shortlist.find((entry) => entry.card.id === body.selectedId)
     if (!selected) return null
@@ -201,11 +226,13 @@ export async function requestAIDirectorChoice(
       ? body.intro.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
       : ''
     const conditionAllowed = payload.allowCondition
+    const scenePlan = createDirectorScenePlan(state, selected.card, shortlist, body.scenePlan)
     return {
       card: selected.card,
       intro,
       addCondition: conditionAllowed && body.addCondition === true,
-      scenePlan: createDirectorScenePlan(state, selected.card, shortlist, body.scenePlan),
+      scenePlan,
+      chainDraft: validateChainDraft(state, scenePlan, body.chainPlan),
     }
   } catch {
     return null

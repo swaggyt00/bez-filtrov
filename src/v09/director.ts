@@ -14,6 +14,7 @@ import type {
 import type { Player, Scenario } from '../types'
 import { planDirectorPacing } from './pacing'
 import { expireDirectorScenePlan, getActiveStoryBeat } from './story'
+import { settleChainAfterTurn } from './chains'
 
 const clothingRank: Record<ClothingState, number> = {
   clothed: 0,
@@ -352,6 +353,7 @@ export function completeTurn(
     next.chainDepth = 0
   }
   next.scenePlan = expireDirectorScenePlan(next, skipped)
+  next = settleChainAfterTurn(state, next, skipped)
   next = maybeAdvanceStage(next)
   return next
 }

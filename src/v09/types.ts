@@ -113,6 +113,32 @@ export interface DirectorScenePlan {
   beats: SceneBeat[]
 }
 
+// A Chain is more than a theme: each beat specifies an actual, optionally
+// risk-dependent social callback. It never overrides pair eligibility.
+export type ChainTargetRule = 'fair' | 'opener' | 'first-target' | 'previous-actor' | 'previous-target'
+export interface ChainBeat {
+  phase: ScenePhase
+  normalTarget: ChainTargetRule
+  boldTarget: ChainTargetRule
+  line: string
+}
+export interface ChainDraft {
+  title: string
+  beats: ChainBeat[]
+}
+export interface DirectorChainSession extends ChainDraft {
+  originTurn: number
+  openerCardId: string
+  openerActorIndex: number
+  openerTargetIndex: number | null
+}
+export interface ChainOutcome {
+  turn: number
+  title: string
+  result: 'finished' | 'skipped' | 'unavailable'
+  openingChain: ChainFamily
+}
+
 export interface DirectorState {
   scenario: Scenario
   sessionStage: SessionStage
@@ -130,6 +156,8 @@ export interface DirectorState {
   lastBossTurn: number
   eventHistory?: EventMemoryEntry[]
   scenePlan?: DirectorScenePlan | null
+  chainSession?: DirectorChainSession | null
+  chainHistory?: ChainOutcome[]
 }
 
 export interface CardRequirements {

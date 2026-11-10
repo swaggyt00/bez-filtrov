@@ -433,3 +433,73 @@ test('slow AI event can be canceled instantly, and its late result is ignored',a
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null'))
   expect(saved?.pendingEvent).toBeNull()
 })
+
+test('AI Chain appears inline, survives reload, and a skip takes the nonpunitive branch',async({page})=>{
+  await page.unroute(AI_ROUTE)
+  let calls=0
+  let openingChain=''
+  await page.route(AI_ROUTE,async route=>{
+    calls++
+    const req=route.request().postDataJSON()
+    expect(JSON.stringify(req)).not.toContain('Игрок 1')
+    expect(JSON.stringify(req)).not.toContain('Игрок 2')
+    const selected=req.candidates[0]
+    expect(selected).toBeTruthy()
+    const primary=selected.chains[0]
+    if(calls===1)openingChain=primary
+    const other=req.candidates.flatMap((c:{chains:string[]})=>c.chains)
+      .find((chain:string)=>!selected.chains.includes(chain))??primary
+    if(calls===2){
+      expect(req.chainOutcomes).toEqual([{result:'skipped',openingChain}])
+      expect(req.activeChain).toBeNull()
+    }
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+      selectedId:selected.id,intro:'Сегодня история получит продолжение.',addCondition:false,
+      scenePlan:{beats:[
+        {phase:'build',chain:primary,preferredType:'either'},
+        {phase:'twist',chain:other,preferredType:'either'},
+        {phase:'payoff',chain:primary,preferredType:'either'},
+      ]},
+      chainPlan:{
+        title:'Ночная эстафета',
+        beats:[
+          {phase:'build',normalTarget:'opener',boldTarget:'first-target',
+            line:'История возвращается к тому, кто начал этот раунд.'},
+          {phase:'twist',normalTarget:'previous-actor',boldTarget:'previous-target',
+            line:'Теперь положение участников в истории меняется.'},
+          {phase:'payoff',normalTarget:'first-target',boldTarget:'opener',
+            line:'Последний поворот возвращает нас к самому началу.'},
+        ],
+      },
+    })})
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await expect(page.locator('.chain-caption')).toContainText('Ночная эстафета')
+  await expect(page.locator('.chain-caption')).toContainText('1/4')
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await page.waitForFunction(()=>{
+    const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return saved?.director?.chainSession?.title==='Ночная эстафета'
+  })
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.chain-caption')).toContainText('Ночная эстафета')
+  await page.getByRole('button',{name:'Пропустить'}).click()
+  await expectRiskScreen(page)
+  await page.waitForFunction(()=>{
+    const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return saved?.director?.chainHistory?.at(-1)?.result==='skipped'
+  })
+  const afterSkip=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  expect(afterSkip.director.chainSession).toBeNull()
+  expect(afterSkip.director.scenePlan).toBeNull()
+  expect(afterSkip.director.tension).toBe(0)
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  expect(calls).toBe(2)
+})
