@@ -8,8 +8,8 @@ const phases: ScenePhase[] = ['build', 'twist', 'payoff']
 const rules: ChainTargetRule[] = [
   'fair', 'opener', 'first-target', 'previous-actor', 'previous-target',
 ]
-const unsafeCopy = /[{}<>\r\n\u0000-\u001f]|https?:|www\.|@|#|(?:обязан|застав|прикаж|накаж|сними\s+бель|занимайся\s+сексом|поцелуй|трах|минет|кунилинг|проникнов|обнажи|согласие\s+не\s+нужно|не\s+сможешь\s+отказ)/i
-const actionCommands = /^(?:сделай|назови|скажи|покажи|подойди|потрогай|сними|выбери|ответь|выполни|целуй|попроси|начни|заставь)\b/i
+const unsafeCopy = /[{}<>\r\n\u0000-\u001f]|https?:|www\.|@|#|(?:обязан|застав|прикаж|накаж|наказ|сними\s+бель|занимайся\s+сексом|поцелуй|трах|минет|кунилинг|проникнов|обнажи|согласие\s+не\s+нужно|не\s+сможешь\s+отказ)/i
+const actionCommands = /^(?:сделай|назови|скажи|покажи|подойди|потрогай|сними|выбери|ответь|выполни|целуй|попроси|начни|заставь)(?=\s|[!,.?:]|$)/i
 
 function safeLine(value: unknown, max: number, min: number): string | null {
   if (typeof value !== 'string' || value !== value.trim()) return null
