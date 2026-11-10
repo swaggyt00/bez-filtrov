@@ -98,6 +98,21 @@ export interface DirectorHistoryEntry {
   modifierLabels?: string[]
 }
 
+export type ScenePhase = 'build' | 'twist' | 'payoff'
+export type ScenePreferredType = 'truth' | 'dare' | 'either'
+
+export interface SceneBeat {
+  phase: ScenePhase
+  chain: ChainFamily
+  preferredType: ScenePreferredType
+}
+
+export interface DirectorScenePlan {
+  originTurn: number
+  openerCardId: string
+  beats: SceneBeat[]
+}
+
 export interface DirectorState {
   scenario: Scenario
   sessionStage: SessionStage
@@ -114,6 +129,7 @@ export interface DirectorState {
   lastEventTurn: number
   lastBossTurn: number
   eventHistory?: EventMemoryEntry[]
+  scenePlan?: DirectorScenePlan | null
 }
 
 export interface CardRequirements {
