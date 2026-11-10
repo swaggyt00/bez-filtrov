@@ -977,7 +977,7 @@ function App() {
           <div className="effect-strip"><span>♛ {settings.players[directorState.leaderIndex]?.name} ведёт</span></div>
         )}
 
-        {view !== 'boss' && (
+        {view !== 'boss' && view !== 'boss-result' && (
           <>
             <div className="turn-label">ХОД {String(directorState.turnsPlayed + 1).padStart(2, '0')}</div>
             <h1 className="current-player">{currentPlayer.name}</h1>
@@ -998,6 +998,13 @@ function App() {
 
         {view === 'risk' && (
           <section className="risk-panel">
+            {directorState.pendingBossPenalty && (
+              <div className="boss-stakes-notice" role="status">
+                <strong>☠ ПРОИГРАННЫЙ BOSS · ШТРАФ</strong>
+                <p>{settings.players[directorState.pendingBossPenalty.playerIndex]?.name}: {directorState.pendingBossPenalty.label}</p>
+                {settings.scenario==='sex' && <small>Отказ от любого действия и остановка близости всегда возможны.</small>}
+              </div>
+            )}
             <p className="choice-kicker">{pendingEvent?.partnerChoosesRisk ? `риск выбирает ${riskChooserName}` : 'выбери риск'}</p>
             <h2>Карту увидишь<br />после выбора.</h2>
             <div className="risk-buttons">
@@ -1035,6 +1042,12 @@ function App() {
               <span>{'🔥'.repeat(currentDirectorCard.risk)}</span>
             </div>
             {currentTarget && <div className="target-chip">с {currentTarget.name}</div>}
+            {appliedBossPenalty && (
+              <div className="boss-stakes-notice boss-stakes-inline">
+                <strong>☠ ШТРАФНЫЙ ХОД</strong>
+                <p>{appliedBossPenalty.label}</p>
+              </div>
+            )}
             {chainCaption(directorState!) && (
               <div className="chain-caption">
                 <strong>✦ AI CHAIN · {chainCaption(directorState!)?.title} · {chainCaption(directorState!)?.step}/4</strong>
@@ -1079,18 +1092,47 @@ function App() {
               <>
                 <div className="boss-kicker">{boss.aiGenerated ? '✦ AI BOSS EVENT' : '🔥 БЕЗ ФИЛЬТРОВ 🔥'}</div>
                 <h2>{boss.title}</h2>
+                <div className="boss-stakes-notice">
+                  <strong>НА КОНУ · {settings.players[boss.challengerIndex??currentPlayerIndex]?.name}</strong>
+                  <p>Три фазы. Победа — в статистику. Провал или отказ — поражение и {bossPenaltyFor(directorState,boss,boss.challengerIndex??currentPlayerIndex).label.toLowerCase()}</p>
+                </div>
                 <div className="boss-progress">{bossPhaseIndex + 1} / {boss.phases.length}</div>
-                {boss.phaseCaptions?.[bossPhaseIndex] && settings?.scenario!=='sex'
+                {boss.phaseCaptions?.[bossPhaseIndex] && settings.scenario!=='sex'
                   && <small className="boss-caption">{boss.phaseCaptions[bossPhaseIndex]}</small>}
                 <p>{boss.phases[bossPhaseIndex]}</p>
                 <button type="button" className="primary-button" onClick={nextBossPhase}>
-                  {bossPhaseIndex < boss.phases.length - 1 ? 'Следующая фаза' : 'Завершить'}
+                  {bossPhaseIndex < boss.phases.length - 1 ? 'Фаза выполнена' : 'Boss побеждён'}
                 </button>
-                <div className="secondary-actions one-action">
-                  <button type="button" onClick={() => finishBoss(true)}>Пропустить кульминацию</button>
+                <div className="secondary-actions boss-failure-actions">
+                  <button type="button" onClick={() => resolveBoss('lost','failed')}>Не справился</button>
+                  <button type="button" onClick={() => resolveBoss('lost','forfeit')}>Сдаться — поражение</button>
                 </div>
               </>
             )}
+          </section>
+        )}
+
+        {view === 'boss-result' && bossResult && (
+          <section className="boss-card boss-result-card">
+            <div className="boss-kicker">{bossResult.outcome==='won'?'✦ ПОБЕДА':'☠ ПОРАЖЕНИЕ'}</div>
+            <h2>{bossResult.outcome==='won'?'BOSS ПОВЕРЖЕН':'BOSS ВЫИГРАЛ'}</h2>
+            <p className="boss-result-player">{settings.players[bossResult.challengerIndex]?.name}</p>
+            {bossResult.outcome==='lost' && (
+              <div className="boss-stakes-notice" role="status">
+                <strong>ШТРАФ ЗА ПРОИГРЫШ</strong>
+                <p>{bossResult.penalty?.label??'Поражение записано в статистику.'}</p>
+                <small>{bossResult.reason==='forfeit'
+                  ? 'Отказ записан как поражение Boss.'
+                  : 'Невыполненная фаза записана как поражение Boss.'}</small>
+                {settings.scenario==='sex' && <small>Никакого обязательного секса или нового физического действия.</small>}
+              </div>
+            )}
+            {bossResult.outcome==='won' && <p>Три фазы пройдены. Победа записана в статистику.</p>}
+            <div className="boss-score" aria-label="Статистика Boss">
+              <span>ПОБЕДЫ: {directorState.bossScore?.[bossResult.challengerIndex]?.wins??0}</span>
+              <span>ПОРАЖЕНИЯ: {directorState.bossScore?.[bossResult.challengerIndex]?.losses??0}</span>
+            </div>
+            <button type="button" className="primary-button" onClick={continueAfterBoss}>Продолжить игру</button>
           </section>
         )}
 
