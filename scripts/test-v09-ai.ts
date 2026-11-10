@@ -180,6 +180,12 @@ assert.equal(modifierAxesForCard(sexDare).length,0,'no generated restrictions on
 const forbiddenResponse=(async()=>Response.json({axis:'reaction',label:'ТИХИЙ ВЗДОХ',
   description:'После выполнения молча приподними брови и произнеси загадочную фразу.'})) as typeof fetch
 assert.equal(await requestAIModifier(advert,partyState,{fetcher:forbiddenResponse}),null)
+// Temporary model/provider outages must never inject a fake or canned rule.
+for (const status of [429,502,503,504]) {
+  const temporarilyUnavailable = (async()=>new Response(JSON.stringify({error:'provider unavailable'}),{status})) as typeof fetch
+  assert.equal(await requestAIModifier(advert,partyState,{fetcher:temporarilyUnavailable}),null,
+    'Provider '+status+' must keep the base card playable without a modifier')
+}
 const offline=(async()=>{throw Error('offline')}) as typeof fetch
 assert.equal(await requestAIModifier(advert,partyState,{fetcher:offline}),null)
 
