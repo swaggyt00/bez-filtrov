@@ -217,6 +217,27 @@ function normalizedRandom(random: () => number) {
   return Math.max(0, Math.min(0.999999999999, value))
 }
 
+/**
+ * Prefer truly unseen cards within the last sixteen turns. When a tiny
+ * eligible pool is exhausted (chosen fire, stage, consent, partner, Event or
+ * Boss penalty), progressively relax the lookback instead of lowering fire
+ * or deadlocking the game. This picks the least recently used IDs first.
+ */
+export function preferUnseenDirectorCards(
+  cards: DirectorCard[],
+  state: DirectorState,
+  window = 16,
+): DirectorCard[] {
+  if (cards.length <= 1 || !state.history.length) return cards
+  const depth = Math.min(window, state.history.length)
+  for (let lookback = depth; lookback >= 1; lookback -= 1) {
+    const recentlySeen = new Set(state.history.slice(-lookback).map(entry => entry.cardId))
+    const fresh = cards.filter(card => !recentlySeen.has(card.id))
+    if (fresh.length) return fresh
+  }
+  return cards
+}
+
 export function pickDirectorCard(
   cards: DirectorCard[],
   state: DirectorState,
@@ -225,8 +246,8 @@ export function pickDirectorCard(
   risk: RiskLevel,
   random: () => number = Math.random,
 ): DirectorPick | null {
-  const scored = cards
-    .filter((card) => cardIsEligible(card, state, actorIndex, targetIndex, risk))
+  const eligible = cards.filter((card) => cardIsEligible(card, state, actorIndex, targetIndex, risk))
+  const scored = preferUnseenDirectorCards(eligible, state)
     .map((card) => ({ card, score: scoreCard(card, state) }))
     .sort((a, b) => b.score - a.score)
 
