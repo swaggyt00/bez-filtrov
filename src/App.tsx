@@ -12,6 +12,7 @@ import { maybeCreateCautionEvent } from './v09/director'
 import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
 import { buildBossSession } from './v09/bosses'
+import { getActiveStoryBeat } from './v09/story'
 import { sexNativeCards } from './v09/sex-native'
 import { clearV09Game, loadV09Game, loadV09Settings, saveV09Game, saveV09Settings } from './v09/storage'
 import type {
@@ -539,6 +540,14 @@ function App() {
 
     aiBusyRef.current = false
     setAiBusy(false)
+    // An active three-beat story survives repeated AI calls and refreshes.
+    // Start a new plan only when the previous one has completed or been skipped.
+    setDirectorState({
+      ...directorState,
+      scenePlan: getActiveStoryBeat(directorState)
+        ? directorState.scenePlan
+        : (aiChoice?.scenePlan ?? null),
+    })
     setCurrentDirectorCard(card)
     setCurrentRisk(card.risk)
     setCurrentTargetIndex(targetIndex)
@@ -614,8 +623,9 @@ function App() {
       currentModifiers.map((item) => item.label),
     )
 
-    if (!skipped && bossIsReady(nextDirector) && Math.random() < 0.5) {
-      setDirectorState(nextDirector)
+    if (!skipped && bossIsReady(nextDirector)
+        && !getActiveStoryBeat(nextDirector) && Math.random() < 0.5) {
+      setDirectorState({ ...nextDirector, scenePlan: null })
       setBoss(buildBossSession(nextDirector))
       setBossPhaseIndex(0)
       setCurrentDirectorCard(null)
@@ -659,6 +669,7 @@ function App() {
     const resetDirector: DirectorState = {
       ...directorState,
       lastBossTurn: directorState.turnsPlayed,
+      scenePlan: null,
       tension: Math.max(8, directorState.tension - 28),
       chainDepth: 0,
     }
