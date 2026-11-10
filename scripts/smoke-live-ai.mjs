@@ -27,6 +27,7 @@ try {
   await page.locator('.scenario-card').filter({hasText:'После полуночи'}).click()
   await page.getByRole('button',{name:'Начать · После полуночи'}).click()
 
+  let firstScenePlan=null
   for (const risk of [1,2]){
     await page.getByRole('button',{name:'Риск '+risk}).click()
     await page.locator('.card-text').waitFor({state:'visible',timeout:12000})
@@ -39,12 +40,29 @@ try {
     }
     const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
     if(!saved?.aiWasUsed||saved?.renderedText!==text)throw new Error('AI save mismatch')
+    const plan=saved?.director?.scenePlan
+    const phases=['build','twist','payoff']
+    if(!plan||plan.originTurn!==0||!Array.isArray(plan.beats)||plan.beats.length!==3
+      ||!plan.beats.every((beat,index)=>beat.phase===phases[index]
+        && typeof beat.chain==='string' && ['truth','dare','either'].includes(beat.preferredType))){
+      throw new Error('Live AI story plan was not validated and saved: '+JSON.stringify(plan))
+    }
+    if(risk===1)firstScenePlan=plan
+    else if(JSON.stringify(plan)!==JSON.stringify(firstScenePlan)){
+      throw new Error('AI story changed before its first future beat was played')
+    }
+    console.log('STORY ARC:',JSON.stringify({risk,originTurn:plan.originTurn,
+      sceneBeat:saved?.director?.turnsPlayed,beats:plan.beats}))
 
     if(risk===1){
       await page.reload({waitUntil:'domcontentloaded'})
       await page.getByRole('button',{name:'Мне есть 18'}).click()
       await page.locator('button.resume-card').click()
       if((await page.locator('.card-text').innerText())!==text)throw new Error('Resume changed card text')
+      const resumedPlan=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')?.director?.scenePlan)
+      if(JSON.stringify(resumedPlan)!==JSON.stringify(firstScenePlan)){
+        throw new Error('Resume lost the AI story arc')
+      }
       if(!(await page.locator('.ai-intro').innerText()).includes(intro.replace('✦ ','').trim().slice(-20))){
         throw new Error('Resume lost AI intro')
       }
