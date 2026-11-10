@@ -437,6 +437,7 @@ test('slow AI event can be canceled instantly, and its late result is ignored',a
 test('AI Chain appears inline, survives reload, and a skip takes the nonpunitive branch',async({page})=>{
   await page.unroute(AI_ROUTE)
   let calls=0
+  let openingChain=''
   await page.route(AI_ROUTE,async route=>{
     calls++
     const req=route.request().postDataJSON()
@@ -445,10 +446,11 @@ test('AI Chain appears inline, survives reload, and a skip takes the nonpunitive
     const selected=req.candidates[0]
     expect(selected).toBeTruthy()
     const primary=selected.chains[0]
+    if(calls===1)openingChain=primary
     const other=req.candidates.flatMap((c:{chains:string[]})=>c.chains)
       .find((chain:string)=>!selected.chains.includes(chain))??primary
     if(calls===2){
-      expect(req.chainOutcomes).toEqual([{result:'skipped',openingChain:primary}])
+      expect(req.chainOutcomes).toEqual([{result:'skipped',openingChain}])
       expect(req.activeChain).toBeNull()
     }
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
