@@ -1,117 +1,194 @@
 import type { BossFamily, BossSession, DirectorState } from './types'
+import type { Scenario } from '../types'
 
-function familyForState(state: DirectorState): BossFamily {
-  if (state.scenario === 'party') return 'social'
-  if (state.scenario === 'afterdark') return 'chaos'
-  if (state.scenario === 'couple') return 'connection'
+export type BossRole = 'all' | 'last-actor' | 'last-target' | 'chain-opener' | 'both'
 
-  const chain = state.chainFamily
-  if (chain === 'manual') return 'manual'
-  if (chain === 'oral') return 'oral'
-  if (chain === 'position') return state.sessionStage >= 4 ? 'sex' : 'position'
-  if (chain === 'edging') return 'edging'
-  if (chain === 'dom-sub') return 'dom-sub'
-  if (chain === 'fetish') return 'fetish'
-  if (chain === 'roleplay') return 'roleplay'
-  if (chain === 'undress') return 'undress'
-  if (chain === 'control') return 'control'
-  return state.sessionStage >= 4 ? 'sex' : 'tease'
+export interface BossPhaseDraft {
+  mechanic: string
+  role: BossRole
+  caption: string
+}
+export interface BossDraft {
+  title: string
+  phases: BossPhaseDraft[]
 }
 
-function sexPhases(family: BossFamily, stage: number) {
-  if (family === 'undress') return [
-    'Встаньте лицом друг к другу на расстоянии вытянутой руки. По очереди снимите по одной вещи с себя.',
-    'Выберите ведущего. На одну минуту ведущий выбирает одно положение — «стоя рядом», «сидя рядом» или «лицом друг к другу» — и задаёт медленный темп движений; второй повторяет его движения.',
-    'Завершите этап тридцатисекундным объятием или стойте лицом друг к другу, соприкасаясь ладонями. Снятую одежду пока не надевайте.',
-  ]
-  if (family === 'control' || family === 'dom-sub') return [
-    'Выберите ведущего. На одну минуту ведущий выбирает положение второго — стоя, сидя или на коленях — и задаёт короткие команды движения.',
-    'На следующую минуту ведущий выбирает ровно одно ограничение: не использовать руки, держать глаза закрытыми или не менять положение тела.',
-    'Поменяйтесь ролями: второй становится ведущим и ещё одну минуту задаёт положение и короткие команды.',
-  ]
-  if (family === 'manual' && stage >= 3) return [
-    'Устройтесь сидя или лёжа так, чтобы обоим было удобно. Одну минуту сохраняйте один спокойный ритм ручной стимуляции.',
-    'Следующую минуту тот, кого ласкают, задаёт скорость и давление только командами «быстрее», «медленнее», «сильнее», «слабее» или «стоп».',
-    'Финальную минуту не меняйте способ ласки: усиливайте только то, что уже работает, или остановитесь по стоп-сигналу.',
-  ]
-  if (family === 'oral' && stage >= 3) return [
-    'Одну минуту делайте медленные оральные ласки, не меняя положение тела.',
-    'Следующую минуту тот, кого ласкают, задаёт темп командами «быстрее», «медленнее» или «стоп».',
-    'Если оба хотят продолжать, ещё одну минуту делайте те же оральные ласки в выбранном темпе; затем полностью остановитесь.',
-  ]
-  if (family === 'edging' && stage >= 3) return [
-    'Выберите один ранее разрешённый способ стимуляции — руками, орально или проникновением. Подведите партнёра близко к оргазму выбранным способом и полностью остановитесь.',
-    'После тридцатисекундной паузы повторите тот же способ стимуляции; темп задаёт тот, кого стимулируют.',
-    'Сделайте третий цикл тем же способом и заранее договоритесь остановиться по слову «стоп» или «хватит»; оргазм не обязателен.',
-  ]
-  if ((family === 'position' || family === 'sex') && stage >= 4) return [
-    'Если проникновение уже идёт, занимайтесь сексом в текущей позе две минуты. Если проникновения ещё нет, вместе выберите одну разрешённую позу и начните в ней.',
-    'На следующие две минуты поменяйте контроль: тот, кто до этого не задавал темп, теперь выбирает скорость и глубину движений.',
-    'Вместе выберите одну другую удобную позу и занимайтесь сексом в ней ещё две минуты, затем остановитесь.',
-  ]
-  if (family === 'roleplay') return [
-    'Если роли из предыдущей карты понятны, сохраняйте их две минуты. Если нет, используйте роли «хозяин комнаты» и «гость»: хозяин задаёт место и дистанцию, гость следует.',
-    'На следующие две минуты выберите одно правило: ведущий задаёт дистанцию, ведущий задаёт позы или второй не меняет положение без команды.',
-    'В финальной фазе поменяйтесь ролями на две минуты: новый ведущий меняет только одну деталь — дистанцию, позу или темп — и после двух минут останавливает сцену.',
-  ]
-  if (family === 'fetish') return [
-    'Назовите вслух один фетиш, который оба отметили разрешённым в настройках этой игры, и используйте только его одну минуту.',
-    'На следующую минуту добавьте ровно одно условие: закрытые глаза, запрет менять положение тела или смену ведущего.',
-    'Ещё одну минуту продолжайте только с тем фетишем, который назвали на первом этапе, затем полностью остановитесь.',
-  ]
-  return [
-    'Выберите одно действие на минуту: целоваться, ласкать друг друга поверх одежды или стоять близко и держать зрительный контакт. Выполняйте только выбранное действие.',
-    'На следующую минуту добавьте к выбранному действию ровно одно условие: поменять ведущего, не использовать руки или не менять положение тела.',
-    'Ещё одну минуту выполняйте действие, выбранное на первом этапе, с условием второго этапа; затем полностью остановитесь.',
-  ]
+// Each phrase below describes a real, permitted game mechanic; model output
+// NEVER becomes a new unreviewed dare or sexual instruction.
+export const bossMechanics: Record<Scenario, [string[],string[],string[]]> = {
+  party: [
+    ['callback-spotlight','voluntary-ballot','opening-echo'],
+    ['duel-remix','role-handoff','double-improv'],
+    ['ensemble-remix','group-reveal','final-chorus'],
+  ],
+  afterdark: [
+    ['night-callback','voluntary-ballot','opening-echo'],
+    ['double-improv','role-handoff','duel-remix'],
+    ['ensemble-remix','group-reveal','final-chorus'],
+  ],
+  couple: [
+    ['shared-memory','wish-echo','mutual-choice'],
+    ['perspective-switch','paired-improv','surprise-reframe'],
+    ['shared-finale','future-choice','open-ending'],
+  ],
+  sex: [
+    ['resume-consented','shared-choice','slow-connection'],
+    ['trade-initiative','change-pacing','keep-thread'],
+    ['open-ending','together-decide','no-timer-finish'],
+  ],
 }
 
-export function buildBossSession(state: DirectorState): BossSession {
-  const family = familyForState(state)
+const prohibitions=/[{}<>\r\n\u0000-\u001f]|https?:|www\.|@|#|(?:обязан|застав|прикаж|накаж|наказ|сними\s+бель|занимайся\s+сексом|поцелуй|трах|минет|кунилинг|проникнов|не\s+можешь\s+отказ)/i
+const commands=/^(?:сделай|скажи|назови|выбери|сними|потрогай|поцелуй|начни|выполни|попроси|подойди)(?=\s|[!,.?:]|$)/i
+const clean=(value: unknown,min:number,max:number) =>
+  typeof value==='string' && value===value.trim() && value.length>=min
+  && value.length<=max && !prohibitions.test(value) && !commands.test(value) ? value : null
 
-  if (state.scenario === 'sex') {
-    return {
-      id: `sex-${family}-${state.turnsPlayed}`,
-      family,
-      title: family === 'sex' ? 'КУЛЬМИНАЦИЯ' : family.toUpperCase(),
-      phases: sexPhases(family, state.sessionStage),
-    }
+export function validateBossDraft(state:DirectorState,unknown:unknown):BossDraft|null {
+  if(!unknown||typeof unknown!=='object')return null
+  const proposed=unknown as {title?:unknown;phases?:unknown}
+  const title=clean(proposed.title,6,58)
+  if(!title||!Array.isArray(proposed.phases)||proposed.phases.length!==3)return null
+  const mechanics=bossMechanics[state.scenario]
+  const seen=new Set<string>()
+  const phases:BossPhaseDraft[]=[]
+  for(let i=0;i<3;i++){
+    const item=proposed.phases[i]
+    if(!item||typeof item!=='object')return null
+    const beat=item as Record<string,unknown>
+    if(typeof beat.mechanic!=='string'||!mechanics[i].includes(beat.mechanic)
+      ||seen.has(beat.mechanic))return null
+    if(state.scenario==='party'||state.scenario==='afterdark'){
+      if(!['all','last-actor','last-target','chain-opener'].includes(String(beat.role)))return null
+    }else if(beat.role!=='both')return null
+    seen.add(beat.mechanic)
+    // A model's flavor text is optional. Discard unsafe or imperative prose.
+    phases.push({
+      mechanic:beat.mechanic,
+      role:beat.role as BossRole,
+      caption:clean(beat.caption,12,110)??'',
+    })
   }
+  const history=state.bossHistory?.slice(-2)??[]
+  if(history.some(previous=>previous.mechanics.join('|')===phases.map(x=>x.mechanic).join('|')))return null
+  return {title,phases}
+}
 
-  if (state.scenario === 'couple') {
-    return {
-      id: `couple-${state.turnsPlayed}`,
-      family: 'connection',
-      title: 'БЕЗ ФИЛЬТРОВ',
-      phases: [
-        'Каждый называет одну вещь, которую давно хотел сказать партнёру, но откладывал.',
-        'Выберите одно из двух только что сказанных желаний и сделайте одно простое действие по нему прямо сейчас: обнимитесь, запишите совместный план или помогите друг другу с одной мелочью.',
-        'Закончите одной минутой без телефонов: держитесь за руки или обнимитесь и не переключайтесь на другую тему.',
-      ],
-    }
+function activeRoleName(state:DirectorState,role:BossRole):string {
+  const entries=state.history.filter(item=>!item.skipped)
+  const last=entries.at(-1)
+  const chainStart=entries.length>=4?entries.at(-4):entries[0]
+  const index=role==='last-actor'?last?.playerIndex:
+    role==='last-target'?last?.targetIndex:
+    role==='chain-opener'?chainStart?.playerIndex:null
+  if(typeof index!=='number'||index<0||index>=state.players.length)return 'любой желающий'
+  return state.players[index].player.name
+}
+
+function contextualize(state:DirectorState,role:BossRole):string {
+  if(role==='all')return 'Все желающие'
+  if(role==='both')return 'Вы оба'
+  return activeRoleName(state,role)
+}
+
+function gameAction(state:DirectorState,phase:BossPhaseDraft):string {
+  const lead=contextualize(state,phase.role)
+  const played=state.history.filter(entry=>!entry.skipped)
+  const latest=played.at(-1)
+  const pastType=latest?.type==='truth'?'откровенный вопрос':'испытание'
+  switch(phase.mechanic){
+    case 'callback-spotlight':return `${lead}: можно стать ведущим короткой импровизации. Остальные предлагают два безобидных варианта, ведущий выбирает один.`
+    case 'night-callback':return `${lead}: верни в игру мотив последнего раунда — но изобрази его как драматичный трейлер. Можно передать роль добровольцу.`
+    case 'voluntary-ballot':return 'Все желающие одновременно показывают, кто мог бы открыть финальный раунд. Выбранный участник вправе передать роль другому.'
+    case 'opening-echo':return `${lead}: предыдущий ход был формата «${pastType}». Предложи его игровое, комедийное отражение без повторения личных ответов.`
+    case 'duel-remix':return `${lead} и любой доброволец проводят дуэль импровизаций: две короткие версии одной нелепой ситуации. Остальные выбирают самую смешную.`
+    case 'role-handoff':return `${lead}: передай роль ведущего другому желающему. Новый ведущий меняет жанр игры — комедия, детектив или фантастика — на один раунд.`
+    case 'double-improv':return `${lead} и доброволец по очереди добавляют по одному неожиданному повороту к общей выдуманной истории. Не используйте чужих признаний.`
+    case 'ensemble-remix':return 'Все желающие соединяют два мотива уже сыгранных ходов в одну короткую импровизацию. Не повторяйте дословно личные ответы.'
+    case 'group-reveal':return 'Каждый желающий придумывает название для происходившего раунда. Группа выбирает одно название общим голосованием.'
+    case 'final-chorus':return 'Каждый желающий добавляет по одной реплике к общему комедийному финалу. Последний участник завершает историю одной фразой.'
+    case 'shared-memory':return 'Вспомните одно задание этой партии, которое вы оба решили выполнить. Каждый может сказать, что именно ему в нём запомнилось.'
+    case 'wish-echo':return 'Каждый по желанию называет одну идею для совместного вечера. Найдите ту, которая интересна обоим.'
+    case 'mutual-choice':return 'Вместе выберите атмосферу завершения: разговор, игра или спокойная близость. Никаких обязательных признаний.'
+    case 'perspective-switch':return 'По желанию поменяйтесь ролями ведущего и слушателя: каждый коротко описывает одну игровую ситуацию со своей стороны.'
+    case 'paired-improv':return 'Вдвоём разыграйте короткую вымышленную сцену в выбранном вами жанре. Любой из вас может остановить её.'
+    case 'surprise-reframe':return 'Возьмите одну тему из сыгранных заданий и вместе найдите неожиданное, но приятное продолжение для обоих.'
+    case 'shared-finale':return 'Закончите историю одним совместным решением: что вам хочется сохранить из этой игры для следующего вечера?'
+    case 'future-choice':return 'Вместе придумайте одну необязательную идею на будущее. Она не становится обещанием или заданием.'
+    case 'open-ending':return state.scenario==='sex'
+      ? 'Вы оба решаете, что делать дальше: оставаться в уже согласованном действии, сделать паузу или закончить. Никакого обязательного финала.'
+      : 'Закончите сцену так, как хочется обоим. Можно продолжить общение без приложения или вернуться к обычной игре.'
+    case 'resume-consented':return 'Если вам обоим комфортно, оставайтесь в уже согласованной сцене. Не требуется менять практику, положение или темп.'
+    case 'shared-choice':return 'Не прерывая атмосферу, каждый может предложить сохранить текущий ритм, замедлиться или остановиться. Выбирайте только взаимно желанный вариант.'
+    case 'slow-connection':return 'Останьтесь в комфортной близости и действуйте только в рамках того, что уже выбрали вместе. При желании просто побудьте рядом.'
+    case 'trade-initiative':return 'Если обоим хочется, мягко передайте инициативу другому, не добавляя новых действий или ограничений.'
+    case 'change-pacing':return 'Если обоим подходит, немного измените темп уже согласованного действия. Любой может попросить вернуть прежний ритм или остановиться.'
+    case 'keep-thread':return 'Продолжайте выбранную сцену без новых правил и таймера — только пока это комфортно обоим.'
+    case 'together-decide':return 'Вместе решите, что приятнее сейчас: оставить всё как есть, замедлиться или остановиться. Любой вариант завершает эту фазу.'
+    case 'no-timer-finish':return 'Никакого отсчёта и обязательной кульминации. Игра заканчивается, а вы сами выбираете, продолжать ли близость.'
+    default:return 'Вместе выберите комфортный финал этой истории.'
   }
+}
 
-  if (state.scenario === 'party') {
-    return {
-      id: `party-${state.turnsPlayed}`,
-      family: 'social',
-      title: 'ОБЩИЙ РАУНД',
-      phases: [
-        'Каждый одновременно указывает на игрока, который чаще всех выбирал безопасный путь.',
-        'Группа выбирает для выбранного игрока один мини-челлендж: пятнадцать секунд пантомимы, пятнадцать секунд танца или десять секунд баланса на одной ноге. Игрок выполняет его сразу.',
-        'Игрок справа выбирает для всей группы финал: общий смешной жест или общую позу. Все повторяют его один раз одновременно.',
-      ],
-    }
+function familyFor(state:DirectorState):BossFamily {
+  if(state.scenario==='party')return 'social'
+  if(state.scenario==='afterdark')return 'chaos'
+  if(state.scenario==='couple')return 'connection'
+  const chain=state.chainFamily
+  if(chain==='oral'||chain==='manual'||chain==='roleplay'||chain==='fetish'
+    ||chain==='dom-sub'||chain==='edging'||chain==='control'||chain==='position'
+    ||chain==='undress')return chain
+  return state.sessionStage>=4?'sex':'tease'
+}
+
+function deterministicPlan(state:DirectorState):BossDraft {
+  const options=bossMechanics[state.scenario]
+  const prior=state.bossHistory?.at(-1)
+  const played=state.history.filter(x=>!x.skipped)
+  const intensity=played.slice(-4).reduce((sum,x)=>sum+x.risk,0)
+  const index=(state.turnsPlayed+intensity+state.chainDepth)%3
+  const roles:BossRole[]=state.scenario==='party'||state.scenario==='afterdark'
+    ? ['last-actor','last-target','all'] : ['both','both','both']
+  let offset=index
+  let mechanics=options.map((choices,i)=>choices[(offset+i)%choices.length])
+  if(prior?.mechanics.join('|')===mechanics.join('|')){
+    offset=(offset+1)%3
+    mechanics=options.map((choices,i)=>choices[(offset+i)%choices.length])
   }
-
   return {
-    id: `afterdark-${state.turnsPlayed}`,
-    family: 'chaos',
-    title: 'НОЧНОЙ БЕСПРЕДЕЛ',
-    phases: [
-      'Выберите одного ведущего на ближайшие две минуты.',
-      'Ведущий выбирает одно правило на одну минуту: не говорить, не вставать со своего места или использовать только одну руку.',
-      'Пока правило действует, вся группа двадцать секунд выполняет одно синхронное действие: хлопки в ритм, танцевальный шаг или общую позу. После этого правило заканчивается.',
-    ],
+    title:state.scenario==='sex'?'ВАША СЦЕНА'
+      :state.scenario==='couple'?'НАШ ФИНАЛ':'ПОСЛЕДНИЙ ПОВОРОТ',
+    phases:mechanics.map((mechanic,i)=>({
+      mechanic,role:roles[i],caption:'',
+    })),
+  }
+}
+
+export function buildBossSession(state:DirectorState,proposed:unknown=null):BossSession {
+  const valid=proposed?validateBossDraft(state,proposed):null
+  const plan=valid??deterministicPlan(state)
+  return {
+    id:`${state.scenario}-boss-${state.turnsPlayed}`,
+    family:familyFor(state),
+    title:plan.title,
+    phases:plan.phases.map(beat=>gameAction(state,beat)),
+    phaseCaptions:plan.phases.map(beat=>beat.caption),
+    mechanics:plan.phases.map(beat=>beat.mechanic),
+    aiGenerated:Boolean(valid),
+  }
+}
+
+export function settleBoss(state:DirectorState,boss:BossSession,skipped:boolean):DirectorState {
+  const previous=state.bossHistory??[]
+  const mechanics=Array.isArray(boss.mechanics) && boss.mechanics.length===3
+    ?boss.mechanics.filter(m=>typeof m==='string'&&m.length<35)
+    :[]
+  return {
+    ...state,
+    lastBossTurn:state.turnsPlayed,
+    bossHistory:[...previous,{turn:state.turnsPlayed,
+      mechanics,outcome:skipped?'skipped' as const:'finished' as const}].slice(-6),
+    scenePlan:null,chainSession:null,chainDepth:0,
+    tension:skipped?state.tension:Math.max(8,state.tension-28),
   }
 }
