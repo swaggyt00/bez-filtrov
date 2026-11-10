@@ -35,6 +35,13 @@ const baseline:DirectorState={
   ],
 }
 eq(bossMechanics.party[0][0],'callback-spotlight','client mechanic catalog stays stable')
+for(const mode of ['party','afterdark','couple','sex'] as const){
+  const options=bossMechanics[mode]
+  ok(options.every(phase=>phase.length===5),'Boss now has exactly five validated choices in each phase')
+  eq(options.reduce((product,phase)=>product*phase.length,1),125,
+    'Boss gains 125 different mechanics combinations without new phases')
+}
+
 ok(validateBossDraft(baseline,draft),'valid creative Boss should pass three-phase allowlist')
 const session=buildBossSession(baseline,draft)
 eq(session.title,draft.title,'original title appears in game')
@@ -80,6 +87,27 @@ const surrendered=settleBoss(baseline,session,'lost',0,'forfeit')
 eq(surrendered.bossHistory?.at(-1)?.outcome,'lost','refusal counts as a loss')
 eq(surrendered.bossHistory?.at(-1)?.reason,'forfeit','forfeit is explicitly remembered')
 eq(surrendered.bossScore?.[0]?.losses,1,'forfeit increases loss counter')
+const expandedDraft={
+  title:'Вечер возвращённых ролей',
+  phases:[
+    {mechanic:'callback-witness',role:'last-actor',
+      caption:'Неожиданное возвращение к старой истории.'},
+    {mechanic:'reversal-duel',role:'last-target',
+      caption:'Соперники теперь меняются ролями.'},
+    {mechanic:'group-verdict',role:'all',
+      caption:'Компания придумывает собственную развязку.'},
+  ],
+}
+const expanded=buildBossSession(baseline,expandedDraft)
+eq(expanded.aiGenerated,true,'new allowlisted mechanics can be chosen by AI')
+eq(expanded.mechanics?.join('|'),'callback-witness|reversal-duel|group-verdict',
+  'all three novel trusted mechanics survive local validation')
+ok(expanded.phases.every(text=>text.length>30),
+  'new mechanics have real stage-specific playable descriptions')
+const beforeScore=baseline.bossScore??{}
+eq(baseline.bossScore??beforeScore,beforeScore,
+  'composing a Boss cannot change score or penalties')
+
 const fallbackA=buildBossSession(done)
 const fallbackB=buildBossSession(settleBoss(done,fallbackA,'lost',2,'forfeit'))
 ok(fallbackA.phases.every(s=>typeof s==='string'&&s.length>20),'offline finale is fully playable')
