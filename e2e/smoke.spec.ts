@@ -257,7 +257,7 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
       expect(payload.recent.some((entry:{modifierCount?:number}) => entry.modifierCount===1)).toBe(true)
     }
     const selected=directorCalls===1
-      ? payload.candidates.find((candidate:{id:string})=>candidate.id==='v09:afterdark-light-dare-002')
+      ? payload.candidates.find((candidate:{id:string})=>candidate.id==='v09:afterdark-light-dare-015')
       : payload.candidates[0]
     expect(selected).toBeTruthy()
     await route.fulfill({status:200,contentType:'application/json',
@@ -282,7 +282,7 @@ test('AI writes a card-specific modifier, saves it and pauses twists on the next
       body:JSON.stringify({
         axis:'sequence',
         label:'ТРИ НОВЫХ АРГУМЕНТА',
-        description:'Во время рекламы каждые пять секунд называй новое преимущество перекуса и ни разу не повторяй прилагательные.',
+        description:'Во время рекламы выбранного элемента ночи каждые пять секунд называй новое преимущество. Ни разу не повторяй прилагательные.',
       }),
     })
   })
@@ -318,7 +318,7 @@ test('rejected AI creativity produces NO canned or decorative condition', async 
   await page.unroute(AI_ROUTE)
   await page.route(AI_ROUTE,async route=>{
     const request=route.request().postDataJSON()
-    const selected=request.candidates.find((item:{id:string})=>item.id==='v09:afterdark-light-dare-002')
+    const selected=request.candidates.find((item:{id:string})=>item.id==='v09:afterdark-light-dare-015')
     expect(selected).toBeTruthy()
     await route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({selectedId:selected.id,intro:'Сложнее, но по делу.',addCondition:true})})
@@ -591,7 +591,7 @@ async function primeEligibleBoss(page:Page) {
   let openerChain='social'
   await page.route(AI_ROUTE,async route=>{
     const payload=route.request().postDataJSON()
-    const selected=payload.candidates.find((c:{id:string})=>c.id==='v09:afterdark-light-dare-002')
+    const selected=payload.candidates.find((c:{id:string})=>c.id==='v09:afterdark-light-dare-015')
       ??payload.candidates[0]
     openerChain=selected.chains[0]
     await route.fulfill({status:200,contentType:'application/json',
