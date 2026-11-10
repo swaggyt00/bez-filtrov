@@ -378,3 +378,59 @@
 .game-v09 .boss-card .secondary-actions {
   margin-top: 12px;
 }
+
+/* Boss stakes are explicit before the first phase, after defeat, and
+   on the penalty card itself. No extra surveys or modal interruptions. */
+.game-v09 .boss-stakes-notice {
+  display: grid;
+  gap: 5px;
+  margin: 12px auto 18px;
+  padding: 12px 14px;
+  width: 100%;
+  max-width: 470px;
+  border: 1px solid rgba(229, 86, 98, .38);
+  border-radius: 12px;
+  background: rgba(109, 19, 33, .14);
+  text-align: left;
+}
+.game-v09 .boss-stakes-notice strong {
+  color: #f7a3b1;
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+.game-v09 .boss-stakes-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.game-v09 .boss-stakes-notice small {
+  display: block;
+  color: #bca4aa;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.game-v09 .boss-stakes-inline {
+  max-width: unset;
+  margin-top: 10px;
+}
+.game-v09 .boss-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.game-v09 .boss-failure-actions button {
+  flex: 1 1 130px;
+}
+.game-v09 .boss-result-card .boss-result-player {
+  font-weight: 750;
+}
+.game-v09 .boss-score {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0 18px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .055em;
+}
