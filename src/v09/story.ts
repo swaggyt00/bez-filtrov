@@ -5,6 +5,11 @@ import type {
 
 const phases: ScenePhase[] = ['build', 'twist', 'payoff']
 const types: ScenePreferredType[] = ['truth', 'dare', 'either']
+const allowedChains = new Set([
+  'conversation','confession','flirt','connection','physical','tease',
+  'kissing','undress','control','manual','oral','position','edging',
+  'dom-sub','fetish','roleplay','sex','social','embarrassment','chaos',
+])
 const intimateFamilies = new Set([
   'physical','kissing','undress','control','manual','oral',
   'position','edging','dom-sub','fetish','roleplay','sex',
@@ -24,8 +29,11 @@ export function getActiveStoryBeat(state: DirectorState): ActiveStoryBeat | null
   if (!Number.isInteger(index) || index < 0 || index >= phases.length) return null
   const beat = scene.beats[index]
   if (!beat || beat.phase !== phases[index] || !types.includes(beat.preferredType)
-      || typeof beat.chain !== 'string' || !/^[a-z-]{2,35}$/.test(beat.chain)) return null
-  return { ...beat, originTurn: scene.originTurn, beatIndex: index }
+      || typeof beat.chain !== 'string' || !allowedChains.has(beat.chain)) return null
+  return {
+    phase:beat.phase,chain:beat.chain,preferredType:beat.preferredType,
+    originTurn:scene.originTurn,beatIndex:index,
+  }
 }
 
 /**
@@ -49,6 +57,7 @@ export function createDirectorScenePlan(
     const beat = item as Record<string, unknown>
     if (beat.phase !== phases[index] || typeof beat.chain !== 'string'
         || !allowed.has(beat.chain as DirectorCard['chains'][number])
+        || !allowedChains.has(beat.chain)
         || !types.includes(beat.preferredType as ScenePreferredType)) return null
     // During physical intimacy, a planned twist must never prescribe a new
     // activity family. Continuing the current approved theme is the default.
