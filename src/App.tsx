@@ -1094,7 +1094,8 @@ function App() {
                 <h2>{boss.title}</h2>
                 <div className="boss-stakes-notice">
                   <strong>НА КОНУ · {settings.players[boss.challengerIndex??currentPlayerIndex]?.name}</strong>
-                  <p>Три фазы. Победа — в статистику. Провал или отказ — поражение и {bossPenaltyFor(directorState,boss,boss.challengerIndex??currentPlayerIndex).label.toLowerCase()}</p>
+                  <p>Три фазы. Победа — в статистику. Провал или отказ — поражение.</p>
+                  <p>{bossPenaltyFor(directorState,boss,boss.challengerIndex??currentPlayerIndex).label}</p>
                 </div>
                 <div className="boss-progress">{bossPhaseIndex + 1} / {boss.phases.length}</div>
                 {boss.phaseCaptions?.[bossPhaseIndex] && settings.scenario!=='sex'
