@@ -78,6 +78,12 @@ try {
     }else{
       throw new Error('Unexpected AI Director HTTP '+httpStatus)
     }
+    if(firstScenePlan && !plan){
+      const outcome=(saved?.director?.chainHistory??[]).at(-1)
+      if(outcome?.result!=='unavailable'){
+        throw new Error('An active story disappeared without an ineligible-branch outcome')
+      }
+    }
     if(firstScenePlan && plan && JSON.stringify(plan)!==JSON.stringify(firstScenePlan)){
       const outcome=(saved?.director?.chainHistory??[]).at(-1)
       if(outcome?.result!=='unavailable'){
