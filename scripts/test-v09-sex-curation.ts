@@ -116,6 +116,13 @@ function stateAt(stage: SessionStage, boundaries: BoundaryTag[], clothing: 'clot
     sessionStage: stage,
     tension: 140,
     turnsPlayed: 30,
+    // Fixture supplies real completed metadata so the progression gate
+    // isn't accidentally tested with impossible counter-only state.
+    history: Array.from({length:3}, (_,i) => ({
+      cardId:'completed-stage-'+i,type:'dare' as const,risk:2 as const,
+      playerIndex:i%2,targetIndex:(i+1)%2,
+      chains:['tease' as const],skipped:false,
+    })),
   } as DirectorState
 }
 
