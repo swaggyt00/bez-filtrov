@@ -135,5 +135,10 @@ const hang=((_url:RequestInfo|URL,init?:RequestInit)=>new Promise<Response>((_re
   init?.signal?.addEventListener('abort',()=>reject(Error('aborted')),{once:true})
 })) as typeof fetch
 eq(await requestAIEvent(stageZero,1,cards,{fetcher:hang,timeoutMs:12}),null,'timed-out event does not block party')
+const cancel=new AbortController()
+const aborted=requestAIEvent(stageZero,1,cards,{fetcher:hang,timeoutMs:5000,signal:cancel.signal})
+cancel.abort()
+eq(await aborted,null,'explicit cancellation returns instantly without a generated event')
+
 
 console.log('✓ AI events: original mechanics, continuity, consent, 3 risks, memory and offline fallback passed')
