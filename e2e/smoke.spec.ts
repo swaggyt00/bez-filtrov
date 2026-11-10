@@ -180,6 +180,48 @@ test('AI Director selects only a shortlisted card and persists its narration acr
   await expectRiskScreen(page)
 })
 
+
+test('three-fire Director and AI never recycle a played card while fresh cards exist',async({page})=>{
+  let firstId=''
+  let attempts=0
+  await page.unroute(AI_ROUTE)
+  await page.route(AI_ROUTE,async route=>{
+    attempts++
+    const payload=route.request().postDataJSON()
+    expect(payload.scenario).toBe('party')
+    expect(payload.risk).toBe(3)
+    expect(payload.candidates.length).toBeGreaterThan(1)
+    expect(payload.candidates.every((entry:{id:string})=>entry.id.startsWith('v09-curated-party-'))).toBe(true)
+    if(firstId)expect(payload.candidates.some((entry:{id:string})=>entry.id===firstId)).toBe(false)
+    const selected=payload.candidates[0].id
+    if(!firstId)firstId=selected
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({selectedId:selected,intro:'Только честный высокий риск.'})})
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'Компания')
+  await startScenario(page,'Компания')
+  await page.getByRole('button',{name:'+ добавить игрока'}).click()
+  // The game setup can start with three only after adding a third participant.
+  await page.locator('.gender-toggle').nth(2).getByRole('button',{name:'М',exact:true}).click()
+  await startScenario(page,'Компания')
+  await expectRiskScreen(page)
+  await page.getByRole('button',{name:'Риск 3'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await expect(page.locator('.card-topline')).toContainText('🔥🔥🔥')
+  const first=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')?.currentDirectorCardId)
+  expect(first).toBe(firstId)
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await expectRiskScreen(page)
+  await page.getByRole('button',{name:'Риск 3'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await expect(page.locator('.card-topline')).toContainText('🔥🔥🔥')
+  const second=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')?.currentDirectorCardId)
+  expect(second).not.toBe(firstId)
+  expect(attempts).toBe(2)
+})
+
 test('a failed AI call still reveals a valid card without extra setup', async ({ page }) => {
   await page.unroute(AI_ROUTE)
   await page.route(AI_ROUTE, async (route) => route.abort('failed'))
