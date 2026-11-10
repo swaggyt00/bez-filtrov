@@ -8,12 +8,13 @@ import { cards } from '../src/data/cards'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
 import { curatedHighRiskCards } from '../src/v09/curated-risk-three'
 import { curatedSexLowRiskCards } from '../src/v09/curated-sex-breathers'
+import { socialCallbackCards } from '../src/v09/social-dynamics'
 import { sexNativeCards } from '../src/v09/sex-native'
 import type { RiskLevel, SessionStage } from '../src/v09/types'
 import type { Scenario } from '../src/types'
 
 const legacyDeck = adaptLegacyDeck(cards)
-const deck = [...legacyDeck,...sexNativeCards,...curatedHighRiskCards,...curatedSexLowRiskCards]
+const deck = [...legacyDeck,...sexNativeCards,...curatedHighRiskCards,...curatedSexLowRiskCards, ...socialCallbackCards]
 const maxStage: Record<Scenario, SessionStage> = {
   couple: 3,
   party: 3,
