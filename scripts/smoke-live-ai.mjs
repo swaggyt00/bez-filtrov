@@ -134,8 +134,21 @@ try {
       continue
     }
     if(status[0]===429){
-      if(modifiers!==0)throw Error('Groq 429 incorrectly produced a fallback modifier')
-      console.log('PARTIAL: Groq rate limit 429. Base game and safe no-modifier fallback verified; live generation must be retried.')
+      if(modifiers!==0)throw Error('Provider 429 incorrectly produced a fallback modifier')
+      console.warn('::warning::AI modifier rate-limited (429). Base game and safe no-modifier fallback passed, but live generation remains unverified.')
+      upstreamLimited=true
+      break
+    }
+    if([502,503,504].includes(status[0])){
+      if(modifiers!==0)throw Error('Unavailable AI provider incorrectly produced a modifier')
+      // Worker/provider outages are not app regressions. Respect the Worker
+      // 8-second provider cooldown before a bounded retry on a new turn.
+      if(attempt<3){
+        console.log('RETRY: temporary creative AI HTTP '+status[0]+'; waiting for provider cooldown.')
+        await page.waitForTimeout(8500)
+        continue
+      }
+      console.warn('::warning::AI modifier unavailable (HTTP '+status[0]+' after 3 attempts). UI fallback verified; live generation remains unverified.')
       upstreamLimited=true
       break
     }
