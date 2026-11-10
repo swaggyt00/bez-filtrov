@@ -92,6 +92,7 @@ try {
   await page.getByRole('button',{name:'Сохранить и передать'}).click()
   await page.getByRole('button',{name:/Я Игрок 2/}).click()
   await page.getByRole('button',{name:'Сохранить и начать'}).click()
+  const sexResponseStart=apiStatuses.length
   await page.getByRole('button',{name:'Риск 3'}).click()
   await page.locator('.card-text').waitFor({state:'visible',timeout:12000})
   const sexText=await page.locator('.card-text').innerText()
@@ -102,15 +103,37 @@ try {
     ? await page.locator('.chain-caption strong').first().textContent() : null
   const sexSaved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
   console.log('SEX STAGE-0 RISK-3:',JSON.stringify({sexStatus,sexText,sexIntro,sexChainLabel,stage:sexSaved?.director?.sessionStage,apiStatuses}))
-  if(!sexIntro?.includes('AI DIRECTOR')&&!sexChainLabel?.includes('AI CHAIN')){
-    throw new Error('Sex mode did not get a real AI card/Chain')
+  const sexResponses=apiStatuses.slice(sexResponseStart)
+  if(sexResponses.length!==1){
+    throw new Error('Sex round expected exactly one real AI Director attempt: '+JSON.stringify(sexResponses))
+  }
+  const sexHttpStatus=sexResponses[0].status
+  if(sexHttpStatus===200){
+    if(!sexSaved?.aiWasUsed || (!sexIntro?.includes('AI DIRECTOR')&&!sexChainLabel?.includes('AI CHAIN'))){
+      throw new Error('Sex AI returned 200 but the selected card was not marked as an AI result')
+    }
+  } else if([429,502,503,504].includes(sexHttpStatus)){
+    // An upstream outage must not break a perfectly valid local challenge.
+    // This is PARTIAL service verification, not proof that AI was available.
+    if(sexSaved?.aiWasUsed || sexIntro || sexChainLabel
+      || (sexSaved?.currentModifiers?.length??0)>0){
+      throw new Error('Unavailable Sex AI incorrectly left an AI label/modifier on local fallback')
+    }
+    console.warn('::warning::Sex AI temporarily unavailable (HTTP '+sexHttpStatus
+      +'). Local stage-0 risk-3 fallback verified; live Sex AI not verified on this attempt.')
+    console.log('PARTIAL: live Sex AI unavailable; safe card displayed with exact chosen risk.')
+  } else {
+    throw new Error('Unexpected Sex AI HTTP '+sexHttpStatus)
   }
   if(!sexStatus.includes('🔥🔥🔥'))throw new Error('Sex risk 3 was mislabeled')
   if(sexSaved?.director?.sessionStage!==0)throw new Error('Sex stage jumped during risk selection')
   if(/(?:проникновени|кунилингус|минет|занимайтесь сексом)/i.test(sexText)){
     throw new Error('Sex stage 0 jumped straight to direct sex')
   }
-  if(apiStatuses.some(x=>x.status!==200))throw new Error('Live Groq route failed: '+JSON.stringify(apiStatuses))
+  if(apiStatuses.slice(0,2).some(x=>x.status!==200)){
+    throw new Error('Social AI Director must have confirmed live success before Sex fallback: '
+      +JSON.stringify(apiStatuses))
+  }
   // Production test: AI WRITES a unique constraint and a separate AI judge
   // approves it. Rejection is valid behavior and must not insert canned text.
   const modifierStatuses=[]
@@ -120,7 +143,7 @@ try {
       if(!response.ok())console.log('CREATIVE AI REJECTED:',await response.text().catch(()=>'?'))
     }
   })
-  let directorRateLimited=false
+  let directorUnavailableStatus=null
   await page.route('**/game/director',async route=>{
     const request=route.request().postDataJSON()
     const performanceCardId='v09:afterdark-light-dare-002'
@@ -128,12 +151,12 @@ try {
       throw new Error('Known performance challenge is no longer in the allowed shortlist')
     }
     const response=await route.fetch()
-    if(response.status()===429){
-      directorRateLimited=true
+    if([429,502,503,504].includes(response.status())){
+      directorUnavailableStatus=response.status()
       await route.fulfill({response})
       return
     }
-    if(!response.ok())throw Error('Live Director unavailable: '+response.status())
+    if(!response.ok())throw Error('Unexpected live Director response: '+response.status())
     const body=await response.json()
     await route.fulfill({response,body:JSON.stringify({...body,selectedId:performanceCardId,addCondition:true})})
   })
@@ -157,10 +180,12 @@ try {
       label:modifiers?await page.locator('.modifier-card strong').first().innerText():null,
       description:modifiers?await page.locator('.modifier-card small').first().innerText():null,
     }))
-    if(directorRateLimited){
-      if(modifiers!==0)throw Error('Director 429 incorrectly added a modifier')
+    if(directorUnavailableStatus!==null){
+      if(modifiers!==0)throw Error('Director '+directorUnavailableStatus+' incorrectly added a modifier')
       upstreamLimited=true
-      console.log('PARTIAL: Director request rate-limited by Groq; base card and fallback verified.')
+      console.warn('::warning::Director unavailable (HTTP '+directorUnavailableStatus
+        +'). Base card/fallback verified; live modifier generation remains unverified.')
+      console.log('PARTIAL: the original creative model could not run while Director was unavailable.')
       break
     }
     if(status.length!==1)throw Error('Expected one creative-model call, got '+JSON.stringify(status))

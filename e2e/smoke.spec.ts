@@ -503,3 +503,41 @@ test('AI Chain appears inline, survives reload, and a skip takes the nonpunitive
   await expect(page.locator('.card-text')).not.toBeEmpty()
   expect(calls).toBe(2)
 })
+
+test('Sex stage-0 🔥🔥🔥 remains safe when live AI returns 503',async({page})=>{
+  await page.unroute(AI_ROUTE)
+  let requests=0
+  await page.route(AI_ROUTE,async route=>{
+    requests++
+    const request=route.request().postDataJSON()
+    expect(request.scenario).toBe('sex')
+    expect(request.stage).toBe(0)
+    expect(request.risk).toBe(3)
+    await route.fulfill({status:503,contentType:'application/json',
+      body:JSON.stringify({error:'Временная недоступность AI-провайдера.'})})
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'Секс')
+  await startScenario(page,'Секс')
+  await finishSexBoundaries(page)
+  await page.getByRole('button',{name:'Риск 3'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await expect(page.locator('.card-topline')).toContainText('🔥🔥🔥')
+  await expect(page.locator('.ai-intro')).toHaveCount(0)
+  await expect(page.locator('.chain-caption')).toHaveCount(0)
+  await expect(page.locator('.modifier-card')).toHaveCount(0)
+  await page.waitForFunction(()=>{
+    const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return s?.view==='card'&&s?.currentDirectorCardId
+  })
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  expect(saved.aiWasUsed).toBe(false)
+  expect(saved.director.sessionStage).toBe(0)
+  expect(saved.currentRisk).toBe(3)
+  expect(saved.director.scenePlan).toBeNull()
+  expect(saved.director.chainSession??null).toBeNull()
+  expect(requests).toBe(1)
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await expectRiskScreen(page)
+})
