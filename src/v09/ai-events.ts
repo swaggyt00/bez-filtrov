@@ -172,11 +172,14 @@ export async function requestAIEvent(
   state:DirectorState,
   actorIndex:number,
   cards:DirectorCard[],
-  options:{fetcher?:typeof fetch; endpoint?:string; timeoutMs?:number}={},
+  options:{fetcher?:typeof fetch; endpoint?:string; timeoutMs?:number; signal?:AbortSignal}={},
 ):Promise<DirectorEvent|null> {
   const allowed=allowedAIEventMechanics(state,actorIndex,cards)
   if(!allowed.length)return null
   const controller=new AbortController()
+  const onAbort=()=>controller.abort()
+  if(options.signal?.aborted)controller.abort()
+  else options.signal?.addEventListener('abort',onAbort,{once:true})
   const timeout=setTimeout(()=>controller.abort(),options.timeoutMs??TIMEOUT_MS)
   try{
     const response=await (options.fetcher??fetch)(options.endpoint??AI_EVENT_ENDPOINT,{
@@ -187,7 +190,10 @@ export async function requestAIEvent(
     if(!response.ok)return null
     return validateAIEvent(state,actorIndex,cards,allowed,await response.json())
   }catch{return null}
-  finally{clearTimeout(timeout)}
+  finally{
+    clearTimeout(timeout)
+    options.signal?.removeEventListener('abort',onAbort)
+  }
 }
 
 export function recordEventDecision(
