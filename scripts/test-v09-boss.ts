@@ -72,6 +72,17 @@ const hiddenCommands=validateBossDraft(baseline,{...draft,phases:draft.phases.ma
 ok(hiddenCommands,'an otherwise valid Boss should remain playable when captions are discarded')
 ok(hiddenCommands?.phases.every(p=>p.caption===''),
   'AI cannot sneak imperative instructions into supposedly atmospheric captions')
+const secondWave=validateBossDraft(baseline,{...draft,phases:draft.phases.map((phase,index)=>({
+  ...phase,caption:[
+    'Вспомни, что было сказано в полночь…',
+    'Переходим к новому ведущему, держи темп.',
+    'Финальная нотка — совместный выход из игры.',
+  ][index],
+}))})
+ok(secondWave && secondWave.phases[0].caption==='' && secondWave.phases[1].caption==='',
+  'two additional live commands must be removed even inside longer captions')
+ok(secondWave?.phases[2].caption,'declarative narrative captions remain available')
+
 
 
 const done=settleBoss(baseline,session,'won',2)
