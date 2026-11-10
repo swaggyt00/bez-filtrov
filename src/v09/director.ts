@@ -12,6 +12,7 @@ import type {
   SessionStage,
 } from './types'
 import type { Player, Scenario } from '../types'
+import { planDirectorPacing } from './pacing'
 
 const clothingRank: Record<ClothingState, number> = {
   clothed: 0,
@@ -125,29 +126,77 @@ function recentEntries(state: DirectorState, count: number) {
 }
 
 export function scoreCard(card: DirectorCard, state: DirectorState) {
-  let score = 0
-  const recent = recentEntries(state, 10)
-
-  if (state.chainFamily && card.chains.includes(state.chainFamily)) score += 42
-  if (state.chainFamily && card.nextHooks?.includes(state.chainFamily)) score += 12
-  if (state.currentPosition && card.requires?.positions?.includes(state.currentPosition)) score += 24
-
+  const pacing = planDirectorPacing(state)
+  const recent = recentEntries(state, 16)
   const last = recent.at(-1)
-  if (last && last.chains.some((chain) => card.chains.includes(chain))) score += 18
+  const primary = card.chains[0]
+  let score = 0
 
+  // The Director explicitly decides whether to develop a scene or change it.
+  // A skipped card NEVER becomes an invitation to repeat the same theme.
+  if (pacing.intent !== 'pivot' && (
+      pacing.intent !== 'recover' || state.chainFamily !== pacing.avoidChain
+    )) {
+    if (state.chainFamily && card.chains.includes(state.chainFamily)) score += 32
+    if (state.chainFamily && card.nextHooks?.includes(state.chainFamily)) score += 10
+  }
+  if (pacing.intent === 'develop') {
+    if (pacing.focusChain && card.chains.includes(pacing.focusChain)) score += 42
+    if (state.currentPosition && card.requires?.positions?.includes(state.currentPosition)) score += 30
+  } else if (state.currentPosition && card.requires?.positions?.includes(state.currentPosition)) {
+    score += 12
+  }
+
+  if (pacing.intent === 'pivot') {
+    if (pacing.avoidChain && primary === pacing.avoidChain) score -= 65
+    if (pacing.avoidChain && primary !== pacing.avoidChain) score += 18
+    if (pacing.preferType && card.type === pacing.preferType) score += 40
+  } else if (pacing.intent === 'recover') {
+    if (pacing.avoidChain && card.chains.includes(pacing.avoidChain)) score -= 70
+    if (pacing.avoidChain && !card.chains.includes(pacing.avoidChain)) score += 16
+  } else if (pacing.intent === 'breather' && card.type === 'truth') {
+    score += 30
+  }
+
+  if (last && !last.skipped && last.chains.some(chain => card.chains.includes(chain))
+      && pacing.intent !== 'pivot') score += 12
   const lastTwo = recent.slice(-2)
-  if (lastTwo.length === 2 && lastTwo.every((entry) => entry.type === card.type)) score -= 26
-  else if (last && last.type !== card.type) score += 7
+  if (lastTwo.length === 2 && lastTwo.every(entry => !entry.skipped && entry.type === card.type)) score -= 20
+  else if (last && !last.skipped && last.type !== card.type) score += 7
 
-  const sameCardRecently = recent.some((entry) => entry.cardId === card.id)
-  if (sameCardRecently) score -= 100
-
-  const samePrimaryChain = recent.slice(-3).filter((entry) => entry.chains[0] === card.chains[0]).length
-  if (samePrimaryChain >= 3 && card.chains[0] !== state.chainFamily) score -= 18
-
-  if (state.currentPosition && card.requires?.positions?.length === 0) score -= 8
+  // A repeated card must not win just because its chain is relevant.
+  if (recent.some(entry => entry.cardId === card.id)) score -= 180
+  if (pacing.intent === 'explore' && primary
+      && !recent.slice(-4).some(entry => entry.chains[0] === primary)) score += 12
 
   return score
+}
+
+/**
+ * Distribute attention fairly in groups without reading player names or
+ * inventing relationship preferences. Only already-eligible targets enter.
+ */
+export function pickDirectorTarget(
+  eligibleIndices: number[],
+  state: DirectorState,
+  random: () => number = Math.random,
+): number | null {
+  if (!eligibleIndices.length) return null
+  const history = state.history.slice(-16).filter(entry => !entry.skipped && entry.targetIndex !== null)
+  const counts = new Map<number, number>(eligibleIndices.map(index => [
+    index, history.filter(entry => entry.targetIndex === index).length,
+  ] as const))
+  const minimum = Math.min(...counts.values())
+  const leastUsed = eligibleIndices.filter(index => counts.get(index) === minimum)
+  const lastSeen = (index: number) => {
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].targetIndex === index) return i
+    }
+    return -1
+  }
+  const oldest = Math.min(...leastUsed.map(lastSeen))
+  const ties = leastUsed.filter(index => lastSeen(index) === oldest)
+  return ties[Math.floor(normalizedRandom(random) * ties.length)] ?? ties[0]
 }
 
 function normalizedRandom(random: () => number) {
@@ -200,6 +249,11 @@ export function maybeAdvanceStage(state: DirectorState): DirectorState {
   const next = (current + 1) as SessionStage
   if (state.tension < stageTensionThreshold[current]) return state
   if (state.turnsPlayed < stageMinTurns[current]) return state
+  // Completion and actual player-chosen intensity matter, not just turn count
+  // or an accumulated score. A skip never advances the intimacy/session stage.
+  const recentCompleted = state.history.slice(-5).filter(entry => !entry.skipped)
+  if (state.history.at(-1)?.skipped || recentCompleted.length < 2) return state
+  if (state.scenario === 'sex' && !recentCompleted.some(entry => entry.risk >= 2)) return state
   if (
     state.scenario === 'sex'
     && next === 3
@@ -280,6 +334,12 @@ export function completeTurn(
     if (card.effects?.leader === 'clear') next.leaderIndex = null
   }
 
+  if (skipped) {
+    // Keep clothing and physical position intact, but don't force another card
+    // from a rejected thread. A skip is not a signal about anyone's emotions.
+    next.chainFamily = null
+    next.chainDepth = 0
+  }
   next = maybeAdvanceStage(next)
   return next
 }
@@ -321,9 +381,14 @@ export function maybeCreateCautionEvent(state: DirectorState, actorIndex: number
 
 export function bossIsReady(state: DirectorState) {
   if (state.turnsPlayed - state.lastBossTurn < 6) return false
-  if (state.chainDepth < 3) return false
-  if (state.tension < 55) return false
-  return state.sessionStage >= 2
+  if (state.chainDepth < 3 || state.tension < 55 || state.sessionStage < 2) return false
+  const recent = state.history.slice(-4)
+  if (recent.length < 4 || recent.at(-1)?.skipped) return false
+  if (recent.filter(entry => !entry.skipped).length < 3) return false
+  // A group culmination should involve more than one participant.
+  if ((state.scenario === 'party' || state.scenario === 'afterdark')
+      && new Set(recent.filter(entry => !entry.skipped).map(entry => entry.playerIndex)).size < 2) return false
+  return true
 }
 
 export function minimumClothingState(states: ClothingState[]) {

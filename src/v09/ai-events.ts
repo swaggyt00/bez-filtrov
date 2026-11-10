@@ -36,6 +36,8 @@ const forbiddenEventCopy=/(раздев|сними\s+(?:одежд|бель)|п�
 
 export function eventRollIsDue(state:DirectorState,random:()=>number=Math.random):boolean {
   if(state.turnsPlayed<4||state.turnsPlayed-state.lastEventTurn<3)return false
+  // Don't interrupt a skipped turn with an unsolicited AI event.
+  if(state.history.at(-1)?.skipped)return false
   const probability=Math.min(0.36,0.18+state.tension/650)
   return Math.max(0,Math.min(0.999999,random()))<probability
 }

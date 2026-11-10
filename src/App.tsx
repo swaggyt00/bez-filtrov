@@ -7,7 +7,7 @@ import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from
 import { adaptLegacyDeck } from './v09/legacy-adapter'
 import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
 import { requestAIModifier } from './v09/ai-modifier'
-import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from './v09/director'
+import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, pickDirectorTarget, tickEffects } from './v09/director'
 import { maybeCreateCautionEvent } from './v09/director'
 import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
@@ -505,7 +505,7 @@ function App() {
       : card.targetRequired === false
         ? []
         : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
-    const targetIndex = targets.length ? targets[Math.floor(Math.random() * targets.length)] : null
+    const targetIndex = pickDirectorTarget(targets, directorState)
     const finalText = source
       ? renderCardText({ ...source, text: card.text }, settings.players, currentPlayerIndex, targetIndex)
       : hydrateCardText(card.text, settings.players, currentPlayerIndex, targetIndex)

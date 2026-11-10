@@ -94,6 +94,12 @@ const unrelated: DirectorCard = {
 state = { ...state, sessionStage: 2, chainFamily: 'control', chainDepth: 3, tension: 70 }
 const logical = pickDirectorCard([unrelated, continuationA, continuationB], state, 0, 1, 2, () => 0)
 assert.ok(logical?.card.chains.includes('control'), 'Director should prefer a logical chain continuation')
-assert.ok(bossIsReady({ ...state, turnsPlayed: 10, lastBossTurn: 0 }), 'deep high-tension chain should unlock boss')
+const actualRecentTurns = Array.from({ length: 4 }, (_, i) => ({
+  cardId: 'previous-' + i, type: 'dare' as const, risk: 2 as const,
+  playerIndex: i % 2, targetIndex: (i + 1) % 2,
+  chains: ['control' as const], skipped: false,
+}))
+assert.ok(bossIsReady({ ...state, turnsPlayed: 10, lastBossTurn: 0, history: actualRecentTurns }),
+  'Boss needs a developed chain and several completed recent turns')
 
 console.log('✓ v0.9 Director foundation tests passed')

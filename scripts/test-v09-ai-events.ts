@@ -45,10 +45,14 @@ for (const risk of [1,2,3] as RiskLevel[]) {
   }
 }
 const stageZero={...state,sessionStage:0 as const}
-assert(eventRollIsDue(stageZero,()=>0),'event probability should trigger after four turns')
-assert(!eventRollIsDue({...stageZero,turnsPlayed:3},()=>0),'no events early')
-assert(!eventRollIsDue({...stageZero,lastEventTurn:6},()=>0),'event cooldown blocks repeat')
-assert(!eventRollIsDue(stageZero,()=>0.99),'a high random value means no event')
+const afterCompleted={...stageZero,history:[
+  ...stageZero.history.slice(0,-1),{...stageZero.history[stageZero.history.length-1],skipped:false},
+]}
+assert(eventRollIsDue(afterCompleted,()=>0),'event probability should trigger after four completed turns')
+assert(!eventRollIsDue(stageZero,()=>0),'a skipped turn must not immediately trigger a new AI event')
+assert(!eventRollIsDue({...afterCompleted,turnsPlayed:3},()=>0),'no events early')
+assert(!eventRollIsDue({...afterCompleted,lastEventTurn:6},()=>0),'event cooldown blocks repeat')
+assert(!eventRollIsDue(afterCompleted,()=>0.99),'a high random value means no event')
 
 const allowed=allowedAIEventMechanics(stageZero,1,cards)
 assert(allowed.includes('risk-handoff'),'handoff should be possible for 2 players')
