@@ -422,8 +422,8 @@ function App() {
         : directorCard.targetRequired !== false
       if (needsTarget) {
         const targets = source
-          ? eligibleTargetIndices(source, settings.players, currentPlayerIndex)
-          : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
+          ? eligibleTargetIndices(source, settings.players, actorIndex)
+          : settings.players.map((_, index) => index).filter((index) => index !== actorIndex)
         if (targets.length === 0) return false
       }
 
@@ -447,7 +447,7 @@ function App() {
         : directorCard.targetRequired !== false
       if (!needsTarget) return true
       return source
-        ? eligibleTargetIndices(source, settings.players, currentPlayerIndex).length > 0
+        ? eligibleTargetIndices(source, settings.players, actorIndex).length > 0
         : settings.players.length > 1
     })
   }
