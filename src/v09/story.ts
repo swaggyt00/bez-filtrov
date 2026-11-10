@@ -68,6 +68,10 @@ export function createDirectorScenePlan(
       preferredType:beat.preferredType as ScenePreferredType,
     })
   }
+  // A narrative only counts as a story if the opening thread returns in
+  // its development and payoff. Otherwise it is just three unrelated cards.
+  const openingThemes=new Set([...card.chains,...(card.nextHooks??[])])
+  if (!openingThemes.has(validated[0].chain) || !openingThemes.has(validated[2].chain)) return null
   return { originTurn:state.turnsPlayed, openerCardId:card.id, beats:validated }
 }
 
