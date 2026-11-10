@@ -1,4 +1,4 @@
-import type { BossFamily, BossSession, DirectorState } from './types'
+import type { BossFamily, BossLossReason, BossOutcome, BossPenalty, BossSession, DirectorState } from './types'
 import type { Scenario } from '../types'
 
 export type BossRole = 'all' | 'last-actor' | 'last-target' | 'chain-opener' | 'both'
@@ -178,17 +178,57 @@ export function buildBossSession(state:DirectorState,proposed:unknown=null):Boss
   }
 }
 
-export function settleBoss(state:DirectorState,boss:BossSession,skipped:boolean):DirectorState {
+/**
+ * Boss stakes are announced before the first phase. Losses have an actual
+ * mechanical cost: the challenger's next eligible round is locked to a
+ * card type. Risk/fire, consent, and the right to stop stay untouched.
+ */
+export function bossPenaltyFor(state:DirectorState,boss:BossSession,challengerIndex:number):BossPenalty {
+  const losses=state.bossScore?.[challengerIndex]?.losses??0
+  const type=state.scenario==='party'?'dare'
+    :state.scenario==='afterdark'?(losses%2===0?'dare':'truth')
+    : 'truth'
+  return {
+    bossId:boss.id,playerIndex:challengerIndex,type,
+    label:state.scenario==='sex'
+      ? 'Штрафный ход: только «Правда». Никаких обязательных физических действий.'
+      : `Штрафный ход: только «${type==='dare'?'Действие':'Правда'}». Риск выбираешь сам.`,
+  }
+}
+
+export function settleBoss(
+  state:DirectorState,boss:BossSession,outcome:BossOutcome,
+  challengerIndex:number,reason:BossLossReason|null=null,
+):DirectorState {
+  if(!['won','lost'].includes(outcome)
+    ||!Number.isInteger(challengerIndex)
+    ||challengerIndex<0||challengerIndex>=state.players.length){
+    return state
+  }
   const previous=state.bossHistory??[]
   const mechanics=Array.isArray(boss.mechanics) && boss.mechanics.length===3
     ?boss.mechanics.filter(m=>typeof m==='string'&&m.length<35)
     :[]
+  const penalty=outcome==='lost'?bossPenaltyFor(state,boss,challengerIndex):null
+  const previousScore=state.bossScore?.[challengerIndex]??{wins:0,losses:0}
+  const score={
+    ...state.bossScore,
+    [challengerIndex]: {
+      wins:previousScore.wins+(outcome==='won'?1:0),
+      losses:previousScore.losses+(outcome==='lost'?1:0),
+    },
+  }
   return {
     ...state,
+    bossScore:score,
+    pendingBossPenalty:penalty,
     lastBossTurn:state.turnsPlayed,
-    bossHistory:[...previous,{turn:state.turnsPlayed,
-      mechanics,outcome:skipped?'skipped' as const:'finished' as const}].slice(-6),
+    bossHistory:[...previous,{
+      turn:state.turnsPlayed,mechanics,outcome,challengerIndex,
+      reason:outcome==='lost'?reason:null,
+      penaltyType:penalty?.type??null,
+    }].slice(-12),
     scenePlan:null,chainSession:null,chainDepth:0,
-    tension:skipped?state.tension:Math.max(8,state.tension-28),
+    tension:outcome==='won'?Math.max(8,state.tension-28):state.tension,
   }
 }

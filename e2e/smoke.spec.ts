@@ -589,7 +589,7 @@ async function primeEligibleBoss(page:Page) {
   await expect(page.locator('.card-text')).not.toBeEmpty()
 }
 
-test('AI Boss grows from real game history, survives reload and can be skipped without penalty',async({page})=>{
+test('AI Boss refusal records defeat and next-turn penalty after save and resume',async({page})=>{
   let bossCalls=0
   await page.route('**/game/boss',async route=>{
     bossCalls++
@@ -621,7 +621,9 @@ test('AI Boss grows from real game history, survives reload and can be skipped w
   await expect(page.locator('.boss-card h2')).toHaveText('Возвращение ночного ведущего')
   await expect(page.locator('.boss-kicker')).toContainText('AI BOSS EVENT')
   await expect(page.locator('.boss-progress')).toHaveText('1 / 3')
-  const first=await page.locator('.boss-card p').innerText()
+  await expect(page.locator('.boss-stakes-notice')).toContainText('НА КОНУ')
+  await expect(page.locator('.boss-stakes-notice')).toContainText('Штрафный ход')
+  const first=await page.locator('.boss-card > p').innerText()
   expect(first.length).toBeGreaterThan(40)
   await page.waitForFunction(()=>{
     const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
@@ -631,22 +633,47 @@ test('AI Boss grows from real game history, survives reload and can be skipped w
   await page.getByRole('button',{name:'Мне есть 18'}).click()
   await page.locator('button.resume-card').click()
   await expect(page.locator('.boss-card h2')).toHaveText('Возвращение ночного ведущего')
-  await expect(page.locator('.boss-card p')).toHaveText(first)
-  await page.getByRole('button',{name:'Следующая фаза'}).click()
+  await expect(page.locator('.boss-card > p')).toHaveText(first)
+  await page.getByRole('button',{name:'Фаза выполнена'}).click()
   await expect(page.locator('.boss-progress')).toHaveText('2 / 3')
-  await expect(page.locator('.boss-card p')).not.toHaveText(first)
+  await expect(page.locator('.boss-card > p')).not.toHaveText(first)
   const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')?.director?.tension)
-  await page.getByRole('button',{name:'Пропустить кульминацию'}).click()
-  await expectRiskScreen(page)
+  await page.getByRole('button',{name:'Сдаться — поражение'}).click()
+  await expect(page.locator('.boss-result-card h2')).toHaveText('BOSS ВЫИГРАЛ')
+  await expect(page.locator('.boss-result-card')).toContainText('ШТРАФ ЗА ПРОИГРЫШ')
+  await expect(page.locator('.boss-result-card')).toContainText('ПОРАЖЕНИЯ: 1')
   await page.waitForFunction(()=>{
     const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
-    return s?.director?.bossHistory?.at(-1)?.outcome==='skipped'
+    return s?.director?.bossHistory?.at(-1)?.outcome==='lost'
+      &&s?.director?.pendingBossPenalty?.type==='dare'
+      &&s?.view==='boss-result'
   })
-  const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
-  expect(after.director.tension).toBe(before)
-  expect(after.director.bossHistory.at(-1).mechanics).toEqual([
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.boss-result-card')).toContainText('ШТРАФ ЗА ПРОИГРЫШ')
+  const result=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  expect(result.director.tension).toBe(before)
+  expect(result.director.bossHistory.at(-1).reason).toBe('forfeit')
+  expect(result.director.bossHistory.at(-1).mechanics).toEqual([
     'night-callback','double-improv','ensemble-remix',
   ])
+  expect(result.director.bossScore[0].losses).toBe(1)
+  await page.getByRole('button',{name:'Продолжить игру'}).click()
+  await expectRiskScreen(page)
+  // The loser is player 0; player 1's normal turn happens first.
+  await page.getByRole('button',{name:'Риск 1'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await expectRiskScreen(page)
+  await expect(page.locator('.risk-panel .boss-stakes-notice')).toContainText('ШТРАФ')
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await expect(page.locator('.card-topline')).toContainText('ДЕЙСТВИЕ')
+  await expect(page.locator('.boss-stakes-inline')).toContainText('ШТРАФНЫЙ ХОД')
+  const penalized=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  expect(penalized.director.pendingBossPenalty).toBeNull()
+  expect(penalized.appliedBossPenalty?.type).toBe('dare')
+  expect(penalized.currentRisk).toBe(2)
   expect(bossCalls).toBe(1)
 })
 
@@ -658,20 +685,26 @@ test('an unavailable AI Boss immediately falls back to a playable local 3-phase 
   await primeEligibleBoss(page)
   await page.getByRole('button',{name:/Выполнено/}).click()
   await expect(page.locator('.boss-card .boss-progress')).toHaveText('1 / 3')
-  await expect(page.locator('.boss-card p')).not.toBeEmpty()
+  await expect(page.locator('.boss-card > p')).not.toBeEmpty()
   await expect(page.locator('.boss-kicker')).not.toContainText('AI BOSS EVENT')
   await page.waitForFunction(()=>{
     const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
     return s?.boss?.aiGenerated===false
   })
-  await page.getByRole('button',{name:'Следующая фаза'}).click()
+  await page.getByRole('button',{name:'Фаза выполнена'}).click()
   await expect(page.locator('.boss-progress')).toHaveText('2 / 3')
-  await page.getByRole('button',{name:'Следующая фаза'}).click()
+  await page.getByRole('button',{name:'Фаза выполнена'}).click()
   await expect(page.locator('.boss-progress')).toHaveText('3 / 3')
-  await page.getByRole('button',{name:'Завершить'}).click()
-  await expectRiskScreen(page)
+  await page.getByRole('button',{name:'Boss побеждён'}).click()
+  await expect(page.locator('.boss-result-card h2')).toHaveText('BOSS ПОВЕРЖЕН')
+  await expect(page.locator('.boss-result-card')).toContainText('ПОБЕДЫ: 1')
   await page.waitForFunction(()=>{
     const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
-    return s?.director?.bossHistory?.at(-1)?.outcome==='finished'
+    return s?.director?.bossHistory?.at(-1)?.outcome==='won'
+      &&s?.director?.bossScore?.[0]?.wins===1
   })
+  const won=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  expect(won.director.pendingBossPenalty??null).toBeNull()
+  await page.getByRole('button',{name:'Продолжить игру'}).click()
+  await expectRiskScreen(page)
 })

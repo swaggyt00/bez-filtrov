@@ -11,7 +11,7 @@ import { bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDir
 import { maybeCreateCautionEvent } from './v09/director'
 import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
-import { buildBossSession, settleBoss } from './v09/bosses'
+import { bossPenaltyFor, buildBossSession, settleBoss } from './v09/bosses'
 import { requestAIBoss } from './v09/ai-boss'
 import { getActiveStoryBeat } from './v09/story'
 import { abandonUnavailableChain, beginChainSession, chainCaption, getActiveChainBeat, preferredChainTarget } from './v09/chains'
@@ -21,6 +21,9 @@ import type {
   BoundaryChoice,
   BoundaryTag,
   BossSession,
+  BossResult,
+  BossPenalty,
+  BossLossReason,
   DirectorCard,
   DirectorEvent,
   DirectorState,
@@ -168,6 +171,8 @@ function App() {
   const [pendingEvent, setPendingEvent] = useState<DirectorEvent | null>(null)
   const [boss, setBoss] = useState<BossSession | null>(null)
   const [bossPhaseIndex, setBossPhaseIndex] = useState(0)
+  const [bossResult, setBossResult] = useState<BossResult | null>(null)
+  const [appliedBossPenalty, setAppliedBossPenalty] = useState<BossPenalty | null>(null)
   const [bossBusy, setBossBusy] = useState(false)
   const bossEpoch = useRef(0)
   const [notice, setNotice] = useState('')
@@ -205,6 +210,8 @@ function App() {
       pendingEvent,
       boss,
       bossPhaseIndex,
+      bossResult,
+      appliedBossPenalty,
       aiIntro,
       aiWasUsed,
       updatedAt: Date.now(),
@@ -223,6 +230,8 @@ function App() {
     pendingEvent,
     boss,
     bossPhaseIndex,
+    bossResult,
+    appliedBossPenalty,
     aiIntro,
     aiWasUsed,
   ])
@@ -337,6 +346,8 @@ function App() {
     setPendingEvent(null)
     setBoss(null)
     setBossPhaseIndex(0)
+    setBossResult(null)
+    setAppliedBossPenalty(null)
     setNotice('')
     setScreen('game')
     sound('reveal')
@@ -407,6 +418,8 @@ function App() {
     setPendingEvent(saved.pendingEvent)
     setBoss(saved.boss)
     setBossPhaseIndex(saved.bossPhaseIndex ?? 0)
+    setBossResult(saved.bossResult ?? null)
+    setAppliedBossPenalty(saved.appliedBossPenalty ?? null)
     setNotice('')
     setScreen('game')
   }
@@ -490,9 +503,18 @@ function App() {
     const preferredMatches = beat?.preferredType === 'either'
       ? chainMatches
       : chainMatches.filter(card => card.type === beat?.preferredType)
-    const playableCandidates = chainMatches.length
+    const storyCandidates = chainMatches.length
       ? (preferredMatches.length ? preferredMatches : chainMatches)
       : candidates
+    // Defeat changes the NEXT real card, not just the score or decorative copy.
+    // Keep eligibility, selected fire, consent and pairing constraints in force.
+    const penalty = stateForTurn.pendingBossPenalty
+    const penaltyForTurn = penalty?.playerIndex === currentPlayerIndex ? penalty : null
+    const penaltyCandidates = penaltyForTurn ? storyCandidates.filter((card) =>
+      card.type===penaltyForTurn.type
+      &&cardIsEligible(card,stateForTurn,currentPlayerIndex,null,risk)) : []
+    const appliedPenalty = penaltyCandidates.length > 0 ? penaltyForTurn : null
+    const playableCandidates = appliedPenalty ? penaltyCandidates : storyCandidates
     const fallback = pickDirectorCard(playableCandidates, stateForTurn, currentPlayerIndex, null, risk)
 
     if (!fallback) {
@@ -576,7 +598,9 @@ function App() {
       ...stateForTurn,
       scenePlan: newPlan,
       chainSession: newChain,
+      pendingBossPenalty:appliedPenalty ? null : stateForTurn.pendingBossPenalty,
     })
+    setAppliedBossPenalty(appliedPenalty)
     setCurrentDirectorCard(card)
     setCurrentRisk(card.risk)
     setCurrentTargetIndex(targetIndex)
@@ -604,11 +628,13 @@ function App() {
     setPendingEvent(null)
     setBoss(null)
     setBossPhaseIndex(0)
+    setBossResult(null)
+    setAppliedBossPenalty(null)
     setView('risk')
     setNotice('')
 
     // No pop-up Events/caution interruptions in the middle of a Chain.
-    if (getActiveChainBeat(nextDirector)) return
+    if (getActiveChainBeat(nextDirector) || nextDirector.pendingBossPenalty) return
     // Safety-driven legacy caution events still work if AI is unavailable.
     // Optional creative AI events are generated at eligible intervals only.
     const caution = maybeCreateCautionEvent(nextDirector, nextPlayerIndex)
@@ -645,8 +671,9 @@ function App() {
     // Never change a phase after users have started the Boss.
     const epoch=++bossEpoch.current
     setDirectorState({ ...nextDirector, scenePlan:null, chainSession:null })
-    setBoss(buildBossSession(nextDirector))
+    setBoss({ ...buildBossSession(nextDirector),challengerIndex:currentPlayerIndex })
     setBossPhaseIndex(0)
+    setBossResult(null)
     setBossBusy(true)
     setCurrentDirectorCard(null)
     setCurrentRisk(null)
@@ -657,7 +684,7 @@ function App() {
     sound('reveal')
     const generated=await requestAIBoss(nextDirector,{timeoutMs:8500})
     if(epoch!==bossEpoch.current)return
-    if(generated)setBoss(generated)
+    if(generated)setBoss({ ...generated,challengerIndex:currentPlayerIndex })
     setBossBusy(false)
   }
 
@@ -676,6 +703,7 @@ function App() {
     )
 
     if (!skipped && bossIsReady(nextDirector)
+        && !nextDirector.pendingBossPenalty
         && !getActiveStoryBeat(nextDirector) && Math.random() < 0.5) {
       void beginBoss(nextDirector)
       return
@@ -701,14 +729,20 @@ function App() {
     sound('tap')
   }
 
-  function finishBoss(skipped:boolean) {
-    if(!boss||!settings||!directorState)return
+  function resolveBoss(outcome:'won'|'lost',reason:BossLossReason|null=null) {
+    if(!boss||!settings||!directorState||bossBusy||view!=='boss')return
     bossEpoch.current += 1
     setBossBusy(false)
-    const nextDirector=settleBoss(directorState,boss,skipped)
-    const nextPlayer=(currentPlayerIndex+1)%settings.players.length
-    void prepareNextTurn(nextDirector,nextPlayer)
-    sound('tap')
+    const challengerIndex = boss.challengerIndex ?? currentPlayerIndex
+    const nextDirector=settleBoss(directorState,boss,outcome,challengerIndex,reason)
+    const result:BossResult={
+      outcome,reason:outcome==='lost'?reason:null,challengerIndex,
+      penalty:outcome==='lost'?nextDirector.pendingBossPenalty??null:null,
+    }
+    setDirectorState(nextDirector)
+    setBossResult(result)
+    setView('boss-result')
+    sound('reveal')
   }
 
   function nextBossPhase() {
@@ -718,8 +752,14 @@ function App() {
       sound('reveal')
       return
     }
+    resolveBoss('won')
+  }
 
-    finishBoss(false)
+  function continueAfterBoss() {
+    if(!settings||!directorState||!bossResult||view!=='boss-result')return
+    const nextPlayer=(bossResult.challengerIndex+1)%settings.players.length
+    void prepareNextTurn(directorState,nextPlayer)
+    sound('tap')
   }
 
   function backToSetup() {
@@ -744,6 +784,8 @@ function App() {
     setCurrentDirectorCard(null)
     setPendingEvent(null)
     setBoss(null)
+    setBossResult(null)
+    setAppliedBossPenalty(null)
     setNotice('')
     setScreen('setup')
   }
@@ -935,7 +977,7 @@ function App() {
           <div className="effect-strip"><span>♛ {settings.players[directorState.leaderIndex]?.name} ведёт</span></div>
         )}
 
-        {view !== 'boss' && (
+        {view !== 'boss' && view !== 'boss-result' && (
           <>
             <div className="turn-label">ХОД {String(directorState.turnsPlayed + 1).padStart(2, '0')}</div>
             <h1 className="current-player">{currentPlayer.name}</h1>
@@ -956,6 +998,13 @@ function App() {
 
         {view === 'risk' && (
           <section className="risk-panel">
+            {directorState.pendingBossPenalty && (
+              <div className="boss-stakes-notice" role="status">
+                <strong>☠ ПРОИГРАННЫЙ BOSS · ШТРАФ</strong>
+                <p>{settings.players[directorState.pendingBossPenalty.playerIndex]?.name}: {directorState.pendingBossPenalty.label}</p>
+                {settings.scenario==='sex' && <small>Отказ от любого действия и остановка близости всегда возможны.</small>}
+              </div>
+            )}
             <p className="choice-kicker">{pendingEvent?.partnerChoosesRisk ? `риск выбирает ${riskChooserName}` : 'выбери риск'}</p>
             <h2>Карту увидишь<br />после выбора.</h2>
             <div className="risk-buttons">
@@ -993,6 +1042,12 @@ function App() {
               <span>{'🔥'.repeat(currentDirectorCard.risk)}</span>
             </div>
             {currentTarget && <div className="target-chip">с {currentTarget.name}</div>}
+            {appliedBossPenalty && (
+              <div className="boss-stakes-notice boss-stakes-inline">
+                <strong>☠ ШТРАФНЫЙ ХОД</strong>
+                <p>{appliedBossPenalty.label}</p>
+              </div>
+            )}
             {chainCaption(directorState!) && (
               <div className="chain-caption">
                 <strong>✦ AI CHAIN · {chainCaption(directorState!)?.title} · {chainCaption(directorState!)?.step}/4</strong>
@@ -1037,18 +1092,48 @@ function App() {
               <>
                 <div className="boss-kicker">{boss.aiGenerated ? '✦ AI BOSS EVENT' : '🔥 БЕЗ ФИЛЬТРОВ 🔥'}</div>
                 <h2>{boss.title}</h2>
+                <div className="boss-stakes-notice">
+                  <strong>НА КОНУ · {settings.players[boss.challengerIndex??currentPlayerIndex]?.name}</strong>
+                  <p>Три фазы. Победа — в статистику. Провал или отказ — поражение.</p>
+                  <p>{bossPenaltyFor(directorState,boss,boss.challengerIndex??currentPlayerIndex).label}</p>
+                </div>
                 <div className="boss-progress">{bossPhaseIndex + 1} / {boss.phases.length}</div>
-                {boss.phaseCaptions?.[bossPhaseIndex] && settings?.scenario!=='sex'
+                {boss.phaseCaptions?.[bossPhaseIndex] && settings.scenario!=='sex'
                   && <small className="boss-caption">{boss.phaseCaptions[bossPhaseIndex]}</small>}
                 <p>{boss.phases[bossPhaseIndex]}</p>
                 <button type="button" className="primary-button" onClick={nextBossPhase}>
-                  {bossPhaseIndex < boss.phases.length - 1 ? 'Следующая фаза' : 'Завершить'}
+                  {bossPhaseIndex < boss.phases.length - 1 ? 'Фаза выполнена' : 'Boss побеждён'}
                 </button>
-                <div className="secondary-actions one-action">
-                  <button type="button" onClick={() => finishBoss(true)}>Пропустить кульминацию</button>
+                <div className="secondary-actions boss-failure-actions">
+                  <button type="button" onClick={() => resolveBoss('lost','failed')}>Не справился</button>
+                  <button type="button" onClick={() => resolveBoss('lost','forfeit')}>Сдаться — поражение</button>
                 </div>
               </>
             )}
+          </section>
+        )}
+
+        {view === 'boss-result' && bossResult && (
+          <section className="boss-card boss-result-card">
+            <div className="boss-kicker">{bossResult.outcome==='won'?'✦ ПОБЕДА':'☠ ПОРАЖЕНИЕ'}</div>
+            <h2>{bossResult.outcome==='won'?'BOSS ПОВЕРЖЕН':'BOSS ВЫИГРАЛ'}</h2>
+            <p className="boss-result-player">{settings.players[bossResult.challengerIndex]?.name}</p>
+            {bossResult.outcome==='lost' && (
+              <div className="boss-stakes-notice" role="status">
+                <strong>ШТРАФ ЗА ПРОИГРЫШ</strong>
+                <p>{bossResult.penalty?.label??'Поражение записано в статистику.'}</p>
+                <small>{bossResult.reason==='forfeit'
+                  ? 'Отказ записан как поражение Boss.'
+                  : 'Невыполненная фаза записана как поражение Boss.'}</small>
+                {settings.scenario==='sex' && <small>Никакого обязательного секса или нового физического действия.</small>}
+              </div>
+            )}
+            {bossResult.outcome==='won' && <p>Три фазы пройдены. Победа записана в статистику.</p>}
+            <div className="boss-score" aria-label="Статистика Boss">
+              <span>ПОБЕДЫ: {directorState.bossScore?.[bossResult.challengerIndex]?.wins??0}</span>
+              <span>ПОРАЖЕНИЯ: {directorState.bossScore?.[bossResult.challengerIndex]?.losses??0}</span>
+            </div>
+            <button type="button" className="primary-button" onClick={continueAfterBoss}>Продолжить игру</button>
           </section>
         )}
 
