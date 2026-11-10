@@ -169,7 +169,13 @@ console.log('✓ v0.9 Sex curation, boundary and risk coverage passed')
 
 
 const threeFireTruths = fullDeck.filter((card) => card.type === 'truth' && card.risk === 3)
-assert.equal(threeFireTruths.length, 23, `three-fire Sex Truth pool must stay explicitly curated, got ${threeFireTruths.length}`)
+assert.equal(threeFireTruths.length, 31, `three-fire Sex Truth pool must stay explicitly curated, got ${threeFireTruths.length}`)
+for(const stage of [3,4] as SessionStage[]){
+  const withoutNewBoundaries=threeFireTruths.filter(card=>
+    card.stages.includes(stage) && !(card.requires?.boundaries?.length))
+  assert.ok(withoutNewBoundaries.length>=8,
+    'late 3-fire Truth must be playable without expanding mutual consent at stage '+stage)
+}
 assert.ok(
   threeFireTruths.every((card) => !card.sourceCardId),
   'legacy Sex Truths must never become three-fire just because of their index inside a family',
