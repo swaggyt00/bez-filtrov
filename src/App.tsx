@@ -473,13 +473,22 @@ function App() {
     // A future chosen risk/stage/Event can make an old story beat impossible.
     // Drop its preference without blocking any valid card or lowering the fire.
     const beat = getActiveStoryBeat(directorState)
-    const chainAvailable = !beat || candidates.some(card =>
+    // A Chain must actually change which card can appear, not merely write
+    // about its theme. Never repeat an already played card just to fake a plot.
+    const chainMatches = beat && !pendingEvent ? candidates.filter(card =>
       card.chains.includes(beat.chain)
-      && cardIsEligible(card, directorState, currentPlayerIndex, null, risk))
-    const stateForTurn = pendingEvent || !chainAvailable
+      && !directorState.history.slice(-6).some(entry => entry.cardId === card.id)
+      && cardIsEligible(card, directorState, currentPlayerIndex, null, risk)) : []
+    const stateForTurn = pendingEvent || (beat && chainMatches.length === 0)
       ? abandonUnavailableChain(directorState)
       : directorState
-    const fallback = pickDirectorCard(candidates, stateForTurn, currentPlayerIndex, null, risk)
+    const preferredMatches = beat?.preferredType === 'either'
+      ? chainMatches
+      : chainMatches.filter(card => card.type === beat?.preferredType)
+    const playableCandidates = chainMatches.length
+      ? (preferredMatches.length ? preferredMatches : chainMatches)
+      : candidates
+    const fallback = pickDirectorCard(playableCandidates, stateForTurn, currentPlayerIndex, null, risk)
 
     if (!fallback) {
       setNotice(
@@ -493,7 +502,7 @@ function App() {
     const epoch = ++aiEpoch.current
     aiBusyRef.current = true
     setAiBusy(true)
-    const shortlist = createAIDirectorShortlist(candidates, stateForTurn, currentPlayerIndex, risk)
+    const shortlist = createAIDirectorShortlist(playableCandidates, stateForTurn, currentPlayerIndex, risk)
     const aiChoice = await requestAIDirectorChoice(
       stateForTurn, risk, shortlist, {
         forceCondition: forcedModifierCount > 0,
