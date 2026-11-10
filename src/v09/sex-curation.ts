@@ -139,7 +139,7 @@ export function curateSexLegacyCard(source: GameCard, base: DirectorCard): Direc
   // A one-fire Dare must also not silently become direct sexual contact just
   // because the players progressed to a later stage.
   const directAct = source.sexualAction
-    || boundaries.some(tag => [
+    || boundaries?.some(tag => [
       'manual','oral','penetration','anal','edging','spanking','bondage','dom-sub',
       'toys',
     ].includes(tag))
