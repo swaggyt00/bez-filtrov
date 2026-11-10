@@ -10,12 +10,13 @@ import { eligibleTargetIndices } from '../src/deck'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
 import { curatedHighRiskCards } from '../src/v09/curated-risk-three'
 import { curatedSexLowRiskCards } from '../src/v09/curated-sex-breathers'
+import { socialCallbackCards } from '../src/v09/social-dynamics'
 import { sexNativeCards } from '../src/v09/sex-native'
 import { cardIsEligible, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from '../src/v09/director'
 import type { BoundaryTag, DirectorCard, RiskLevel } from '../src/v09/types'
 import type { GameCard, Player, Scenario } from '../src/types'
 
-const fullDeck=[...adaptLegacyDeck(cards),...sexNativeCards,...curatedHighRiskCards,...curatedSexLowRiskCards]
+const fullDeck=[...adaptLegacyDeck(cards),...sexNativeCards,...curatedHighRiskCards,...curatedSexLowRiskCards, ...socialCallbackCards]
 const sourceById=new Map(cards.map(card=>[card.id,card]))
 const byMode=new Map<Scenario,DirectorCard[]>((
   ['party','afterdark','couple','sex'] as Scenario[]

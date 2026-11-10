@@ -641,18 +641,21 @@ test('AI Boss refusal records defeat and next-turn penalty after save and resume
     expect(payload.playersCount).toBe(2)
     expect(payload.recent.length).toBeGreaterThanOrEqual(4)
     expect(payload.chainOutcomes.at(-1)?.result).toBe('finished')
-    expect(payload.allowedMechanics[0]).toContain('night-callback')
+    expect(payload.allowedMechanics[0]).toHaveLength(5)
+    expect(payload.allowedMechanics[0]).toContain('volunteer-spotlight')
+    expect(payload.allowedMechanics[1]).toContain('mask-swap')
+    expect(payload.allowedMechanics[2]).toContain('midnight-verdict')
     expect(JSON.stringify(payload)).not.toContain('Игрок 1')
     expect(JSON.stringify(payload)).not.toContain('Ночная эстафета')
     await route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({
         title:'Возвращение ночного ведущего',
         phases:[
-          {mechanic:'night-callback',role:'last-actor',
+          {mechanic:'volunteer-spotlight',role:'last-actor',
             caption:'Прошлая история возвращается в неожиданном жанре.'},
-          {mechanic:'double-improv',role:'last-target',
+          {mechanic:'mask-swap',role:'last-target',
             caption:'Теперь прежняя инициатива меняет хозяина.'},
-          {mechanic:'ensemble-remix',role:'all',
+          {mechanic:'midnight-verdict',role:'all',
             caption:'Финал собирает необычные моменты вечера.'},
         ],
       }),
@@ -698,7 +701,7 @@ test('AI Boss refusal records defeat and next-turn penalty after save and resume
   expect(result.director.tension).toBe(before)
   expect(result.director.bossHistory.at(-1).reason).toBe('forfeit')
   expect(result.director.bossHistory.at(-1).mechanics).toEqual([
-    'night-callback','double-improv','ensemble-remix',
+    'volunteer-spotlight','mask-swap','midnight-verdict',
   ])
   expect(result.director.bossScore[0].losses).toBe(1)
   await page.getByRole('button',{name:'Продолжить игру'}).click()

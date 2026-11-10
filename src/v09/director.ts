@@ -114,6 +114,7 @@ export function cardIsEligible(
   if (card.scenario !== state.scenario) return false
   if (!card.stages.includes(state.sessionStage)) return false
   if (card.risk !== risk) return false
+  if (card.minCompletedTurns && state.history.filter(entry=>!entry.skipped).length<card.minCompletedTurns) return false
   if ((card.requires?.minPlayers ?? 2) > state.players.length) return false
   if (!hasRequiredBoundaries(card, state)) return false
   if (!clothingAllowed(card, state, actorIndex, targetIndex)) return false
@@ -134,6 +135,13 @@ export function scoreCard(card: DirectorCard, state: DirectorState) {
   const primary = card.chains[0]
   const beat = getActiveStoryBeat(state)
   let score = 0
+
+  // In an already-established intimacy thread, prefer gentle continuations
+  // over abrupt low-risk topic switches. This never changes the chosen fire,
+  // boundaries or stage and never overrides an active three-beat AI Chain.
+  if (state.scenario === 'sex' && state.sessionStage >= 2
+      && pacing.intent === 'develop' && !beat
+      && card.risk === 1 && card.sceneBridge) score += 62
 
   // A previous AI choice can guide the next three beats even across
   // provider outages. A plan is only a preference, never an eligibility gate.
@@ -359,8 +367,15 @@ export function completeTurn(
 
   if (!skipped) {
     const primary = card.nextHooks?.[0] ?? card.chains[0] ?? null
-    next.chainDepth = primary && primary === state.chainFamily ? state.chainDepth + 1 : primary ? 1 : 0
-    next.chainFamily = primary
+    // A gentle low-risk bridge should not "rewind" a mutually agreed
+    // physical scene into an unrelated conversational chain. Nor should it
+    // fake progress through a new physical action or escalation.
+    const keepScene = state.scenario === 'sex' && state.sessionStage >= 2
+      && card.sceneBridge && planDirectorPacing(state).intent === 'develop'
+    next.chainDepth = keepScene
+      ? state.chainDepth
+      : primary && primary === state.chainFamily ? state.chainDepth + 1 : primary ? 1 : 0
+    next.chainFamily = keepScene ? state.chainFamily : primary
     if ('position' in (card.effects ?? {})) next.currentPosition = card.effects?.position ?? null
     if (card.effects?.leader === 'actor') next.leaderIndex = actorIndex
     if (card.effects?.leader === 'target') next.leaderIndex = targetIndex

@@ -1,9 +1,11 @@
 import { buildAIDirectorRequest } from '../src/v09/ai-director'
 import {
-  bossIsReady, completeTurn, createDirectorState, pickDirectorCard,
+  bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDirectorCard,
   pickDirectorTarget, scoreCard,
 } from '../src/v09/director'
 import { eventRollIsDue } from '../src/v09/ai-events'
+import { curatedSexLowRiskCards } from '../src/v09/curated-sex-breathers'
+import { socialCallbackCards } from '../src/v09/social-dynamics'
 import { planDirectorPacing } from '../src/v09/pacing'
 import type { DirectorCard, DirectorState } from '../src/v09/types'
 import type { Player } from '../src/types'
@@ -72,6 +74,42 @@ const intimacyRequest=buildAIDirectorRequest(sex,2,[
   {card:kissing,score:42},{card:card('question',{scenario:'sex',chains:['confession'],stages:[2]}),score:10},
 ])
 assert.equal(intimacyRequest.allowCondition,false,'optional modifier must be disabled mid-scene')
+
+// A gentle card may interrupt the app but must not abruptly terminate an
+// ongoing *consented* intimacy thread or invent new physical progress.
+const sceneBridge=curatedSexLowRiskCards.find(x=>x.sceneBridge)
+assert.ok(sceneBridge,'at least one low-fire continuation should exist')
+const unrelated=card('unrelated-low',{scenario:'sex',risk:1,type:'dare',
+  chains:['conversation'],stages:[2,3,4]})
+assert.ok(scoreCard(sceneBridge!,sex)>scoreCard(unrelated,sex),
+  'in-scene Dare preferred over switching to an interview after physical contact')
+const afterBridge=completeTurn(sex,sceneBridge!,0,1,1)
+assert.equal(afterBridge.chainFamily,sex.chainFamily,
+  'a gentle bridge cannot silently reset an already consensual intimate scene')
+assert.equal(afterBridge.chainDepth,sex.chainDepth,
+  'gentle bridge is not fake progress through physical intimacy')
+assert.equal(afterBridge.currentPosition,sex.currentPosition,
+  'soft bridge cannot assume participants changed physical position')
+const afterBridgeSkip=completeTurn(sex,sceneBridge!,0,1,1,true)
+assert.equal(afterBridgeSkip.chainFamily,null,'skip still immediately cancels thread')
+assert.equal(afterBridgeSkip.sessionStage,sex.sessionStage,
+  'refusal cannot force stage escalation')
+
+// A social callback must have real completed history, not made-up backstory.
+const callback=socialCallbackCards.find(x=>x.scenario==='party')!
+const empty=createDirectorState('party',players)
+assert.equal(cardIsEligible(callback,empty,0,null,2),false,
+  'a previous-round callback is ineligible before anyone has played')
+let socialHistory=empty
+for(let i=0;i<3;i++)socialHistory=completeTurn(socialHistory,card('played-'+i),i,null,2)
+assert.equal(cardIsEligible(callback,socialHistory,0,null,2),true,
+  'social comeback becomes eligible only after three actual completed rounds')
+assert.equal(cardIsEligible(callback,socialHistory,0,null,1),false,
+  'new social card cannot change requested fire intensity')
+let allSkipped=empty
+for(let i=0;i<4;i++)allSkipped=completeTurn(allSkipped,card('skip-'+i),i%4,null,2,true)
+assert.equal(cardIsEligible(callback,allSkipped,0,null,2),false,
+  'skipped actions are not invented as completed social stories')
 
 // Low-risk sex must not automatically escalate through hidden stages just
 // because many cards were completed; one higher risk is a voluntary choice.
