@@ -11,7 +11,8 @@ import type {
 // One backend for ARCAnum and Без Фильтров, with a separate game-only route.
 // The key lives exclusively in Cloudflare; never ship GROQ_API_KEY to GitHub Pages.
 export const AI_DIRECTOR_ENDPOINT = 'https://arcanum-tarot-ai.kunicin27522.workers.dev/game/director'
-const REQUEST_TIMEOUT_MS = 3200
+// Allow one fast provider switch (Groq -> Gemini) before local fallback.
+const REQUEST_TIMEOUT_MS = 10500
 
 export interface AIDirectorChoice {
   card: DirectorCard

@@ -1,7 +1,8 @@
 import type { DirectorCard, DirectorState, TurnModifier } from './types'
 
 export const AI_MODIFIER_ENDPOINT = 'https://arcanum-tarot-ai.kunicin27522.workers.dev/game/modifier'
-const REQUEST_TIMEOUT_MS = 5800
+// Generation + independent safety review may each switch provider.
+const REQUEST_TIMEOUT_MS = 19000
 
 /** Categories are creative directions, NOT a list of prepared conditions. */
 export type DifficultyAxis = 'specificity' | 'reasoning' | 'verbal-rule'
