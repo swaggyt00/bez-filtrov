@@ -5,7 +5,7 @@ import {
 } from '../src/v09/director'
 import { eventRollIsDue } from '../src/v09/ai-events'
 import { planDirectorPacing } from '../src/v09/pacing'
-import type { DirectorCard } from '../src/v09/types'
+import type { DirectorCard, DirectorState } from '../src/v09/types'
 import type { Player } from '../src/types'
 
 const assert = {
@@ -85,7 +85,7 @@ assert.equal(slow.sessionStage,1,'explicit accepted higher-risk turn can unlock 
 
 // A Boss isn't triggered from high tension and counters alone; it needs recent
 // completed turns and actual group participation.
-let bosses={...createDirectorState('party',players),sessionStage:2 as const,
+let bosses: DirectorState={...createDirectorState('party',players),sessionStage:2,
   tension:80,chainDepth:3,chainFamily:'social' as const,turnsPlayed:9,lastBossTurn:0}
 assert.equal(bossIsReady(bosses),false,'raw tension/counters alone must not cause a Boss')
 for(let i=0;i<4;i++)bosses=completeTurn(bosses,card('boss-'+i),0,1,2)
