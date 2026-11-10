@@ -83,6 +83,9 @@ assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,
 assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,shortlist,
   {beats:[...planDraft.beats.slice(0,2),{...planDraft.beats[2],chain:'chaos'}]}),null,
   'the payoff must return to the actual opening theme')
+assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,shortlist,
+  {beats:[planDraft.beats[0],{...planDraft.beats[1],chain:'social'},planDraft.beats[2]]}),null,
+  'a social twist must actually change themes when an eligible contrast exists')
 
 // Sex scenes are kept within the current physical activity family; new
 // intimate practices may never be silently introduced by the story planner.
