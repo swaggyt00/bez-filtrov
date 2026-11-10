@@ -5,9 +5,10 @@ import { eligibleTargetIndices, hydrateCardText, renderCardText, validateScenari
 import { loadSettings as loadLegacySettings } from './storage'
 import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from './types'
 import { adaptLegacyDeck } from './v09/legacy-adapter'
+import { curatedHighRiskCards } from './v09/curated-risk-three'
 import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
 import { requestAIModifier } from './v09/ai-modifier'
-import { bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDirectorCard, pickDirectorTarget, tickEffects } from './v09/director'
+import { bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDirectorCard, pickDirectorTarget, preferUnseenDirectorCards, tickEffects } from './v09/director'
 import { maybeCreateCautionEvent } from './v09/director'
 import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
@@ -121,7 +122,7 @@ const sexStartLabels: Record<SexStartState, string> = {
   nude: 'Раздеты',
 }
 
-const directorDeck = [...adaptLegacyDeck(cards), ...sexNativeCards]
+const directorDeck = [...adaptLegacyDeck(cards), ...sexNativeCards, ...curatedHighRiskCards]
 const directorById = new Map(directorDeck.map((card) => [card.id, card]))
 const sourceById = new Map(cards.map((card) => [card.id, card]))
 
@@ -488,33 +489,34 @@ function App() {
     const candidates = forcedModifierCount > 0
       ? baseCandidates.filter((card) => eligibleTurnModifiers(card, directorState).length >= forcedModifierCount)
       : baseCandidates
-    // A future chosen risk/stage/Event can make an old story beat impossible.
-    // Drop its preference without blocking any valid card or lowering the fire.
+    // The chosen fire, stage, consent and any active penalty are nonnegotiable.
+    // First select eligible cards, then avoid repeats across the FULL pool;
+    // never let a narrow Chain preference reintroduce old cards.
+    const riskCandidates = candidates.filter(card =>
+      cardIsEligible(card, directorState, currentPlayerIndex, null, risk))
+    const penalty = directorState.pendingBossPenalty
+    const penaltyForTurn = penalty?.playerIndex === currentPlayerIndex ? penalty : null
+    const compatiblePenaltyCards = penaltyForTurn
+      ? riskCandidates.filter(card => card.type === penaltyForTurn.type)
+      : []
+    const appliedPenalty = compatiblePenaltyCards.length > 0 ? penaltyForTurn : null
+    const eligiblePool = appliedPenalty ? compatiblePenaltyCards : riskCandidates
+    const freshPool = preferUnseenDirectorCards(eligiblePool, directorState)
+
+    // A scripted next beat is a strong preference among fresh eligible cards,
+    // not a reason to show a recently completed challenge again.
     const beat = getActiveStoryBeat(directorState)
-    // A Chain must actually change which card can appear, not merely write
-    // about its theme. Never repeat an already played card just to fake a plot.
-    const chainMatches = beat && !pendingEvent ? candidates.filter(card =>
-      card.chains.includes(beat.chain)
-      && !directorState.history.slice(-6).some(entry => entry.cardId === card.id)
-      && cardIsEligible(card, directorState, currentPlayerIndex, null, risk)) : []
+    const chainMatches = beat && !pendingEvent ? freshPool.filter(card =>
+      card.chains.includes(beat.chain)) : []
     const stateForTurn = pendingEvent || (beat && chainMatches.length === 0)
       ? abandonUnavailableChain(directorState)
       : directorState
     const preferredMatches = beat?.preferredType === 'either'
       ? chainMatches
       : chainMatches.filter(card => card.type === beat?.preferredType)
-    const storyCandidates = chainMatches.length
+    const playableCandidates = chainMatches.length
       ? (preferredMatches.length ? preferredMatches : chainMatches)
-      : candidates
-    // Defeat changes the NEXT real card, not just the score or decorative copy.
-    // Keep eligibility, selected fire, consent and pairing constraints in force.
-    const penalty = stateForTurn.pendingBossPenalty
-    const penaltyForTurn = penalty?.playerIndex === currentPlayerIndex ? penalty : null
-    const penaltyCandidates = penaltyForTurn ? storyCandidates.filter((card) =>
-      card.type===penaltyForTurn.type
-      &&cardIsEligible(card,stateForTurn,currentPlayerIndex,null,risk)) : []
-    const appliedPenalty = penaltyCandidates.length > 0 ? penaltyForTurn : null
-    const playableCandidates = appliedPenalty ? penaltyCandidates : storyCandidates
+      : freshPool
     const fallback = pickDirectorCard(playableCandidates, stateForTurn, currentPlayerIndex, null, risk)
 
     if (!fallback) {
