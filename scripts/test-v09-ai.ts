@@ -40,6 +40,15 @@ const shortlist = createAIDirectorShortlist([...valid,...invalid],state,0,3)
 assert.equal(shortlist.length,valid.length,'shortlist should reject all ineligible cards')
 assert.ok(shortlist.every(x=>valid.some(y=>y.id===x.card.id)))
 assert.ok(shortlist.some(x=>x.card.type==='truth'),'shortlist should include a different card type')
+const previouslyPlayed={...state,history:[{
+  cardId:valid[0].id,type:'dare' as const,risk:3 as const,
+  playerIndex:0,targetIndex:1,chains:['tease' as const],skipped:false,
+}]}
+const safeShortlist=createAIDirectorShortlist(valid,previouslyPlayed,0,3)
+assert.ok(!safeShortlist.some(entry=>entry.card.id===valid[0].id),
+  'AI must not be offered a recently played ID when alternatives exist')
+assert.equal(safeShortlist.length,3,'all fresh risk-compatible candidates remain available')
+
 
 const payload=buildAIDirectorRequest(state,3,shortlist)
 const bodyText=JSON.stringify(payload)
