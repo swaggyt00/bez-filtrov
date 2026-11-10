@@ -479,7 +479,10 @@ function App() {
     setAiBusy(true)
     const shortlist = createAIDirectorShortlist(candidates, directorState, currentPlayerIndex, risk)
     const aiChoice = await requestAIDirectorChoice(
-      directorState, risk, shortlist, { forceCondition: forcedModifierCount > 0 },
+      directorState, risk, shortlist, {
+        forceCondition: forcedModifierCount > 0,
+        actorIndex: currentPlayerIndex,
+      },
     )
     if (epoch !== aiEpoch.current) return
 
