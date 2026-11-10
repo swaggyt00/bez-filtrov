@@ -188,7 +188,7 @@ try {
   let directorUnavailableStatus=null
   await page.route('**/game/director',async route=>{
     const request=route.request().postDataJSON()
-    const performanceCardId='v09:afterdark-light-dare-002'
+    const performanceCardId='v09:afterdark-light-dare-015'
     if(!request.candidates.some((item)=>item.id===performanceCardId)){
       throw new Error('Known performance challenge is no longer in the allowed shortlist')
     }
