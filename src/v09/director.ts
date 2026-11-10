@@ -137,8 +137,10 @@ export function scoreCard(card: DirectorCard, state: DirectorState) {
   // A previous AI choice can guide the next three beats even across
   // provider outages. A plan is only a preference, never an eligibility gate.
   if (beat) {
-    if (card.chains.includes(beat.chain)) score += beat.phase === 'payoff' ? 90 : 75
-    if (beat.preferredType !== 'either' && card.type === beat.preferredType) score += 22
+    if (card.chains.includes(beat.chain)) {
+      score += beat.phase === 'payoff' ? 125 : beat.phase === 'twist' ? 115 : 85
+    }
+    if (beat.preferredType !== 'either' && card.type === beat.preferredType) score += 30
   }
 
   // The Director explicitly decides whether to develop a scene or change it.
