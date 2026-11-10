@@ -221,6 +221,9 @@ export interface DirectorCard {
   nextHooks?: ChainFamily[]
   sourceCardId?: string
   targetRequired?: boolean
+  // A low-risk bridge inside an ongoing Sex scene keeps the existing
+  // mutually agreed thread, without claiming a new physical action.
+  sceneBridge?: boolean
 }
 
 export interface DirectorEvent {
