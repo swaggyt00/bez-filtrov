@@ -1,5 +1,7 @@
 import type { Scenario } from '../types'
 import { cardIsEligible, scoreCard } from './director'
+import { planDirectorPacing } from './pacing'
+import type { DirectorPacingPlan } from './pacing'
 import type {
   ChainFamily,
   DirectorCard,
@@ -44,7 +46,8 @@ export interface AIDirectorRequest {
     actorIndex: number
   }>
   actorIndex: number
-  players: Array<{ index: number; lastRisks: RiskLevel[]; skippedRecent: number }>
+  players: Array<{ index: number; lastRisks: RiskLevel[]; skippedRecent: number; targetedRecent: number }>
+  pacing: DirectorPacingPlan
   events: Array<{ turn: number; title: string; mechanics: string[]; accepted: boolean }>
   allowCondition: boolean
   forceCondition: boolean
@@ -105,8 +108,9 @@ export function buildAIDirectorRequest(
   forceCondition = false,
   actorIndex = 0,
 ): AIDirectorRequest {
+  const pacing = planDirectorPacing(state)
   const recentlyHadCondition = state.history.slice(-2).some((entry) => (entry.modifierCount ?? 0) > 0)
-  const allowCondition = forceCondition || (risk >= 2 && !recentlyHadCondition)
+  const allowCondition = forceCondition || (risk >= 2 && !recentlyHadCondition && !pacing.suppressOptionalModifier)
   return {
     version: 1,
     scenario: state.scenario,
@@ -124,10 +128,12 @@ export function buildAIDirectorRequest(
       actorIndex: entry.playerIndex,
     })),
     actorIndex,
+    pacing,
     players: state.players.map((player, index) => ({
       index,
       lastRisks: player.riskHistory.slice(-5),
       skippedRecent: state.history.slice(-12).filter((entry) => entry.playerIndex === index && entry.skipped).length,
+      targetedRecent: state.history.slice(-16).filter((entry) => !entry.skipped && entry.targetIndex === index).length,
     })),
     events: (state.eventHistory ?? []).slice(-6).map((entry) => ({
       turn: entry.turn, title: entry.title.slice(0, 55),
@@ -165,10 +171,11 @@ export async function requestAIDirectorChoice(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS)
   try {
+    const payload = buildAIDirectorRequest(state, risk, shortlist, options.forceCondition, options.actorIndex)
     const response = await (options.fetcher ?? fetch)(options.endpoint ?? AI_DIRECTOR_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildAIDirectorRequest(state, risk, shortlist, options.forceCondition, options.actorIndex)),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     })
     if (!response.ok) return null
@@ -187,8 +194,7 @@ export async function requestAIDirectorChoice(
     const intro = typeof body.intro === 'string'
       ? body.intro.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
       : ''
-    const conditionAllowed = options.forceCondition || (risk >= 2
-      && !state.history.slice(-2).some((entry) => (entry.modifierCount ?? 0) > 0))
+    const conditionAllowed = payload.allowCondition
     return {
       card: selected.card,
       intro,
