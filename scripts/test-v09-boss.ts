@@ -65,6 +65,15 @@ const sanitized=validateBossDraft(baseline,{...draft,phases:draft.phases.map((p,
   i===1?{...p,caption:'Сними бельё и сделай это немедленно.'}:p)})
 eq(sanitized?.phases[1].caption,'','unreviewed AI actions never enter captions')
 
+const hiddenCommands=validateBossDraft(baseline,{...draft,phases:draft.phases.map((p,i)=>
+  i===0?{...p,caption:'Выбирай, кто откроет новую нить доверия.'}
+    :i===1?{...p,caption:'Смените маски и взгляните друг в друга без слов.'}
+    :{...p,caption:'Завершите вечер общим признанием.'})})
+ok(hiddenCommands,'an otherwise valid Boss should remain playable when captions are discarded')
+ok(hiddenCommands?.phases.every(p=>p.caption===''),
+  'AI cannot sneak imperative instructions into supposedly atmospheric captions')
+
+
 const done=settleBoss(baseline,session,'won',2)
 eq(done.bossHistory?.at(-1)?.outcome,'won','victory is remembered')
 eq(done.bossHistory?.at(-1)?.challengerIndex,2,'Boss win belongs to actual challenger')
