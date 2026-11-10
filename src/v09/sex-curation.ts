@@ -128,14 +128,26 @@ export function curateSexLegacyCard(source: GameCard, base: DirectorCard): Direc
   const patternedRisk = source.type === 'truth'
     ? pickRisk(themeProfile.truthRisk, index)
     : pickRisk(themeProfile.dareRisk, index)
-  // Legacy Truths were written before per-turn risk existed. None of them are allowed
-  // to become a three-fire reveal by position inside a family. Risk-3 Truths are
-  // curated natively below so every one is intentionally uncomfortable/revealing.
+  const boundaries = mergeBoundaries(base.requires?.boundaries, themeProfile.boundaries)
+
+  // The 2026 risk-3 Dare lottery used "id modulo family size" to promote
+  // arbitrary legacy actions. After a long session, 🔥🔥🔥 consequently often
+  // meant the same action as 🔥 or 🔥🔥 with a longer timer.
+  //
+  // These cards were never individually reviewed for three-fire stakes.
+  // Only the explicitly authored native high-risk pool may produce risk 3.
+  // A one-fire Dare must also not silently become direct sexual contact just
+  // because the players progressed to a later stage.
+  const directAct = source.sexualAction
+    || boundaries?.some(tag => [
+      'manual','oral','penetration','anal','edging','spanking','bondage','dom-sub',
+      'toys',
+    ].includes(tag))
+    || /(?:дроч|минет|кунилинг|вагинальн|проникнов|занимайтесь сексом|трах)/i.test(base.text)
   const risk = source.type === 'truth'
     ? Math.min(patternedRisk, 2) as RiskLevel
-    : patternedRisk
+    : Math.max(directAct ? 2 : 1, Math.min(patternedRisk, 2)) as RiskLevel
 
-  const boundaries = mergeBoundaries(base.requires?.boundaries, themeProfile.boundaries)
   const effects = {
     ...(base.effects ?? {}),
     ...(themeProfile.tensionDelta ? { tensionDelta: themeProfile.tensionDelta } : {}),

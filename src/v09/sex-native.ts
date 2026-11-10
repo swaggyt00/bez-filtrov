@@ -106,7 +106,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'manual-01',
     'dare',
-    1,
+    2,
     [3, 4],
     ['manual'],
     'Если оба согласны, одну минуту ласкай гениталии {{other.gen}} рукой в одном спокойном ритме. {{other.nom}} может в любой момент изменить темп словами.',
@@ -124,7 +124,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'manual-03',
     'dare',
-    3,
+    2,
     [3, 4],
     ['manual'],
     'Если оба согласны, три минуты {{other.g:дрочи его пенис|ласкай её вульву и клитор}}. Не меняй ритм без прямой команды {{other.gen}}.',
@@ -153,7 +153,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'oral-01',
     'dare',
-    1,
+    2,
     [3, 4],
     ['oral'],
     'Если оба согласны, одну минуту делай {{other.g:минет|кунилингус}} в медленном темпе. Тот, кого ласкают, говорит только «быстрее», «медленнее» или «стоп».',
@@ -200,7 +200,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'penetration-prep-01',
     'dare',
-    1,
+    2,
     [3],
     ['position'],
     'Если вагинальное проникновение разрешено, примите миссионерскую позу и одну минуту двигайтесь и целуйтесь без проникновения.',
@@ -229,7 +229,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'domsub-01',
     'dare',
-    1,
+    2,
     [3],
     ['dom-sub', 'control'],
     'Если dom/sub разрешён, {{other.nom}} выбирает твоё положение — стоя, сидя или на коленях — и ты остаёшься в нём одну минуту.',
@@ -307,7 +307,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'feet-02',
     'dare',
-    3,
+    2,
     [3],
     ['fetish', 'control'],
     'Если foot fetish разрешён, {{other.nom}} две минуты решает, где именно ты касаешься и целуешь стопы и ноги, а ты следуешь только этим указаниям.',
@@ -318,7 +318,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'roleplay-01',
     'dare',
-    1,
+    2,
     [3],
     ['roleplay'],
     'Если ролевые сценарии разрешены, сыграйте две минуты как незнакомцы, которые только что оказались вдвоём в гостиничном номере. Не выходите из роли.',
@@ -347,7 +347,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'edging-01',
     'dare',
-    1,
+    2,
     [3, 4],
     ['edging'],
     'Если edging разрешён, выберите один разрешённый способ стимуляции — руками, орально или проникновением. Доведи {{other.acc}} заметно ближе к оргазму выбранным способом, затем полностью остановись на тридцать секунд.',
@@ -365,7 +365,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'edging-03',
     'dare',
-    3,
+    2,
     [4],
     ['edging', 'control'],
     'Если edging разрешён, сделайте три цикла подряд. Каждый раз {{other.nom}} сам говорит, когда остановиться, а последний цикл заканчивается только по его команде.',
@@ -385,7 +385,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'anal-02',
     'dare',
-    3,
+    2,
     [3],
     ['fetish', 'control'],
     'Если анальные практики разрешены, {{other.nom}} полностью управляет темпом внешних прикосновений вокруг анальной зоны две минуты и сам решает, когда остановиться.',
@@ -396,7 +396,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'sex-missionary-01',
     'dare',
-    1,
+    2,
     [4],
     ['sex', 'position'],
     'Если вагинальное проникновение разрешено, занимайтесь сексом в миссионерской позе две минуты в спокойном темпе. Не меняйте позу до конца эпизода.',
@@ -405,7 +405,7 @@ export const sexNativeCards: DirectorCard[] = [
   native(
     'sex-spoons-01',
     'dare',
-    1,
+    2,
     [4],
     ['sex', 'position'],
     'Если вагинальное проникновение разрешено, занимайтесь вагинальным сексом в позе «ложки» три минуты. Тот, в кого проникают, задаёт глубину и скорость.',
@@ -683,6 +683,51 @@ export const sexNativeCards: DirectorCard[] = [
     ['confession'],
     'Какое сексуальное действие, которого между вами ещё не было, тебе на самом деле хочется позволить {{other.dat}}, но ты до сих пор не признавался в этом вслух?',
     { next: ['sex'] },
+  ),
+
+  // Late-stage high-stakes confessions that remain playable even when a
+  // couple has permitted only one physical practice (or none). These are
+  // explicitly authored three-fire Truths, never an invitation to expand
+  // the agreed consent boundaries.
+  native(
+    'truth3-late-01','truth',3,[2,3,4],['confession'],
+    'Какую самую неловкую правду о своих сексуальных желаниях ты скрываешь от {{other.gen}}, потому что боишься изменить отношение к себе?',
+    { next:['confession'] },
+  ),
+  native(
+    'truth3-late-02','truth',3,[2,3,4],['confession'],
+    'Когда в интимной близости ты соглашался с предложением только из страха разочаровать другого, хотя на самом деле хотел отказаться?',
+    { next:['connection'] },
+  ),
+  native(
+    'truth3-late-03','truth',3,[2,3,4],['confession'],
+    'Какую фантазию ты считаешь неприемлемой для воплощения, но всё равно возвращаешься к ней мысленно, хотя стесняешься этого?',
+    { next:['confession'] },
+  ),
+  native(
+    'truth3-late-04','truth',3,[2,3,4],['confession'],
+    'Что в своей интимной жизни ты сознательно приукрашивал в разговорах и почему тебе было так трудно сказать правду?',
+    { next:['confession'] },
+  ),
+  native(
+    'truth3-late-05','truth',3,[2,3,4],['confession'],
+    'Какой самый трудный разговор о своих сексуальных границах ты откладываешь, опасаясь, что партнёр воспримет отказ лично?',
+    { next:['connection'] },
+  ),
+  native(
+    'truth3-late-06','truth',3,[2,3,4],['confession'],
+    'Какая мысль о притяжении к кому-то ещё когда-либо заставляла тебя чувствовать неловкость перед партнёром и почему?',
+    { next:['confession'] },
+  ),
+  native(
+    'truth3-late-07','truth',3,[2,3,4],['confession'],
+    'Что ты однажды хотел попросить во время близости, но передумал в последний момент из-за страха получить честное «нет»?',
+    { next:['tease'] },
+  ),
+  native(
+    'truth3-late-08','truth',3,[2,3,4],['confession'],
+    'Какое своё подлинное желание тебе страшнее всего открыто обсуждать с {{other.ins}}, хотя ты хочешь, чтобы тебя поняли?',
+    { next:['connection'] },
   ),
 
 ]
