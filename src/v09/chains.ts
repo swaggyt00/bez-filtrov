@@ -113,14 +113,14 @@ function chainOutcome(
   result: ChainOutcome['result'],
 ): ChainOutcome | null {
   const chain = state.chainSession
-  const opener = state.history.find(entry => entry.cardId === chain?.openerCardId
-    && state.history.indexOf(entry) === chain.originTurn)
-  if (!chain || !opener || !safeLine(chain.title,55,6)) return null
+  const openingChain = state.scenePlan?.beats[0]?.chain
+  if (!chain || !safeLine(chain.title,55,6)
+      || !openingChain || !/^[a-z-]{2,35}$/.test(openingChain)) return null
   return {
     turn: state.turnsPlayed,
     title: chain.title,
     result,
-    openingChain: opener.chains[0] ?? 'conversation',
+    openingChain,
   }
 }
 
