@@ -13,6 +13,7 @@ import type {
 } from './types'
 import type { Player, Scenario } from '../types'
 import { planDirectorPacing } from './pacing'
+import { expireDirectorScenePlan, getActiveStoryBeat } from './story'
 
 const clothingRank: Record<ClothingState, number> = {
   clothed: 0,
@@ -130,7 +131,17 @@ export function scoreCard(card: DirectorCard, state: DirectorState) {
   const recent = recentEntries(state, 16)
   const last = recent.at(-1)
   const primary = card.chains[0]
+  const beat = getActiveStoryBeat(state)
   let score = 0
+
+  // A previous AI choice can guide the next three beats even across
+  // provider outages. A plan is only a preference, never an eligibility gate.
+  if (beat) {
+    if (card.chains.includes(beat.chain)) {
+      score += beat.phase === 'payoff' ? 125 : beat.phase === 'twist' ? 115 : 85
+    }
+    if (beat.preferredType !== 'either' && card.type === beat.preferredType) score += 30
+  }
 
   // The Director explicitly decides whether to develop a scene or change it.
   // A skipped card NEVER becomes an invitation to repeat the same theme.
@@ -340,6 +351,7 @@ export function completeTurn(
     next.chainFamily = null
     next.chainDepth = 0
   }
+  next.scenePlan = expireDirectorScenePlan(next, skipped)
   next = maybeAdvanceStage(next)
   return next
 }

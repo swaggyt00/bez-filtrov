@@ -1,12 +1,15 @@
 import type { Scenario } from '../types'
 import { cardIsEligible, scoreCard } from './director'
 import { planDirectorPacing } from './pacing'
+import { createDirectorScenePlan, getActiveStoryBeat } from './story'
+import type { ActiveStoryBeat } from './story'
 import type { DirectorPacingPlan } from './pacing'
 import type {
   ChainFamily,
   DirectorCard,
   DirectorPick,
   DirectorState,
+  DirectorScenePlan,
   RiskLevel,
 } from './types'
 
@@ -20,6 +23,7 @@ export interface AIDirectorChoice {
   card: DirectorCard
   intro: string
   addCondition: boolean
+  scenePlan: DirectorScenePlan | null
 }
 
 export interface AIDirectorCandidate {
@@ -48,6 +52,7 @@ export interface AIDirectorRequest {
   actorIndex: number
   players: Array<{ index: number; lastRisks: RiskLevel[]; skippedRecent: number; targetedRecent: number }>
   pacing: DirectorPacingPlan
+  activeScene: ActiveStoryBeat | null
   events: Array<{ turn: number; title: string; mechanics: string[]; accepted: boolean }>
   allowCondition: boolean
   forceCondition: boolean
@@ -129,6 +134,7 @@ export function buildAIDirectorRequest(
     })),
     actorIndex,
     pacing,
+    activeScene: getActiveStoryBeat(state),
     players: state.players.map((player, index) => ({
       index,
       lastRisks: player.riskHistory.slice(-5),
@@ -181,7 +187,7 @@ export async function requestAIDirectorChoice(
     if (!response.ok) return null
     const data: unknown = await response.json()
     if (!data || typeof data !== 'object') return null
-    const body = data as { selectedId?: unknown; intro?: unknown; addCondition?: unknown }
+    const body = data as { selectedId?: unknown; intro?: unknown; addCondition?: unknown; scenePlan?: unknown }
     if (typeof body.selectedId !== 'string') return null
     const selected = shortlist.find((entry) => entry.card.id === body.selectedId)
     if (!selected) return null
@@ -199,6 +205,7 @@ export async function requestAIDirectorChoice(
       card: selected.card,
       intro,
       addCondition: conditionAllowed && body.addCondition === true,
+      scenePlan: createDirectorScenePlan(state, selected.card, shortlist, body.scenePlan),
     }
   } catch {
     return null
