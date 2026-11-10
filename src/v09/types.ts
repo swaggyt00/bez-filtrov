@@ -139,6 +139,33 @@ export interface ChainOutcome {
   openingChain: ChainFamily
 }
 
+export type BossOutcome = 'won' | 'lost'
+export type BossLossReason = 'failed' | 'forfeit'
+export type BossCardType = 'truth' | 'dare'
+
+export interface BossPenalty {
+  bossId: string
+  playerIndex: number
+  type: BossCardType
+  label: string
+}
+
+export interface BossResult {
+  outcome: BossOutcome
+  challengerIndex: number
+  reason: BossLossReason | null
+  penalty: BossPenalty | null
+}
+
+export interface BossHistoryEntry {
+  turn: number
+  mechanics: string[]
+  outcome: BossOutcome | 'finished' | 'skipped'
+  challengerIndex?: number
+  reason?: BossLossReason | null
+  penaltyType?: BossCardType | null
+}
+
 export interface DirectorState {
   scenario: Scenario
   sessionStage: SessionStage
@@ -158,7 +185,8 @@ export interface DirectorState {
   scenePlan?: DirectorScenePlan | null
   chainSession?: DirectorChainSession | null
   chainHistory?: ChainOutcome[]
-  bossHistory?: Array<{turn:number;mechanics:string[];outcome:'finished'|'skipped'}>
+  bossHistory?: BossHistoryEntry[]
+  pendingBossPenalty?: BossPenalty | null
 }
 
 export interface CardRequirements {
@@ -230,7 +258,7 @@ export interface DirectorPick {
 
 export type BoundaryChoice = 'yes' | 'maybe' | 'no'
 export type SexStartState = 'clothed' | 'underwear' | 'nude'
-export type GameView = 'risk' | 'card' | 'event' | 'boss'
+export type GameView = 'risk' | 'card' | 'event' | 'boss' | 'boss-result'
 
 export interface V09GameSettings {
   players: Player[]
@@ -253,6 +281,7 @@ export interface BossSession {
   phaseCaptions?: string[]
   aiGenerated?: boolean
   mechanics?: string[]
+  challengerIndex?: number
 }
 
 export interface PersistedV09Game {
@@ -269,6 +298,8 @@ export interface PersistedV09Game {
   pendingEvent: DirectorEvent | null
   boss: BossSession | null
   bossPhaseIndex: number
+  bossResult?: BossResult | null
+  appliedBossPenalty?: BossPenalty | null
   aiIntro?: string
   aiWasUsed?: boolean
   updatedAt: number
