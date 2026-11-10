@@ -393,3 +393,43 @@ test('players can skip AI Events without punishment or stale event rules',async(
   await page.getByRole('button',{name:'Риск 1'}).click()
   await expect(page.locator('.card-text')).not.toBeEmpty()
 })
+
+
+test('slow AI event can be canceled instantly, and its late result is ignored',async({page})=>{
+  await page.addInitScript(()=>{Math.random=()=>0})
+  await page.unroute('**/game/event')
+  let requests=0
+  await page.route('**/game/event',async route=>{
+    requests++
+    await page.waitForTimeout(1100)
+    try {
+      await route.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({
+          title:'Запоздалый переход инициативы',
+          description:'Следующий игрок по кругу выбирает риск вместо текущего участника; порядок очередей остаётся прежним до завершения карточки.',
+          mechanics:['risk-handoff'],
+        })})
+    }catch{
+      // The user intentionally aborted the in-flight HTTP request.
+    }
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  for(let i=0;i<4;i++){
+    await page.getByRole('button',{name:'Риск 2'}).click()
+    await expect(page.locator('.card-text')).toBeVisible()
+    await page.getByRole('button',{name:/Выполнено/}).click()
+  }
+  await expect(page.getByRole('button',{name:'Играть дальше без ожидания'})).toBeVisible()
+  await page.getByRole('button',{name:'Играть дальше без ожидания'}).click()
+  await expect(page.getByRole('button',{name:'Риск 1'})).toBeEnabled()
+  await page.waitForTimeout(1200)
+  await expect(page.locator('.event-card')).toHaveCount(0)
+  expect(requests).toBe(1)
+  await page.getByRole('button',{name:'Риск 1'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null'))
+  expect(saved?.pendingEvent).toBeNull()
+})
