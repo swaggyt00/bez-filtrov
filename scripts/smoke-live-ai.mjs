@@ -34,9 +34,11 @@ try {
     const text=await page.locator('.card-text').innerText()
     const status=await page.locator('.card-topline').innerText()
     const intro=await page.locator('.ai-intro').count() ? await page.locator('.ai-intro').first().textContent() : null
-    console.log('TURN:',JSON.stringify({risk,status,text,intro,apiStatuses}))
-    if(!intro?.includes('AI DIRECTOR')){
-      throw new Error('AI Director did not supply a live intro; observed API '+JSON.stringify(apiStatuses))
+    const chainLabel=await page.locator('.chain-caption strong').count()
+      ? await page.locator('.chain-caption strong').first().textContent() : null
+    console.log('TURN:',JSON.stringify({risk,status,text,intro,chainLabel,apiStatuses}))
+    if(!intro?.includes('AI DIRECTOR')&&!chainLabel?.includes('AI CHAIN')){
+      throw new Error('AI Director did not supply narration or an active Chain; observed API '+JSON.stringify(apiStatuses))
     }
     const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
     if(!saved?.aiWasUsed||saved?.renderedText!==text)throw new Error('AI save mismatch')
@@ -49,7 +51,11 @@ try {
     }
     if(risk===1)firstScenePlan=plan
     else if(JSON.stringify(plan)!==JSON.stringify(firstScenePlan)){
-      throw new Error('AI story changed before its first future beat was played')
+      const outcome=(saved?.director?.chainHistory??[]).at(-1)
+      if(outcome?.result!=='unavailable'){
+        throw new Error('AI story changed without recording an unplayable Chain fork')
+      }
+      console.log('CHAIN BRANCH: prior story unavailable for chosen risk; safe fallback used')
     }
     console.log('STORY ARC:',JSON.stringify({risk,originTurn:plan.originTurn,
       sceneBeat:saved?.director?.turnsPlayed,beats:plan.beats}))
@@ -63,8 +69,14 @@ try {
       if(JSON.stringify(resumedPlan)!==JSON.stringify(firstScenePlan)){
         throw new Error('Resume lost the AI story arc')
       }
-      if(!(await page.locator('.ai-intro').innerText()).includes(intro.replace('✦ ','').trim().slice(-20))){
-        throw new Error('Resume lost AI intro')
+      if(chainLabel){
+        const resumedChain=await page.locator('.chain-caption strong').first().textContent()
+        if(resumedChain!==chainLabel)throw new Error('Resume lost original AI Chain label')
+        if(!saved?.director?.chainSession)throw new Error('AI Chain caption without a persisted session')
+      } else {
+        if(!(await page.locator('.ai-intro').innerText()).includes(intro.replace('✦ ','').trim().slice(-20))){
+          throw new Error('Resume lost AI intro')
+        }
       }
     }
     await page.getByRole('button',{name:/Выполнено/}).click()
@@ -84,10 +96,15 @@ try {
   await page.locator('.card-text').waitFor({state:'visible',timeout:12000})
   const sexText=await page.locator('.card-text').innerText()
   const sexStatus=await page.locator('.card-topline').innerText()
-  const sexIntro=await page.locator('.ai-intro').first().textContent()
+  const sexIntro=await page.locator('.ai-intro').count()
+    ? await page.locator('.ai-intro').first().textContent() : null
+  const sexChainLabel=await page.locator('.chain-caption strong').count()
+    ? await page.locator('.chain-caption strong').first().textContent() : null
   const sexSaved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
-  console.log('SEX STAGE-0 RISK-3:',JSON.stringify({sexStatus,sexText,sexIntro,stage:sexSaved?.director?.sessionStage,apiStatuses}))
-  if(!sexIntro?.includes('AI DIRECTOR'))throw new Error('Sex mode did not get real AI')
+  console.log('SEX STAGE-0 RISK-3:',JSON.stringify({sexStatus,sexText,sexIntro,sexChainLabel,stage:sexSaved?.director?.sessionStage,apiStatuses}))
+  if(!sexIntro?.includes('AI DIRECTOR')&&!sexChainLabel?.includes('AI CHAIN')){
+    throw new Error('Sex mode did not get a real AI card/Chain')
+  }
   if(!sexStatus.includes('🔥🔥🔥'))throw new Error('Sex risk 3 was mislabeled')
   if(sexSaved?.director?.sessionStage!==0)throw new Error('Sex stage jumped during risk selection')
   if(/(?:проникновени|кунилингус|минет|занимайтесь сексом)/i.test(sexText)){
