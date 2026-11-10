@@ -167,6 +167,8 @@ function App() {
   const [bossPhaseIndex, setBossPhaseIndex] = useState(0)
   const [notice, setNotice] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
+  const [aiEventBusy, setAiEventBusy] = useState(false)
+  const aiEventAbort = useRef<AbortController | null>(null)
   const [aiIntro, setAiIntro] = useState('')
   const [aiWasUsed, setAiWasUsed] = useState(false)
   const aiEpoch = useRef(0)
@@ -290,7 +292,10 @@ function App() {
 
   function stopPendingAI() {
     aiEpoch.current += 1
+    aiEventAbort.current?.abort()
+    aiEventAbort.current = null
     aiBusyRef.current = false
+    setAiEventBusy(false)
     setAiBusy(false)
   }
 
@@ -576,11 +581,16 @@ function App() {
 
     const candidates = eligibleDirectorCards(null, nextDirector, nextPlayerIndex)
     const epoch = ++aiEpoch.current
+    const abort = new AbortController()
+    aiEventAbort.current = abort
     aiBusyRef.current = true
+    setAiEventBusy(true)
     setAiBusy(true)
-    const event = await requestAIEvent(nextDirector, nextPlayerIndex, candidates)
+    const event = await requestAIEvent(nextDirector, nextPlayerIndex, candidates, {signal:abort.signal})
     if (epoch !== aiEpoch.current) return
+    aiEventAbort.current = null
     aiBusyRef.current = false
+    setAiEventBusy(false)
     setAiBusy(false)
     if (event) {
       setPendingEvent(event)
@@ -910,8 +920,13 @@ function App() {
               ))}
             </div>
             <p className="risk-hint" role="status">{aiBusy
-              ? 'AI Director готовит следующий ход или событие…'
+              ? aiEventBusy ? 'AI Director придумывает неожиданное событие…' : 'AI Director выбирает карточку…'
               : 'Огонь определяет риск хода. Стадию сессии Director держит скрытой.'}</p>
+            {aiEventBusy && (
+              <div className="secondary-actions one-action">
+                <button type="button" onClick={stopPendingAI}>Играть дальше без ожидания</button>
+              </div>
+            )}
           </section>
         )}
 
