@@ -77,6 +77,7 @@ export function createDirectorState(
     turnsPlayed: 0,
     lastEventTurn: -99,
     lastBossTurn: -99,
+    eventHistory: [],
   }
 }
 

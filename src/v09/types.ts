@@ -4,6 +4,21 @@ export type RiskLevel = 1 | 2 | 3
 export type SessionStage = 0 | 1 | 2 | 3 | 4
 export type ClothingState = 'clothed' | 'partially-undressed' | 'underwear' | 'partially-nude' | 'nude'
 export type EventFamily = 'control' | 'constraint' | 'continuation' | 'wildcard' | 'fetish'
+export type AIEventMechanic =
+  | 'risk-handoff'
+  | 'truth-only'
+  | 'dare-only'
+  | 'mirror-type'
+  | 'contrast-type'
+  | 'change-theme'
+  | 'continue-theme'
+
+export interface EventMemoryEntry {
+  turn: number
+  title: string
+  mechanics: AIEventMechanic[]
+  accepted: boolean
+}
 export type BossFamily =
   | 'tease'
   | 'control'
@@ -98,6 +113,7 @@ export interface DirectorState {
   turnsPlayed: number
   lastEventTurn: number
   lastBossTurn: number
+  eventHistory?: EventMemoryEntry[]
 }
 
 export interface CardRequirements {
@@ -144,6 +160,10 @@ export interface DirectorEvent {
   modifierCount?: number
   forcedChain?: ChainFamily
   forcedBoundary?: BoundaryTag
+  forcedType?: CardType
+  avoidRecentChains?: boolean
+  aiGenerated?: boolean
+  aiMechanics?: AIEventMechanic[]
   remainingTurns: number
 }
 

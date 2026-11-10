@@ -41,7 +41,11 @@ export interface AIDirectorRequest {
     chains: ChainFamily[]
     skipped: boolean
     modifierCount: number
+    actorIndex: number
   }>
+  actorIndex: number
+  players: Array<{ index: number; lastRisks: RiskLevel[]; skippedRecent: number }>
+  events: Array<{ turn: number; title: string; mechanics: string[]; accepted: boolean }>
   allowCondition: boolean
   forceCondition: boolean
   candidates: AIDirectorCandidate[]
@@ -99,6 +103,7 @@ export function buildAIDirectorRequest(
   risk: RiskLevel,
   shortlist: DirectorPick[],
   forceCondition = false,
+  actorIndex = 0,
 ): AIDirectorRequest {
   const recentlyHadCondition = state.history.slice(-2).some((entry) => (entry.modifierCount ?? 0) > 0)
   const allowCondition = forceCondition || (risk >= 2 && !recentlyHadCondition)
@@ -116,6 +121,17 @@ export function buildAIDirectorRequest(
       chains: entry.chains.slice(0, 3),
       skipped: entry.skipped,
       modifierCount: Math.max(0, Math.min(2, entry.modifierCount ?? 0)),
+      actorIndex: entry.playerIndex,
+    })),
+    actorIndex,
+    players: state.players.map((player, index) => ({
+      index,
+      lastRisks: player.riskHistory.slice(-5),
+      skippedRecent: state.history.slice(-12).filter((entry) => entry.playerIndex === index && entry.skipped).length,
+    })),
+    events: (state.eventHistory ?? []).slice(-6).map((entry) => ({
+      turn: entry.turn, title: entry.title.slice(0, 55),
+      mechanics: entry.mechanics.slice(0, 2), accepted: entry.accepted,
     })),
     allowCondition,
     forceCondition,
@@ -142,6 +158,7 @@ export async function requestAIDirectorChoice(
     timeoutMs?: number
     endpoint?: string
     forceCondition?: boolean
+    actorIndex?: number
   } = {},
 ): Promise<AIDirectorChoice | null> {
   if (shortlist.length < 2) return null
@@ -151,7 +168,7 @@ export async function requestAIDirectorChoice(
     const response = await (options.fetcher ?? fetch)(options.endpoint ?? AI_DIRECTOR_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildAIDirectorRequest(state, risk, shortlist, options.forceCondition)),
+      body: JSON.stringify(buildAIDirectorRequest(state, risk, shortlist, options.forceCondition, options.actorIndex)),
       signal: controller.signal,
     })
     if (!response.ok) return null

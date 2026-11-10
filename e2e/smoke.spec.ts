@@ -12,6 +12,10 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify({ selectedId:'invalid-ai-card', intro:'Do not show this.' }),
     })
   })
+  // Keep unrelated browser tests deterministic and provider-independent.
+  await page.route('**/game/event', async (route) => {
+    await route.fulfill({status:503,contentType:'application/json',body:'{}'})
+  })
 })
 
 async function enterSetup(page: Page) {
@@ -289,4 +293,143 @@ test('rejected AI creativity produces NO canned or decorative condition', async 
   await expect(page.locator('.card-text')).not.toBeEmpty()
   await expect(page.locator('.modifier-card')).toHaveCount(0)
   await expect(page.locator('.ai-intro')).toBeVisible()
+})
+
+
+test('AI Events use real turn mechanics and remember accepted events across reload',async({page})=>{
+  await page.addInitScript(()=>{Math.random=()=>0})
+  await page.unroute('**/game/event')
+  let eventRequests=0
+  let generatedMechanics:string[]=[]
+  await page.route('**/game/event',async route=>{
+    eventRequests++
+    const data=route.request().postDataJSON()
+    expect(data.version).toBe(1)
+    expect(data.scenario).toBe('afterdark')
+    expect(data.turnsPlayed).toBe(4)
+    expect(data.recent).toHaveLength(4)
+    expect(data.playersCount).toBe(2)
+    expect(data.allowedMechanics).toContain('risk-handoff')
+    expect(data.players[0].recentRisks).toContain(2)
+    expect(JSON.stringify(data)).not.toContain('Игрок 1')
+    expect(JSON.stringify(data)).not.toContain('Игрок 2')
+    generatedMechanics=data.allowedMechanics.includes('truth-only')
+      ?['risk-handoff','truth-only']:['risk-handoff']
+    const description=generatedMechanics.includes('truth-only')
+      ?'Следующий по кругу игрок выбирает уровень риска, а следующая карточка обязательно будет «Правда» — сменим темп уже сыгранных испытаний.'
+      :'Следующий по кругу игрок выбирает уровень риска вместо текущего участника. Теперь решение о следующем ходе переходит соседу.'
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({title:'Ночной захват управления',description,mechanics:generatedMechanics}),
+    })
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  for(let i=0;i<4;i++){
+    await page.getByRole('button',{name:'Риск 2'}).click()
+    await expect(page.locator('.card-text')).toBeVisible()
+    await page.getByRole('button',{name:/Выполнено/}).click()
+  }
+  await expect(page.locator('.event-card')).toBeVisible()
+  await expect(page.locator('.event-kicker')).toContainText('AI EVENT')
+  await expect(page.locator('.event-card h2')).toHaveText('Ночной захват управления')
+  expect(eventRequests).toBe(1)
+  await page.waitForFunction(()=>{
+    const data=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null')
+    return data?.pendingEvent?.aiGenerated===true&&data?.view==='event'
+  })
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.event-card h2')).toHaveText('Ночной захват управления')
+  await page.getByRole('button',{name:'Принято'}).click()
+  await expect(page.getByText('риск выбирает',{exact:false})).toBeVisible()
+  await page.waitForFunction(()=>{
+    const data=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null')
+    return data?.director?.eventHistory?.length===1
+  })
+  const afterAccept=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null'))
+  expect(afterAccept.director.eventHistory[0].accepted).toBe(true)
+  expect(afterAccept.director.eventHistory[0].mechanics).toEqual(generatedMechanics)
+  expect(afterAccept.director.lastEventTurn).toBe(4)
+  await page.getByRole('button',{name:'Риск 1'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  if(generatedMechanics.includes('truth-only')){
+    await expect(page.locator('.card-topline')).toContainText('ПРАВДА')
+  }
+})
+
+test('players can skip AI Events without punishment or stale event rules',async({page})=>{
+  await page.addInitScript(()=>{Math.random=()=>0})
+  await page.unroute('**/game/event')
+  await page.route('**/game/event',async route=>{
+    const data=route.request().postDataJSON()
+    expect(data.allowedMechanics).toContain('risk-handoff')
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({
+        title:'Ночная смена рулевого',
+        description:'Следующий по кругу участник получает право выбрать уровень риска для этого хода вместо текущего игрока; отказаться от события можно без последствий.',
+        mechanics:['risk-handoff'],
+      }),
+    })
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  for(let i=0;i<4;i++){
+    await page.getByRole('button',{name:'Риск 2'}).click()
+    await expect(page.locator('.card-text')).toBeVisible()
+    await page.getByRole('button',{name:/Выполнено/}).click()
+  }
+  await expect(page.locator('.event-card')).toBeVisible()
+  await page.getByRole('button',{name:'Пропустить событие'}).click()
+  await expectRiskScreen(page)
+  await expect(page.getByText('риск выбирает',{exact:false})).toHaveCount(0)
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null'))
+  expect(saved?.director?.eventHistory?.[0]?.accepted).toBe(false)
+  expect(saved?.pendingEvent).toBeNull()
+  await page.getByRole('button',{name:'Риск 1'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+})
+
+
+test('slow AI event can be canceled instantly, and its late result is ignored',async({page})=>{
+  await page.addInitScript(()=>{Math.random=()=>0})
+  await page.unroute('**/game/event')
+  let requests=0
+  await page.route('**/game/event',async route=>{
+    requests++
+    await page.waitForTimeout(1100)
+    try {
+      await route.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({
+          title:'Запоздалый переход инициативы',
+          description:'Следующий игрок по кругу выбирает риск вместо текущего участника; порядок очередей остаётся прежним до завершения карточки.',
+          mechanics:['risk-handoff'],
+        })})
+    }catch{
+      // The user intentionally aborted the in-flight HTTP request.
+    }
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  for(let i=0;i<4;i++){
+    await page.getByRole('button',{name:'Риск 2'}).click()
+    await expect(page.locator('.card-text')).toBeVisible()
+    await page.getByRole('button',{name:/Выполнено/}).click()
+  }
+  await expect(page.getByRole('button',{name:'Играть дальше без ожидания'})).toBeVisible()
+  await page.getByRole('button',{name:'Играть дальше без ожидания'}).click()
+  await expect(page.getByRole('button',{name:'Риск 1'})).toBeEnabled()
+  await page.waitForTimeout(1200)
+  await expect(page.locator('.event-card')).toHaveCount(0)
+  expect(requests).toBe(1)
+  await page.getByRole('button',{name:'Риск 1'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')??'null'))
+  expect(saved?.pendingEvent).toBeNull()
 })

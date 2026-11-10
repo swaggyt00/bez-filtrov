@@ -8,7 +8,8 @@ import { adaptLegacyDeck } from './v09/legacy-adapter'
 import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
 import { requestAIModifier } from './v09/ai-modifier'
 import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, tickEffects } from './v09/director'
-import { chooseEventForTurn } from './v09/events'
+import { maybeCreateCautionEvent } from './v09/director'
+import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
 import { buildBossSession } from './v09/bosses'
 import { sexNativeCards } from './v09/sex-native'
@@ -166,6 +167,8 @@ function App() {
   const [bossPhaseIndex, setBossPhaseIndex] = useState(0)
   const [notice, setNotice] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
+  const [aiEventBusy, setAiEventBusy] = useState(false)
+  const aiEventAbort = useRef<AbortController | null>(null)
   const [aiIntro, setAiIntro] = useState('')
   const [aiWasUsed, setAiWasUsed] = useState(false)
   const aiEpoch = useRef(0)
@@ -289,7 +292,10 @@ function App() {
 
   function stopPendingAI() {
     aiEpoch.current += 1
+    aiEventAbort.current?.abort()
+    aiEventAbort.current = null
     aiBusyRef.current = false
+    setAiEventBusy(false)
     setAiBusy(false)
   }
 
@@ -398,10 +404,18 @@ function App() {
     setScreen('game')
   }
 
-  function eligibleDirectorCards(event: DirectorEvent | null) {
-    if (!settings || !directorState) return [] as DirectorCard[]
-    const actor = settings.players[currentPlayerIndex]
-    const base = directorDeck.filter((directorCard) => {
+  function eligibleDirectorCards(
+    event: DirectorEvent | null,
+    targetState: DirectorState | null = directorState,
+    actorIndex = currentPlayerIndex,
+  ) {
+    if (!settings || !targetState) return [] as DirectorCard[]
+    const actor = settings.players[actorIndex]
+    const recentChain = new Set(targetState.history.slice(-2).flatMap((entry) => entry.chains.slice(0, 1)))
+    const eventDeck = event?.aiGenerated
+      ? filteredEventCards(directorDeck, targetState, event.aiMechanics ?? [])
+      : directorDeck
+    const base = eventDeck.filter((directorCard) => {
       if (directorCard.scenario !== settings.scenario) return false
       const source = directorCard.sourceCardId ? sourceById.get(directorCard.sourceCardId) : null
       if (directorCard.sourceCardId && !source) return false
@@ -413,17 +427,19 @@ function App() {
         : directorCard.targetRequired !== false
       if (needsTarget) {
         const targets = source
-          ? eligibleTargetIndices(source, settings.players, currentPlayerIndex)
-          : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
+          ? eligibleTargetIndices(source, settings.players, actorIndex)
+          : settings.players.map((_, index) => index).filter((index) => index !== actorIndex)
         if (targets.length === 0) return false
       }
 
+      if (event?.forcedType && directorCard.type !== event.forcedType) return false
+      if (event?.avoidRecentChains && recentChain.has(directorCard.chains[0])) return false
       if (event?.forcedChain && !directorCard.chains.includes(event.forcedChain)) return false
       if (event?.forcedBoundary && !directorCard.requires?.boundaries?.includes(event.forcedBoundary)) return false
       return true
     })
 
-    if (base.length) return base
+    if (base.length || event?.aiGenerated) return base
 
     return directorDeck.filter((directorCard) => {
       if (directorCard.scenario !== settings.scenario) return false
@@ -436,7 +452,7 @@ function App() {
         : directorCard.targetRequired !== false
       if (!needsTarget) return true
       return source
-        ? eligibleTargetIndices(source, settings.players, currentPlayerIndex).length > 0
+        ? eligibleTargetIndices(source, settings.players, actorIndex).length > 0
         : settings.players.length > 1
     })
   }
@@ -468,7 +484,10 @@ function App() {
     setAiBusy(true)
     const shortlist = createAIDirectorShortlist(candidates, directorState, currentPlayerIndex, risk)
     const aiChoice = await requestAIDirectorChoice(
-      directorState, risk, shortlist, { forceCondition: forcedModifierCount > 0 },
+      directorState, risk, shortlist, {
+        forceCondition: forcedModifierCount > 0,
+        actorIndex: currentPlayerIndex,
+      },
     )
     if (epoch !== aiEpoch.current) return
 
@@ -533,8 +552,8 @@ function App() {
     sound('reveal')
   }
 
-  function prepareNextTurn(nextDirector: DirectorState, nextPlayerIndex: number) {
-    const event = chooseEventForTurn(nextDirector, nextPlayerIndex)
+  async function prepareNextTurn(nextDirector: DirectorState, nextPlayerIndex: number) {
+    stopPendingAI()
     setDirectorState(nextDirector)
     setCurrentPlayerIndex(nextPlayerIndex)
     setCurrentDirectorCard(null)
@@ -544,11 +563,41 @@ function App() {
     setCurrentModifiers([])
     setAiIntro('')
     setAiWasUsed(false)
-    setPendingEvent(event)
+    setPendingEvent(null)
     setBoss(null)
     setBossPhaseIndex(0)
-    setView(event ? 'event' : 'risk')
+    setView('risk')
     setNotice('')
+
+    // Safety-driven legacy caution events still work if AI is unavailable.
+    // Optional creative AI events are generated at eligible intervals only.
+    const caution = maybeCreateCautionEvent(nextDirector, nextPlayerIndex)
+    if (caution) {
+      setPendingEvent(caution)
+      setView('event')
+      return
+    }
+    if (!eventRollIsDue(nextDirector)) return
+
+    const candidates = eligibleDirectorCards(null, nextDirector, nextPlayerIndex)
+    const epoch = ++aiEpoch.current
+    const abort = new AbortController()
+    aiEventAbort.current = abort
+    aiBusyRef.current = true
+    setAiEventBusy(true)
+    setAiBusy(true)
+    const event = await requestAIEvent(nextDirector, nextPlayerIndex, candidates, {signal:abort.signal})
+    if (epoch !== aiEpoch.current) return
+    aiEventAbort.current = null
+    aiBusyRef.current = false
+    setAiEventBusy(false)
+    setAiBusy(false)
+    if (event) {
+      setPendingEvent(event)
+      setView('event')
+      sound('reveal')
+    }
+    // Failure or invalid AI mechanics: simply continue with the normal turn.
   }
 
   function completeCurrent(skipped: boolean) {
@@ -585,10 +634,18 @@ function App() {
   }
 
   function acceptEvent() {
-    if (!directorState) return
-    setDirectorState({ ...directorState, lastEventTurn: directorState.turnsPlayed })
+    if (!directorState || !pendingEvent) return
+    setDirectorState(recordEventDecision(directorState, pendingEvent, true))
     setView('risk')
     sound('reveal')
+  }
+
+  function skipEvent() {
+    if (!directorState || !pendingEvent) return
+    setDirectorState(recordEventDecision(directorState, pendingEvent, false))
+    setPendingEvent(null)
+    setView('risk')
+    sound('tap')
   }
 
   function nextBossPhase() {
@@ -832,10 +889,13 @@ function App() {
 
         {view === 'event' && pendingEvent && (
           <section className="event-card">
-            <div className="event-kicker">БЕЗ ФИЛЬТРОВ</div>
+            <div className="event-kicker">{pendingEvent.aiGenerated ? '✦ AI EVENT' : 'БЕЗ ФИЛЬТРОВ'}</div>
             <h2>{pendingEvent.title}</h2>
             <p>{pendingEvent.description}</p>
             <button type="button" className="primary-button" onClick={acceptEvent}>Принято</button>
+             <div className="secondary-actions one-action">
+               <button type="button" onClick={skipEvent}>Пропустить событие</button>
+             </div>
           </section>
         )}
 
@@ -860,8 +920,13 @@ function App() {
               ))}
             </div>
             <p className="risk-hint" role="status">{aiBusy
-              ? 'AI Director готовит следующий ход и неожиданный поворот…'
+              ? aiEventBusy ? 'AI Director придумывает неожиданное событие…' : 'AI Director выбирает карточку…'
               : 'Огонь определяет риск хода. Стадию сессии Director держит скрытой.'}</p>
+            {aiEventBusy && (
+              <div className="secondary-actions one-action">
+                <button type="button" onClick={stopPendingAI}>Играть дальше без ожидания</button>
+              </div>
+            )}
           </section>
         )}
 
