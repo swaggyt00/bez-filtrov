@@ -77,6 +77,12 @@ assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,
   null,'out-of-order phases are rejected')
 assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,shortlist,
   {beats:planDraft.beats.slice(0,2)}),null,'truncated arcs are rejected')
+assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,shortlist,
+  {beats:[{...planDraft.beats[0],chain:'chaos'},...planDraft.beats.slice(1)]}),null,
+  'the first story beat must grow out of the actual opener')
+assert.equal(createDirectorScenePlan(createDirectorState('party',people),opener,shortlist,
+  {beats:[...planDraft.beats.slice(0,2),{...planDraft.beats[2],chain:'chaos'}]}),null,
+  'the payoff must return to the actual opening theme')
 
 // Sex scenes are kept within the current physical activity family; new
 // intimate practices may never be silently introduced by the story planner.
