@@ -158,6 +158,7 @@ export interface DirectorState {
   scenePlan?: DirectorScenePlan | null
   chainSession?: DirectorChainSession | null
   chainHistory?: ChainOutcome[]
+  bossHistory?: Array<{turn:number;mechanics:string[];outcome:'finished'|'skipped'}>
 }
 
 export interface CardRequirements {
@@ -249,6 +250,9 @@ export interface BossSession {
   family: BossFamily
   title: string
   phases: string[]
+  phaseCaptions?: string[]
+  aiGenerated?: boolean
+  mechanics?: string[]
 }
 
 export interface PersistedV09Game {

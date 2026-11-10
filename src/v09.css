@@ -363,3 +363,18 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
+/* AI Boss Events keep the three existing phase controls, but add context. */
+.game-v09 .boss-caption {
+  display: block;
+  max-width: 470px;
+  margin: 0 auto 12px;
+  color: #e2a6bb;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.4;
+  letter-spacing: .012em;
+}
+.game-v09 .boss-card .secondary-actions {
+  margin-top: 12px;
+}

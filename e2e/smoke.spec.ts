@@ -541,3 +541,137 @@ test('Sex stage-0 🔥🔥🔥 remains safe when live AI returns 503',async({pag
   await page.getByRole('button',{name:/Выполнено/}).click()
   await expectRiskScreen(page)
 })
+
+
+async function primeEligibleBoss(page:Page) {
+  await page.addInitScript(()=>{Math.random=()=>0})
+  await page.unroute(AI_ROUTE)
+  let openerChain='social'
+  await page.route(AI_ROUTE,async route=>{
+    const payload=route.request().postDataJSON()
+    const selected=payload.candidates.find((c:{id:string})=>c.id==='v09:afterdark-light-dare-002')
+      ??payload.candidates[0]
+    openerChain=selected.chains[0]
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({selectedId:selected.id,intro:'Начало финальной истории.',addCondition:false})})
+  })
+  await enterSetup(page)
+  await setTwoPlayerGenders(page)
+  await chooseScenario(page,'После полуночи')
+  await startScenario(page,'После полуночи')
+  await page.getByRole('button',{name:'Риск 2'}).click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+  await page.evaluate((chain)=>{
+    const key='bez-filtrov:game:v9'
+    const saved=JSON.parse(localStorage.getItem(key)??'null')
+    saved.director.sessionStage=2
+    saved.director.tension=92
+    saved.director.turnsPlayed=12
+    saved.director.lastBossTurn=0
+    saved.director.chainDepth=4
+    saved.director.chainFamily=chain
+    saved.director.scenePlan=null
+    saved.director.chainSession=null
+    saved.director.history=Array.from({length:4},(_,i)=>({
+      cardId:'completed-boss-'+i,
+      type:'dare',risk:2,
+      playerIndex:i%2,targetIndex:(i+1)%2,
+      chains:[chain],skipped:false,
+    }))
+    saved.director.chainHistory=[{
+      title:'Ночная эстафета',turn:11,result:'finished',openingChain:chain,
+    }]
+    localStorage.setItem(key,JSON.stringify(saved))
+  },openerChain)
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.card-text')).not.toBeEmpty()
+}
+
+test('AI Boss grows from real game history, survives reload and can be skipped without penalty',async({page})=>{
+  let bossCalls=0
+  await page.route('**/game/boss',async route=>{
+    bossCalls++
+    const payload=route.request().postDataJSON()
+    expect(payload.scenario).toBe('afterdark')
+    expect(payload.stage).toBeGreaterThanOrEqual(2)
+    expect(payload.playersCount).toBe(2)
+    expect(payload.recent.length).toBeGreaterThanOrEqual(4)
+    expect(payload.chainOutcomes.at(-1)?.result).toBe('finished')
+    expect(payload.allowedMechanics[0]).toContain('night-callback')
+    expect(JSON.stringify(payload)).not.toContain('Игрок 1')
+    expect(JSON.stringify(payload)).not.toContain('Ночная эстафета')
+    await route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({
+        title:'Возвращение ночного ведущего',
+        phases:[
+          {mechanic:'night-callback',role:'last-actor',
+            caption:'Прошлая история возвращается в неожиданном жанре.'},
+          {mechanic:'double-improv',role:'last-target',
+            caption:'Теперь прежняя инициатива меняет хозяина.'},
+          {mechanic:'ensemble-remix',role:'all',
+            caption:'Финал собирает необычные моменты вечера.'},
+        ],
+      }),
+    })
+  })
+  await primeEligibleBoss(page)
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await expect(page.locator('.boss-card h2')).toHaveText('Возвращение ночного ведущего')
+  await expect(page.locator('.boss-kicker')).toContainText('AI BOSS EVENT')
+  await expect(page.locator('.boss-progress')).toHaveText('1 / 3')
+  const first=await page.locator('.boss-card p').innerText()
+  expect(first.length).toBeGreaterThan(40)
+  await page.waitForFunction(()=>{
+    const saved=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return saved?.boss?.aiGenerated===true&&saved?.view==='boss'
+  })
+  await page.reload()
+  await page.getByRole('button',{name:'Мне есть 18'}).click()
+  await page.locator('button.resume-card').click()
+  await expect(page.locator('.boss-card h2')).toHaveText('Возвращение ночного ведущего')
+  await expect(page.locator('.boss-card p')).toHaveText(first)
+  await page.getByRole('button',{name:'Следующая фаза'}).click()
+  await expect(page.locator('.boss-progress')).toHaveText('2 / 3')
+  await expect(page.locator('.boss-card p')).not.toHaveText(first)
+  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')?.director?.tension)
+  await page.getByRole('button',{name:'Пропустить кульминацию'}).click()
+  await expectRiskScreen(page)
+  await page.waitForFunction(()=>{
+    const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return s?.director?.bossHistory?.at(-1)?.outcome==='skipped'
+  })
+  const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null'))
+  expect(after.director.tension).toBe(before)
+  expect(after.director.bossHistory.at(-1).mechanics).toEqual([
+    'night-callback','double-improv','ensemble-remix',
+  ])
+  expect(bossCalls).toBe(1)
+})
+
+test('an unavailable AI Boss immediately falls back to a playable local 3-phase finale',async({page})=>{
+  await page.route('**/game/boss',async route=>{
+    await route.fulfill({status:503,contentType:'application/json',
+      body:JSON.stringify({error:'Provider cooldown'})})
+  })
+  await primeEligibleBoss(page)
+  await page.getByRole('button',{name:/Выполнено/}).click()
+  await expect(page.locator('.boss-card .boss-progress')).toHaveText('1 / 3')
+  await expect(page.locator('.boss-card p')).not.toBeEmpty()
+  await expect(page.locator('.boss-kicker')).not.toContainText('AI BOSS EVENT')
+  await page.waitForFunction(()=>{
+    const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return s?.boss?.aiGenerated===false
+  })
+  await page.getByRole('button',{name:'Следующая фаза'}).click()
+  await expect(page.locator('.boss-progress')).toHaveText('2 / 3')
+  await page.getByRole('button',{name:'Следующая фаза'}).click()
+  await expect(page.locator('.boss-progress')).toHaveText('3 / 3')
+  await page.getByRole('button',{name:'Завершить'}).click()
+  await expectRiskScreen(page)
+  await page.waitForFunction(()=>{
+    const s=JSON.parse(localStorage.getItem('bez-filtrov:game:v9')||'null')
+    return s?.director?.bossHistory?.at(-1)?.outcome==='finished'
+  })
+})
