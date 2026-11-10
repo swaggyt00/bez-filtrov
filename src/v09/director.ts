@@ -181,9 +181,9 @@ export function pickDirectorTarget(
 ): number | null {
   if (!eligibleIndices.length) return null
   const history = state.history.slice(-16).filter(entry => !entry.skipped && entry.targetIndex !== null)
-  const counts = new Map(eligibleIndices.map(index => [
+  const counts = new Map<number, number>(eligibleIndices.map(index => [
     index, history.filter(entry => entry.targetIndex === index).length,
-  ]))
+  ] as const))
   const minimum = Math.min(...counts.values())
   const leastUsed = eligibleIndices.filter(index => counts.get(index) === minimum)
   const lastSeen = (index: number) => {
