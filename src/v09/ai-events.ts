@@ -32,7 +32,7 @@ export interface AIEventRequest {
   events: EventMemoryEntry[]
 }
 
-const forbiddenEventCopy=/(раздев|сними\s+(?:одежд|бель)|поцел|целуй|генитал|оральн|проникнов|массаж|сексом|пей|алкогол|выпей|штраф|наказан|застав|обязан|не можешь отказаться|не имеешь права|покажи телефон|отправь|опубликуй|сфотографируй)/i
+const forbiddenEventCopy=/(раздев|сними\s+(?:одежд|бель)|поцел|целуй|генитал|оральн|проникнов|массаж|сексом|пей|алкогол|выпей|штраф|наказан|застав|(?:игрок|участник|ты|вы)\s+обязан|не можешь отказаться|не имеешь права|покажи телефон|отправь|опубликуй|сфотографируй)/i
 
 export function eventRollIsDue(state:DirectorState,random:()=>number=Math.random):boolean {
   if(state.turnsPlayed<4||state.turnsPlayed-state.lastEventTurn<3)return false
