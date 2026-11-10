@@ -114,6 +114,7 @@ export function cardIsEligible(
   if (card.scenario !== state.scenario) return false
   if (!card.stages.includes(state.sessionStage)) return false
   if (card.risk !== risk) return false
+  if (card.minCompletedTurns && state.history.filter(entry=>!entry.skipped).length<card.minCompletedTurns) return false
   if ((card.requires?.minPlayers ?? 2) > state.players.length) return false
   if (!hasRequiredBoundaries(card, state)) return false
   if (!clothingAllowed(card, state, actorIndex, targetIndex)) return false
