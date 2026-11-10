@@ -368,7 +368,7 @@ test('players can skip AI Events without punishment or stale event rules',async(
     expect(data.allowedMechanics).toContain('risk-handoff')
     await route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({
-        title:'Смена рулевого без штрафа',
+        title:'Ночная смена рулевого',
         description:'Следующий по кругу участник получает право выбрать уровень риска для этого хода вместо текущего игрока; отказаться от события можно без последствий.',
         mechanics:['risk-handoff'],
       }),
