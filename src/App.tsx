@@ -7,12 +7,13 @@ import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from
 import { adaptLegacyDeck } from './v09/legacy-adapter'
 import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
 import { requestAIModifier } from './v09/ai-modifier'
-import { bossIsReady, completeTurn, createDirectorState, pickDirectorCard, pickDirectorTarget, tickEffects } from './v09/director'
+import { bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDirectorCard, pickDirectorTarget, tickEffects } from './v09/director'
 import { maybeCreateCautionEvent } from './v09/director'
 import { eventRollIsDue, filteredEventCards, recordEventDecision, requestAIEvent } from './v09/ai-events'
 import { eligibleTurnModifiers, pickTurnModifiers } from './v09/modifiers'
 import { buildBossSession } from './v09/bosses'
 import { getActiveStoryBeat } from './v09/story'
+import { abandonUnavailableChain, beginChainSession, chainCaption, getActiveChainBeat, preferredChainTarget } from './v09/chains'
 import { sexNativeCards } from './v09/sex-native'
 import { clearV09Game, loadV09Game, loadV09Settings, saveV09Game, saveV09Settings } from './v09/storage'
 import type {
@@ -469,7 +470,16 @@ function App() {
     const candidates = forcedModifierCount > 0
       ? baseCandidates.filter((card) => eligibleTurnModifiers(card, directorState).length >= forcedModifierCount)
       : baseCandidates
-    const fallback = pickDirectorCard(candidates, directorState, currentPlayerIndex, null, risk)
+    // A future chosen risk/stage/Event can make an old story beat impossible.
+    // Drop its preference without blocking any valid card or lowering the fire.
+    const beat = getActiveStoryBeat(directorState)
+    const chainAvailable = !beat || candidates.some(card =>
+      card.chains.includes(beat.chain)
+      && cardIsEligible(card, directorState, currentPlayerIndex, null, risk))
+    const stateForTurn = pendingEvent || !chainAvailable
+      ? abandonUnavailableChain(directorState)
+      : directorState
+    const fallback = pickDirectorCard(candidates, stateForTurn, currentPlayerIndex, null, risk)
 
     if (!fallback) {
       setNotice(
@@ -483,9 +493,9 @@ function App() {
     const epoch = ++aiEpoch.current
     aiBusyRef.current = true
     setAiBusy(true)
-    const shortlist = createAIDirectorShortlist(candidates, directorState, currentPlayerIndex, risk)
+    const shortlist = createAIDirectorShortlist(candidates, stateForTurn, currentPlayerIndex, risk)
     const aiChoice = await requestAIDirectorChoice(
-      directorState, risk, shortlist, {
+      stateForTurn, risk, shortlist, {
         forceCondition: forcedModifierCount > 0,
         actorIndex: currentPlayerIndex,
       },
@@ -506,7 +516,8 @@ function App() {
       : card.targetRequired === false
         ? []
         : settings.players.map((_, index) => index).filter((index) => index !== currentPlayerIndex)
-    const targetIndex = pickDirectorTarget(targets, directorState)
+    const targetIndex = preferredChainTarget(stateForTurn, targets, risk)
+      ?? pickDirectorTarget(targets, stateForTurn)
     const finalText = source
       ? renderCardText({ ...source, text: card.text }, settings.players, currentPlayerIndex, targetIndex)
       : hydrateCardText(card.text, settings.players, currentPlayerIndex, targetIndex)
@@ -514,10 +525,10 @@ function App() {
     // A valid extra must be a newly authored, verified difficulty rule.
     // No arbitrary canned modifier is substituted when AI creativity fails.
     // Only explicitly forced legacy Events retain their compatibility fallback.
-    const fallbackModifiers = pickTurnModifiers(card, directorState, card.risk, forcedModifierCount)
+    const fallbackModifiers = pickTurnModifiers(card, stateForTurn, card.risk, forcedModifierCount)
     let modifiers: TurnModifier[] = forcedModifierCount > 0 && !aiChoice ? fallbackModifiers : []
     if (aiChoice && (aiChoice.addCondition || forcedModifierCount > 0)) {
-      const custom = await requestAIModifier(card, directorState)
+      const custom = await requestAIModifier(card, stateForTurn)
       if (epoch !== aiEpoch.current) return
       if (custom) {
         modifiers = [custom]
@@ -540,13 +551,17 @@ function App() {
 
     aiBusyRef.current = false
     setAiBusy(false)
-    // An active three-beat story survives repeated AI calls and refreshes.
-    // Start a new plan only when the previous one has completed or been skipped.
+    // A live Chain owns three subsequent actions and target callbacks.
+    // Retain it across AI calls; use a fresh AI blueprint only at the opener.
+    const continuing = getActiveStoryBeat(stateForTurn)
+    const newPlan = continuing ? stateForTurn.scenePlan ?? null : (aiChoice?.scenePlan ?? null)
+    const newChain = continuing ? stateForTurn.chainSession ?? null
+      : beginChainSession(stateForTurn, card, currentPlayerIndex, targetIndex,
+        newPlan, aiChoice?.chainDraft ?? null)
     setDirectorState({
-      ...directorState,
-      scenePlan: getActiveStoryBeat(directorState)
-        ? directorState.scenePlan
-        : (aiChoice?.scenePlan ?? null),
+      ...stateForTurn,
+      scenePlan: newPlan,
+      chainSession: newChain,
     })
     setCurrentDirectorCard(card)
     setCurrentRisk(card.risk)
@@ -578,6 +593,8 @@ function App() {
     setView('risk')
     setNotice('')
 
+    // No pop-up Events/caution interruptions in the middle of a Chain.
+    if (getActiveChainBeat(nextDirector)) return
     // Safety-driven legacy caution events still work if AI is unavailable.
     // Optional creative AI events are generated at eligible intervals only.
     const caution = maybeCreateCautionEvent(nextDirector, nextPlayerIndex)
@@ -625,7 +642,7 @@ function App() {
 
     if (!skipped && bossIsReady(nextDirector)
         && !getActiveStoryBeat(nextDirector) && Math.random() < 0.5) {
-      setDirectorState({ ...nextDirector, scenePlan: null })
+      setDirectorState({ ...nextDirector, scenePlan: null, chainSession: null })
       setBoss(buildBossSession(nextDirector))
       setBossPhaseIndex(0)
       setCurrentDirectorCard(null)
@@ -670,6 +687,7 @@ function App() {
       ...directorState,
       lastBossTurn: directorState.turnsPlayed,
       scenePlan: null,
+      chainSession: null,
       tension: Math.max(8, directorState.tension - 28),
       chainDepth: 0,
     }
@@ -949,7 +967,14 @@ function App() {
               <span>{'🔥'.repeat(currentDirectorCard.risk)}</span>
             </div>
             {currentTarget && <div className="target-chip">с {currentTarget.name}</div>}
-            {aiWasUsed && aiIntro && <p className="ai-intro">✦ AI DIRECTOR · {aiIntro}</p>}
+            {chainCaption(directorState!) && (
+              <div className="chain-caption">
+                <strong>✦ AI CHAIN · {chainCaption(directorState!)?.title} · {chainCaption(directorState!)?.step}/4</strong>
+                {chainCaption(directorState!)?.line && settings.scenario !== 'sex'
+                  && <small>{chainCaption(directorState!)?.line}</small>}
+              </div>
+            )}
+            {aiWasUsed && aiIntro && !chainCaption(directorState!) && <p className="ai-intro">✦ AI DIRECTOR · {aiIntro}</p>}
             <p className="card-text">{renderedText}</p>
             {currentModifiers.length > 0 && (
               <div className="modifier-stack">
