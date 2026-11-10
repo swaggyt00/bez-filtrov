@@ -17,24 +17,24 @@ export interface BossDraft {
 // NEVER becomes a new unreviewed dare or sexual instruction.
 export const bossMechanics: Record<Scenario, [string[],string[],string[]]> = {
   party: [
-    ['callback-spotlight','voluntary-ballot','opening-echo'],
-    ['duel-remix','role-handoff','double-improv'],
-    ['ensemble-remix','group-reveal','final-chorus'],
+    ['callback-spotlight','voluntary-ballot','opening-echo','callback-witness','team-captain'],
+    ['duel-remix','role-handoff','double-improv','alibi-exchange','reversal-duel'],
+    ['ensemble-remix','group-reveal','final-chorus','group-verdict','finale-callback'],
   ],
   afterdark: [
-    ['night-callback','voluntary-ballot','opening-echo'],
-    ['double-improv','role-handoff','duel-remix'],
-    ['ensemble-remix','group-reveal','final-chorus'],
+    ['night-callback','voluntary-ballot','opening-echo','rumor-reversal','volunteer-spotlight'],
+    ['double-improv','role-handoff','duel-remix','night-alibi','mask-swap'],
+    ['ensemble-remix','group-reveal','final-chorus','midnight-verdict','last-reveal'],
   ],
   couple: [
-    ['shared-memory','wish-echo','mutual-choice'],
-    ['perspective-switch','paired-improv','surprise-reframe'],
-    ['shared-finale','future-choice','open-ending'],
+    ['shared-memory','wish-echo','mutual-choice','secret-attraction','bold-invitation'],
+    ['perspective-switch','paired-improv','surprise-reframe','flirt-role-swap','honest-or-playful'],
+    ['shared-finale','future-choice','open-ending','shared-spark','shared-surprise'],
   ],
   sex: [
-    ['resume-consented','shared-choice','slow-connection'],
-    ['trade-initiative','change-pacing','keep-thread'],
-    ['open-ending','together-decide','no-timer-finish'],
+    ['resume-consented','shared-choice','slow-connection','stay-with-spark','gentle-checkin'],
+    ['trade-initiative','change-pacing','keep-thread','mutual-rhythm','initiative-offer'],
+    ['open-ending','together-decide','no-timer-finish','quiet-finale','choose-finish'],
   ],
 }
 
@@ -105,6 +105,30 @@ function gameAction(state:DirectorState,phase:BossPhaseDraft):string {
     case 'role-handoff':return `${lead}: передай роль ведущего другому желающему. Новый ведущий меняет жанр игры — комедия, детектив или фантастика — на один раунд.`
     case 'double-improv':return `${lead} и доброволец по очереди добавляют по одному неожиданному повороту к общей выдуманной истории. Не используйте чужих признаний.`
     case 'ensemble-remix':return 'Все желающие соединяют два мотива уже сыгранных ходов в одну короткую импровизацию. Не повторяйте дословно личные ответы.'
+    case 'callback-witness':return `${lead}: предложи добровольцу вспомнить без личных подробностей один из последних игровых моментов. Вы вдвоём придумайте для него неожиданный второй сезон.`
+    case 'team-captain':return `${lead}: собери команду из двух желающих. За тридцать секунд совместно придумайте дерзкое, но вымышленное оправдание самой странной истории этого вечера.`
+    case 'alibi-exchange':return `${lead} и доброволец по очереди придумывают алиби для вымышленного неловкого события. После двух реплик каждый поменяйтесь ролями обвинителя и защитника.`
+    case 'reversal-duel':return `${lead} и желающий разыгрывают короткий спор, а на середине меняются позициями и обязаны защищать противоположную точку зрения.`
+    case 'group-verdict':return 'Все желающие выбирают, какая из вымышленных версий событий вечера самая нелепая. Победитель даёт ей название, не раскрывая чужие секреты.'
+    case 'finale-callback':return 'Вернитесь к мотиву одного из первых сыгранных заданий. Каждый желающий добавляет один новый поворот, а последний произносит завершающую фразу.'
+    case 'rumor-reversal':return `${lead}: придумай явно вымышленный слух о себе как герое ночного фильма. Остальные желающие предлагают две неожиданно правдоподобные версии развязки.`
+    case 'volunteer-spotlight':return `${lead}: предложи желающему на минуту стать твоим соперником в импровизированном ночном ток-шоу. Оба защищают противоположные точки зрения.`
+    case 'night-alibi':return `${lead} и доброволец ведут короткий допрос о полностью выдуманной ночной авантюре. После двух вопросов меняйтесь ролями.`
+    case 'mask-swap':return `${lead} и согласный игрок меняются вымышленными характерами на одну сцену: один изображает абсолютную уверенность, второй — необъяснимое смущение.`
+    case 'midnight-verdict':return 'Каждый желающий предлагает название вымышленного скандального фильма про сегодняшний вечер. Группа выбирает самый неожиданный вариант.'
+    case 'last-reveal':return 'Все желающие добавляют по одному факту к полностью выдуманной ночной истории. Последний участник должен одним предложением объяснить неожиданный поворот.'
+    case 'secret-attraction':return 'По желанию каждый открывает одну черту партнёра, которая вызывает притяжение сильнее, чем он обычно признаёт. Никто не обязан обещать действий.'
+    case 'bold-invitation':return 'Каждый при желании предлагает одну смелую идею для вечера на двоих. Найдите ту, которая интересна вам обоим, не назначая обязательств.'
+    case 'flirt-role-swap':return 'Сыграйте короткую вымышленную встречу, где сначала один пытается заинтересовать другого, а потом поменяйтесь ролями. Прикосновения необязательны.'
+    case 'honest-or-playful':return 'Каждый по желанию выбирает один поворот: сказать партнёру неожиданную правду о притяжении или придумать забавное романтическое признание от вымышленного героя.'
+    case 'shared-spark':return 'Назовите по одной детали этого вечера, которую хотелось бы запомнить. Вместе выберите свою собственную финальную реплику.'
+    case 'shared-surprise':return 'Придумайте совместно неожиданную, но необязательную идею следующего свидания и завершите историю общим названием.'
+    case 'stay-with-spark':return 'Если обоим комфортно, оставайтесь в уже согласованной сцене без новых правил. Разговор с приложением на время можно закончить.'
+    case 'gentle-checkin':return 'Не меняя уже согласованных действий, любой может тихо предложить сохранить текущую атмосферу, замедлиться или остановиться.'
+    case 'mutual-rhythm':return 'Если обоим хочется, согласуйте удобный темп уже выбранной сцены. Не требуется добавлять практики, положения или условия.'
+    case 'initiative-offer':return 'Если это желанно обоим, предложите друг другу вести уже согласованную сцену. Любой может сохранить прежнюю инициативу или остановиться.'
+    case 'quiet-finale':return 'Игра больше ничего не требует: останьтесь в комфортной близости, сделайте паузу или завершите вечер — как решите вместе.'
+    case 'choose-finish':return 'Финал открыт. Продолжайте уже согласованную сцену только пока этого хотят оба, или просто уберите телефон и побудьте рядом.'
     case 'group-reveal':return 'Каждый желающий придумывает название для происходившего раунда. Группа выбирает одно название общим голосованием.'
     case 'final-chorus':return 'Каждый желающий добавляет по одной реплике к общему комедийному финалу. Последний участник завершает историю одной фразой.'
     case 'shared-memory':return 'Вспомните одно задание этой партии, которое вы оба решили выполнить. Каждый может сказать, что именно ему в нём запомнилось.'
@@ -146,13 +170,13 @@ function deterministicPlan(state:DirectorState):BossDraft {
   const prior=state.bossHistory?.at(-1)
   const played=state.history.filter(x=>!x.skipped)
   const intensity=played.slice(-4).reduce((sum,x)=>sum+x.risk,0)
-  const index=(state.turnsPlayed+intensity+state.chainDepth)%3
+  const index=state.turnsPlayed+intensity+state.chainDepth
   const roles:BossRole[]=state.scenario==='party'||state.scenario==='afterdark'
     ? ['last-actor','last-target','all'] : ['both','both','both']
   let offset=index
   let mechanics=options.map((choices,i)=>choices[(offset+i)%choices.length])
   if(prior?.mechanics.join('|')===mechanics.join('|')){
-    offset=(offset+1)%3
+    offset+=1
     mechanics=options.map((choices,i)=>choices[(offset+i)%choices.length])
   }
   return {
