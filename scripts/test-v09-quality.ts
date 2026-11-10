@@ -57,12 +57,12 @@ const styles=[
 ]
 const report: Array<{
   scenario:Scenario;style:string;games:number;turns:number;noEligible:number;
-  repeats16:number;avoidableRepeats:number;bossEligible:number;maxStage:number;
+  repeats16:number;avoidableRepeats:number;maxStage:number;
 }>=[]
 for(const mode of ['party','afterdark','couple','sex'] as Scenario[]){
   for(const style of styles){
     const row={scenario:mode,style:style.name,games:80,turns:0,noEligible:0,
-      repeats16:0,avoidableRepeats:0,bossEligible:0,maxStage:0}
+      repeats16:0,avoidableRepeats:0,maxStage:0}
     for(let run=0;run<80;run++){
       const people=partyProfiles(mode,run)
       const rng=random(0xC001 + run*7919 + styles.indexOf(style)*11113
