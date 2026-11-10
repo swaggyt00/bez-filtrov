@@ -690,42 +690,42 @@ export const sexNativeCards: DirectorCard[] = [
   // explicitly authored three-fire Truths, never an invitation to expand
   // the agreed consent boundaries.
   native(
-    'truth3-late-01','truth',3,[3,4],['confession'],
+    'truth3-late-01','truth',3,[2,3,4],['confession'],
     'Какую самую неловкую правду о своих сексуальных желаниях ты скрываешь от {{other.gen}}, потому что боишься изменить отношение к себе?',
     { next:['confession'] },
   ),
   native(
-    'truth3-late-02','truth',3,[3,4],['confession'],
+    'truth3-late-02','truth',3,[2,3,4],['confession'],
     'Когда в интимной близости ты соглашался с предложением только из страха разочаровать другого, хотя на самом деле хотел отказаться?',
     { next:['connection'] },
   ),
   native(
-    'truth3-late-03','truth',3,[3,4],['confession'],
+    'truth3-late-03','truth',3,[2,3,4],['confession'],
     'Какую фантазию ты считаешь неприемлемой для воплощения, но всё равно возвращаешься к ней мысленно, хотя стесняешься этого?',
     { next:['confession'] },
   ),
   native(
-    'truth3-late-04','truth',3,[3,4],['confession'],
+    'truth3-late-04','truth',3,[2,3,4],['confession'],
     'Что в своей интимной жизни ты сознательно приукрашивал в разговорах и почему тебе было так трудно сказать правду?',
     { next:['confession'] },
   ),
   native(
-    'truth3-late-05','truth',3,[3,4],['confession'],
+    'truth3-late-05','truth',3,[2,3,4],['confession'],
     'Какой самый трудный разговор о своих сексуальных границах ты откладываешь, опасаясь, что партнёр воспримет отказ лично?',
     { next:['connection'] },
   ),
   native(
-    'truth3-late-06','truth',3,[3,4],['confession'],
+    'truth3-late-06','truth',3,[2,3,4],['confession'],
     'Какая мысль о притяжении к кому-то ещё когда-либо заставляла тебя чувствовать неловкость перед партнёром и почему?',
     { next:['confession'] },
   ),
   native(
-    'truth3-late-07','truth',3,[3,4],['confession'],
+    'truth3-late-07','truth',3,[2,3,4],['confession'],
     'Что ты однажды хотел попросить во время близости, но передумал в последний момент из-за страха получить честное «нет»?',
     { next:['tease'] },
   ),
   native(
-    'truth3-late-08','truth',3,[3,4],['confession'],
+    'truth3-late-08','truth',3,[2,3,4],['confession'],
     'Какое своё подлинное желание тебе страшнее всего открыто обсуждать с {{other.ins}}, хотя ты хочешь, чтобы тебя поняли?',
     { next:['connection'] },
   ),
