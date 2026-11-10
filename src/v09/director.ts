@@ -134,7 +134,9 @@ export function scoreCard(card: DirectorCard, state: DirectorState) {
 
   // The Director explicitly decides whether to develop a scene or change it.
   // A skipped card NEVER becomes an invitation to repeat the same theme.
-  if (pacing.intent !== 'pivot' && pacing.intent !== 'recover') {
+  if (pacing.intent !== 'pivot' && (
+      pacing.intent !== 'recover' || state.chainFamily !== pacing.avoidChain
+    )) {
     if (state.chainFamily && card.chains.includes(state.chainFamily)) score += 32
     if (state.chainFamily && card.nextHooks?.includes(state.chainFamily)) score += 10
   }
