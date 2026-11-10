@@ -75,6 +75,25 @@ for (const id of [
   const old = legacyDeck.find(card=>card.sourceCardId===id)
   assert.ok(old?.risk !== 3, id+' is a weak card that must not appear at 🔥🔥🔥')
 }
+
+for(const mode of ['party','afterdark','couple'] as const){
+  const deck=curatedHighRiskCards.filter(card=>card.scenario===mode)
+  assert.ok(deck.length===30,mode+' must keep exactly 30 reviewed three-fire cards')
+  assert.ok(deck.filter(card=>card.type==='truth').length===15,
+    mode+' risk-three Truth ratio must remain unchanged')
+  assert.ok(deck.filter(card=>card.type==='dare').length===15,
+    mode+' risk-three Dare ratio must remain unchanged')
+}
+const coupleHard=curatedHighRiskCards.filter(card=>card.scenario==='couple')
+assert.ok(coupleHard.filter(card=>card.chains.includes('flirt')).length>=8,
+  'Couple high-risk must include attraction/play, not just conflict therapy')
+assert.ok(socialCallbackCards.length===24,'expected 24 competitive/revenge callbacks')
+assert.ok(socialCallbackCards.every(card=>card.risk===2 && card.minCompletedTurns===3
+  && ['party','afterdark'].includes(card.scenario) && card.targetRequired===false),
+  'callbacks cannot activate without genuine social history or change risk')
+assert.ok(curatedSexLowRiskCards.filter(card=>card.sceneBridge).length>=8,
+  'established intimacy needs multiple gentle, scene-preserving alternatives')
+
 assert.ok(curatedHighRiskCards.length===90,'expected exactly 90 explicitly reviewed high-risk cards')
 assert.ok(curatedHighRiskCards.every(card=>
   card.risk===3 && card.scenario!=='sex' && card.stages.length===4),
