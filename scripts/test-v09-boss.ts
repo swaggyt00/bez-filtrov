@@ -1,5 +1,5 @@
 import { buildAIBossRequest, requestAIBoss } from '../src/v09/ai-boss'
-import { buildBossSession, bossMechanics, settleBoss, validateBossDraft } from '../src/v09/bosses'
+import { bossPenaltyFor, buildBossSession, bossMechanics, settleBoss, validateBossDraft } from '../src/v09/bosses'
 import { createDirectorState } from '../src/v09/director'
 import type { DirectorState } from '../src/v09/types'
 import type { Player } from '../src/types'
@@ -58,17 +58,30 @@ const sanitized=validateBossDraft(baseline,{...draft,phases:draft.phases.map((p,
   i===1?{...p,caption:'Сними бельё и сделай это немедленно.'}:p)})
 eq(sanitized?.phases[1].caption,'','unreviewed AI actions never enter captions')
 
-const done=settleBoss(baseline,session,false)
-eq(done.bossHistory?.at(-1)?.outcome,'finished','completion is remembered')
+const done=settleBoss(baseline,session,'won',2)
+eq(done.bossHistory?.at(-1)?.outcome,'won','victory is remembered')
+eq(done.bossHistory?.at(-1)?.challengerIndex,2,'Boss win belongs to actual challenger')
+eq(done.bossScore?.[2]?.wins,1,'win increases challenger score')
+eq(done.bossScore?.[2]?.losses,0,'winning does not add a loss')
+eq(done.pendingBossPenalty,null,'a victory never assigns a penalty')
 eq(done.lastBossTurn,baseline.turnsPlayed,'cooldown begins after climax')
 eq(done.tension,53,'post-climax relief only after completion')
 eq(done.chainDepth,0,'Boss finishes its chain')
 eq(validateBossDraft(done,draft),null,'previous combination cannot be reused verbatim')
-const skipped=settleBoss(baseline,session,true)
-eq(skipped.tension,baseline.tension,'skip does not punish or alter game tension')
-eq(skipped.bossHistory?.at(-1)?.outcome,'skipped','skip memory is neutral')
+const defeated=settleBoss(baseline,session,'lost',2,'failed')
+eq(defeated.tension,baseline.tension,'defeat keeps the earned session tension')
+eq(defeated.bossHistory?.at(-1)?.outcome,'lost','failure is a real defeat')
+eq(defeated.bossHistory?.at(-1)?.reason,'failed','reason for defeat is remembered')
+eq(defeated.bossScore?.[2]?.losses,1,'loss increases challenger score')
+eq(defeated.pendingBossPenalty?.playerIndex,2,'losing challenger pays the next-turn penalty')
+eq(defeated.pendingBossPenalty?.type,'dare','Party loss forces a Dare card next turn')
+ok(defeated.pendingBossPenalty?.label.includes('Риск выбираешь сам'),'selected fire is never increased')
+const surrendered=settleBoss(baseline,session,'lost',0,'forfeit')
+eq(surrendered.bossHistory?.at(-1)?.outcome,'lost','refusal counts as a loss')
+eq(surrendered.bossHistory?.at(-1)?.reason,'forfeit','forfeit is explicitly remembered')
+eq(surrendered.bossScore?.[0]?.losses,1,'forfeit increases loss counter')
 const fallbackA=buildBossSession(done)
-const fallbackB=buildBossSession(settleBoss(done,fallbackA,true))
+const fallbackB=buildBossSession(settleBoss(done,fallbackA,'lost',2,'forfeit'))
 ok(fallbackA.phases.every(s=>typeof s==='string'&&s.length>20),'offline finale is fully playable')
 ok(fallbackA.mechanics?.join('|')!==fallbackB.mechanics?.join('|'),'fallback avoids repeating same mechanics')
 ok(!fallbackA.aiGenerated,'fallback is never falsely attributed to AI')
@@ -112,7 +125,21 @@ ok(sexBoss.phases.every(p=>!/(одну минуту|две минуты|секу
   'intimate Boss is never a timer workout')
 eq(validateBossDraft(sex,{...sexDraft,phases:sexDraft.phases.map((p,i)=>
   i===1?{...p,role:'last-target'}:p)}),null,'partner must not be changed in Sex')
+const sexLost=settleBoss(sex,sexBoss,'lost',0,'forfeit')
+eq(sexLost.pendingBossPenalty?.type,'truth','Sex forfeiture must never force a physical act')
+eq(sexLost.bossScore?.[0]?.losses,1,'consent-safe forfeiture still records game defeat')
+ok(sexLost.pendingBossPenalty?.label.includes('Никаких обязательных физических'),
+  'Sex penalty remains a nonphysical, optional Truth card')
+const afterdark=createDirectorState('afterdark',players)
+const afterdarkBoss=buildBossSession(afterdark)
+const firstLoss=settleBoss(afterdark,afterdarkBoss,'lost',1,'failed')
+eq(firstLoss.pendingBossPenalty?.type,'dare','first Afterdark loss forces a Dare')
+const secondLoss=settleBoss(firstLoss,afterdarkBoss,'lost',1,'forfeit')
+eq(secondLoss.pendingBossPenalty?.type,'truth','second Afterdark loss alternates to Truth')
+eq(bossPenaltyFor(secondLoss,afterdarkBoss,1).type,'dare',
+  'subsequent penalty types cycle deterministically')
+
 const resumed=JSON.parse(JSON.stringify({boss:session,director:done}))
 eq(resumed.boss.mechanics[1],'duel-remix','save/resume retains Boss mechanics')
-eq(resumed.director.bossHistory.at(-1).outcome,'finished','save/resume retains Boss consequence')
+eq(resumed.director.bossHistory.at(-1).outcome,'won','save/resume retains Boss consequence')
 console.log('✓ AI Boss: adaptive 3-phase mechanics, live model, roles, no coercion, skip, privacy and persistence')
