@@ -6,6 +6,7 @@ import { loadSettings as loadLegacySettings } from './storage'
 import type { GameCard, PairingPreference, Player, PlayerGender, Scenario } from './types'
 import { adaptLegacyDeck } from './v09/legacy-adapter'
 import { curatedHighRiskCards } from './v09/curated-risk-three'
+import { curatedSexLowRiskCards } from './v09/curated-sex-breathers'
 import { createAIDirectorShortlist, requestAIDirectorChoice } from './v09/ai-director'
 import { requestAIModifier } from './v09/ai-modifier'
 import { bossIsReady, cardIsEligible, completeTurn, createDirectorState, pickDirectorCard, pickDirectorTarget, preferUnseenDirectorCards, tickEffects } from './v09/director'
@@ -122,7 +123,7 @@ const sexStartLabels: Record<SexStartState, string> = {
   nude: 'Раздеты',
 }
 
-const directorDeck = [...adaptLegacyDeck(cards), ...sexNativeCards, ...curatedHighRiskCards]
+const directorDeck = [...adaptLegacyDeck(cards), ...sexNativeCards, ...curatedHighRiskCards, ...curatedSexLowRiskCards]
 const directorById = new Map(directorDeck.map((card) => [card.id, card]))
 const sourceById = new Map(cards.map((card) => [card.id, card]))
 
