@@ -186,6 +186,7 @@ export interface DirectorState {
   chainSession?: DirectorChainSession | null
   chainHistory?: ChainOutcome[]
   bossHistory?: BossHistoryEntry[]
+  bossScore?: Record<number, {wins:number;losses:number}>
   pendingBossPenalty?: BossPenalty | null
 }
 
