@@ -141,6 +141,10 @@ export function validateAIEvent(
   if(/https?:|www\.|@|#/.test(title+description))return null
   if(forbiddenEventCopy.test(title+description))return null
   if((state.eventHistory??[]).slice(-3).some(x=>x.title.toLocaleLowerCase('ru')===title.toLocaleLowerCase('ru')))return null
+  if((state.eventHistory??[]).slice(-2).some(x=>
+    x.mechanics.length===mechanics.length
+    && x.mechanics.every(key=>mechanics.includes(key))
+  ))return null
 
   const last=state.history.at(-1)
   let forcedType:DirectorEvent['forcedType']
