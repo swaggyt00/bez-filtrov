@@ -6,10 +6,14 @@ const assert = {
 
 import { cards } from '../src/data/cards'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
+import { curatedHighRiskCards } from '../src/v09/curated-risk-three'
+import { curatedSexLowRiskCards } from '../src/v09/curated-sex-breathers'
+import { sexNativeCards } from '../src/v09/sex-native'
 import type { RiskLevel, SessionStage } from '../src/v09/types'
 import type { Scenario } from '../src/types'
 
-const deck = adaptLegacyDeck(cards)
+const legacyDeck = adaptLegacyDeck(cards)
+const deck = [...legacyDeck,...sexNativeCards,...curatedHighRiskCards,...curatedSexLowRiskCards]
 const maxStage: Record<Scenario, SessionStage> = {
   couple: 3,
   party: 3,
@@ -27,12 +31,18 @@ for (const scenario of scenarios) {
         && card.stages.includes(stage as SessionStage)
         && card.risk === risk,
       ).length
-      assert.ok(count >= 3, `${scenario}/stage-${stage}/risk-${risk}: legacy adapter has only ${count} cards`)
+      assert.ok(count >= 3, `${scenario}/stage-${stage}/risk-${risk}: director has only ${count} cards`)
+      if(scenario !== 'sex' && risk === 3) {
+        assert.ok(count >= 30, `${scenario}/stage-${stage}: insufficient reviewed risk-3 variety (${count})`)
+      }
+      if(scenario === 'sex' && risk === 1 && stage >= 2) {
+        assert.ok(count >= 24, `sex/stage-${stage}: low-risk continuity pool too small (${count})`)
+      }
     }
   }
 }
 
-console.log('✓ v0.9 legacy adapter has risk coverage for every stage')
+console.log('✓ v0.9 full playable Director deck has risk coverage for every stage')
 
 
 const adaptedBySourceId = new Map(deck.map((card) => [card.sourceCardId, card]))
@@ -50,39 +60,33 @@ for (const source of cards.filter((card) => card.type === 'truth' && card.scenar
 
 console.log('✓ v0.9 Truth risk has no hash-based three-fire inflation')
 
-const expectedLegacyThreeFireTruthIds = [
-  'afterdark-hard-truth-001',
-  'afterdark-hard-truth-002',
-  'afterdark-hard-truth-003',
-  'afterdark-hard-truth-004',
-  'afterdark-hard-truth-008',
-  'afterdark-hard-truth-010',
-  'afterdark-hard-truth-013',
-  'couple-hard-truth-001',
-  'couple-hard-truth-003',
-  'couple-hard-truth-004',
-  'couple-hard-truth-005',
-  'couple-hard-truth-014',
-  'couple-hard-truth-015',
-  'couple-hard-truth-016',
-  'couple-hard-truth-018',
-  'party-hard-truth-006',
-  'party-hard-truth-008',
-  'party-hard-truth-016',
-  'party-hard-truth-019',
-]
-const actualLegacyThreeFireTruthIds = deck
-  .filter((card) => card.scenario !== 'sex' && card.type === 'truth' && card.risk === 3)
-  .map((card) => card.sourceCardId)
-  .filter((id): id is string => Boolean(id))
-  .sort()
-assert.ok(
-  JSON.stringify(actualLegacyThreeFireTruthIds) === JSON.stringify(expectedLegacyThreeFireTruthIds),
-  `three-fire legacy Truth allowlist drifted: ${actualLegacyThreeFireTruthIds.join(', ')}`,
-)
+const unexpectedRiskThree = legacyDeck.filter(card =>
+  card.scenario !== 'sex' && card.risk === 3)
+assert.ok(unexpectedRiskThree.length === 0,
+  'legacy social Truth/Dare must never claim risk-3 without human semantic review: '
+  +unexpectedRiskThree.map(card=>card.sourceCardId).join(', '))
 
-console.log('✓ v0.9 legacy three-fire Truths are manual allowlist only')
+for (const id of [
+  'party-light-dare-006','party-light-dare-027','party-hard-truth-008',
+  'afterdark-light-dare-003','afterdark-light-dare-024',
+  'couple-light-dare-006','couple-light-dare-034','couple-hard-truth-001',
+]) {
+  const old = legacyDeck.find(card=>card.sourceCardId===id)
+  assert.ok(old?.risk !== 3, id+' is a weak card that must not appear at 🔥🔥🔥')
+}
+assert.ok(curatedHighRiskCards.length===90,'expected exactly 90 explicitly reviewed high-risk cards')
+assert.ok(curatedHighRiskCards.every(card=>
+  card.risk===3 && card.scenario!=='sex' && card.stages.length===4),
+  'reviewed three-fire cards must keep chosen intensity and work in all social stages')
+assert.ok(curatedSexLowRiskCards.length===24,'expected 24 stage-safe low-risk sex cards')
+assert.ok(curatedSexLowRiskCards.every(card=>
+  card.risk===1 && card.scenario==='sex' && [2,3,4].every(stage=>card.stages.includes(stage as SessionStage))
+  &&!(card.requires?.boundaries?.length)),
+  'new Sex relief cards cannot add new physical-boundary requirements')
 
+const ids=deck.map(card=>card.id)
+assert.ok(new Set(ids).size===ids.length,'Director deck IDs must be unique')
+console.log('✓ curated semantic risk-3: old hash inflation removed; 90 true high-risk + 24 safe Sex relief cards')
 
 const bySourceId = new Map(cards.map((card) => [card.id, card]))
 for (const card of deck) {
