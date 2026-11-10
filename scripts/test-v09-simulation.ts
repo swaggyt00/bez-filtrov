@@ -8,11 +8,13 @@ import { cards } from '../src/data/cards'
 import { eligibleTargetIndices } from '../src/deck'
 import { adaptLegacyDeck } from '../src/v09/legacy-adapter'
 import { sexNativeCards } from '../src/v09/sex-native'
+import { curatedHighRiskCards } from '../src/v09/curated-risk-three'
+import { curatedSexLowRiskCards } from '../src/v09/curated-sex-breathers'
 import { completeTurn, createDirectorState, pickDirectorCard, tickEffects } from '../src/v09/director'
 import type { BoundaryTag, RiskLevel } from '../src/v09/types'
 import type { Player, Scenario } from '../src/types'
 
-const deck = [...adaptLegacyDeck(cards), ...sexNativeCards]
+const deck = [...adaptLegacyDeck(cards), ...sexNativeCards, ...curatedHighRiskCards, ...curatedSexLowRiskCards]
 const sourceById = new Map(cards.map((card) => [card.id, card]))
 const allBoundaries: BoundaryTag[] = [
   'manual', 'oral', 'penetration', 'spanking', 'bondage', 'dom-sub',

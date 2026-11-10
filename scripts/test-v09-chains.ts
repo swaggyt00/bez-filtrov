@@ -23,6 +23,7 @@ const card=(id:string,chain:DirectorCard['chains'][number],type:'truth'|'dare'='
 })
 const opener=card('opener','social')
 const contrast=card('contrast','chaos','dare')
+const freshFollowup=card('fresh-followup','social')
 const shortlist=[{card:opener,score:20},{card:contrast,score:17}]
 const sceneDraft={beats:[
   {phase:'build',chain:'social',preferredType:'truth'},
@@ -60,15 +61,16 @@ eq(preferredChainTarget(state,[0,1],3),1,'three-fire branch returns to first eli
 eq(preferredChainTarget(state,[2,3],3),null,'no target permission is invented')
 eq(preferredChainTarget(state,[0,1,2],2),0,'middle risk follows ordinary branch')
 const request=await requestAIDirectorChoice(state,2,
-  createAIDirectorShortlist([opener,contrast],state,2,2),
+  createAIDirectorShortlist([opener,contrast,freshFollowup],state,2,2),
   {actorIndex:2,fetcher:(async(_url,init)=>{
     const body=JSON.parse(String(init?.body))
     ok(!JSON.stringify(body).includes('Участник'),'real names must never reach a provider')
     eq(body.activeChain?.openerActorIndex,0,'provider knows only anonymized cast index')
     eq(body.activeChain?.normalTarget,'opener','remote AI sees precise playable callback')
-    return Response.json({selectedId:opener.id,intro:'Продолжение.',addCondition:false})
+    return Response.json({selectedId:freshFollowup.id,intro:'Продолжение.',addCondition:false})
   }) as typeof fetch})
-eq(request?.card.id,opener.id,'old Worker response without chain remains valid')
+eq(request?.card.id,freshFollowup.id,'old Worker response without chain still works with a fresh ID')
+ok(request?.card.id!==opener.id,'active Chain must not replay its opener while a fresh equivalent exists')
 
 state=completeTurn(state,opener,2,0,1)
 eq(getActiveChainBeat(state)?.phase,'twist','second beat is a real separate action')

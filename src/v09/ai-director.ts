@@ -1,5 +1,5 @@
 import type { Scenario } from '../types'
-import { cardIsEligible, scoreCard } from './director'
+import { cardIsEligible, preferUnseenDirectorCards, scoreCard } from './director'
 import { planDirectorPacing } from './pacing'
 import { createDirectorScenePlan, getActiveStoryBeat } from './story'
 import { getActiveChainBeat, validateChainDraft } from './chains'
@@ -86,8 +86,8 @@ export function createAIDirectorShortlist(
   risk: RiskLevel,
   limit = 12,
 ): DirectorPick[] {
-  const ranked = candidates
-    .filter((card) => cardIsEligible(card, state, actorIndex, null, risk))
+  const eligible = candidates.filter(card => cardIsEligible(card, state, actorIndex, null, risk))
+  const ranked = preferUnseenDirectorCards(eligible, state)
     .map((card) => ({ card, score: scoreCard(card, state) }))
     .sort(sortByScore)
 

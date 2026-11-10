@@ -14,6 +14,7 @@ import {
   createDirectorState,
   maybeCreateCautionEvent,
   pickDirectorCard,
+  preferUnseenDirectorCards,
 } from '../src/v09/director'
 import type { DirectorCard } from '../src/v09/types'
 import type { Player } from '../src/types'
@@ -101,5 +102,36 @@ const actualRecentTurns = Array.from({ length: 4 }, (_, i) => ({
 }))
 assert.ok(bossIsReady({ ...state, turnsPlayed: 10, lastBossTurn: 0, history: actualRecentTurns }),
   'Boss needs a developed chain and several completed recent turns')
+
+
+const riskThreePool:DirectorCard[] = Array.from({length:21},(_,i)=>({
+  id:'three-fire-'+i,scenario:'party',type:'dare',risk:3 as const,
+  stages:[0,1,2,3],chains:['social'],text:'Проверяем настоящий сложный вызов.',
+}))
+const party= createDirectorState('party', [
+  {name:'А',gender:'male',pairingPreference:'any'},
+  {name:'Б',gender:'female',pairingPreference:'any'},
+  {name:'В',gender:'male',pairingPreference:'any'},
+])
+const completed=Array.from({length:16},(_,i)=>({
+  cardId:'three-fire-'+i,type:'dare' as const,risk:3 as const,
+  playerIndex:i%3,targetIndex:null,chains:['social' as const],skipped:false,
+}))
+const withHistory={...party,history:completed,turnsPlayed:16,sessionStage:3 as const}
+const fresh=preferUnseenDirectorCards(riskThreePool,withHistory)
+assert.equal(fresh.length,5,'full 16-card memory excludes all recently used challenges')
+assert.ok(fresh.every(card=>!completed.some(h=>h.cardId===card.id)),
+  'selection must not repeat while a fresh card remains')
+const notRepeated=pickDirectorCard(riskThreePool,withHistory,0,null,3,()=>0)
+assert.ok(notRepeated&&!completed.some(h=>h.cardId===notRepeated.card.id),
+  'local Director cannot override the anti-repeat gate with chain scoring')
+const smallPool=riskThreePool.slice(0,3)
+const exhausted={...withHistory,history:completed.slice(0,3)}
+assert.equal(preferUnseenDirectorCards(smallPool,exhausted)[0].id,'three-fire-0',
+  'exhausted pool chooses oldest eligible card, not the one from last turn')
+assert.equal(pickDirectorCard(smallPool,exhausted,0,null,3,()=>0)?.card.id,'three-fire-0',
+  'Director remains playable with no unseen high-risk cards')
+assert.equal(pickDirectorCard(smallPool,exhausted,0,null,2),null,
+  'never downgrade chosen fire to avoid repeats')
 
 console.log('✓ v0.9 Director foundation tests passed')
