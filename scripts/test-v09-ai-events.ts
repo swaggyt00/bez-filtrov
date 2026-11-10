@@ -92,6 +92,13 @@ assert(event.partnerChoosesRisk,'real risk handoff is applied')
 eq(event.forcedType,'truth','real Truth-only mechanic')
 assert(filteredEventCards(cards,stageZero,event.aiMechanics??[]).every(card=>card.type==='truth'),'card restriction is enforced')
 
+const skippable=validateAIEvent(stageZero,1,cards,allowed,{
+  title:'Ночная смена рулевого',
+  description:'Следующий по кругу участник получает право выбрать уровень риска для этого хода вместо текущего игрока; отказаться от события можно без последствий.',
+  mechanics:['risk-handoff'],
+})
+assert(skippable,'non-coercive event must be accepted by local validator')
+
 const impossible=validateAIEvent(stageZero,1,cards,allowed,{
   ...candidate,mechanics:['truth-only','dare-only'],
 })
